@@ -110,6 +110,44 @@ function diffConfigs(generated: string, actual: string): DiffLine[] {
   }));
 }
 
+// ─── applyFix ─────────────────────────────────────────────────────────────────
+
+/** Modifie cfgText pour mettre à jour (ou insérer) `key: newValue` dans [section]. */
+function applyFix(cfgText: string, section: string, key: string, newValue: string): string {
+  const lines = cfgText.split('\n');
+  let inSection = false;
+  let keyLineIdx   = -1;
+  let sectionHeaderIdx = -1;
+
+  for (let i = 0; i < lines.length; i++) {
+    const stripped = lines[i].split('#')[0].trim();
+    if (!stripped) continue;
+
+    const secMatch = stripped.match(/^\[(.+)\]$/);
+    if (secMatch) {
+      if (inSection) break;                              // on quitte la section trouvée
+      if (secMatch[1].trim() === section) { inSection = true; sectionHeaderIdx = i; }
+      continue;
+    }
+
+    if (inSection) {
+      const kvMatch = stripped.match(/^([\w]+)\s*:/);
+      if (kvMatch && kvMatch[1] === key) keyLineIdx = i;
+    }
+  }
+
+  if (sectionHeaderIdx === -1) return cfgText;          // section absente — on laisse tel quel
+
+  if (keyLineIdx !== -1) {
+    const ws = lines[keyLineIdx].match(/^(\s*)/)?.[1] ?? '';
+    lines[keyLineIdx] = `${ws}${key}: ${newValue}`;
+  } else {
+    // Clé absente → on l'insère juste après l'en-tête de section
+    lines.splice(sectionHeaderIdx + 1, 0, `${key}: ${newValue}`);
+  }
+  return lines.join('\n');
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function fmtTemp(t?: number) { return t !== undefined ? `${t.toFixed(1)}°C` : '—'; }
@@ -301,6 +339,11 @@ export function PrinterDiagnostic({ config }: { config: PrinterConfig }) {
   const [showConfigChecks, setShowConfigChecks] = useState(true);
   const [showHWTests, setShowHWTests]     = useState(true);
 
+  // Config apply / save
+  const [modifiedCfg, setModifiedCfg] = useState<string | null>(null);
+  const [saveStatus, setSaveStatus]   = useState<'idle' | 'saving' | 'ok' | 'error'>('idle');
+  const [saveMsg, setSaveMsg]         = useState<string | null>(null);
+
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const baseUrl = `http://${ip}:${port}`;
 
@@ -414,10 +457,62 @@ export function PrinterDiagnostic({ config }: { config: PrinterConfig }) {
     try {
       const res = await fetch(`${baseUrl}/server/files/config/printer.cfg`, { signal: AbortSignal.timeout(8000) });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setActualCfg(await res.text()); setShowDiff(true);
+      const text = await res.text();
+      setActualCfg(text);
+      setModifiedCfg(text);   // réinitialise les modifications en attente
+      setSaveStatus('idle'); setSaveMsg(null);
+      setShowDiff(true);
     } catch (e: unknown) {
       setCfgError(`Impossible de lire printer.cfg : ${e instanceof Error ? e.message : String(e)}`);
     } finally { setCfgLoading(false); }
+  };
+
+  /** Applique une correction unitaire sur modifiedCfg (ou actualCfg si modifiedCfg est null). */
+  const applyOneFix = (diff: DiffLine) => {
+    const base = modifiedCfg ?? actualCfg;
+    if (!base) return;
+    const dotIdx = diff.key.indexOf('.');
+    const sec = diff.key.slice(0, dotIdx);
+    const k   = diff.key.slice(dotIdx + 1);
+    setModifiedCfg(applyFix(base, sec, k, diff.expected));
+    setSaveStatus('idle'); setSaveMsg(null);
+  };
+
+  /** Applique toutes les corrections critiques en une passe. */
+  const applyAllCriticalFixes = () => {
+    let text = modifiedCfg ?? actualCfg;
+    if (!text) return;
+    for (const diff of diffLines) {
+      if (!diff.match && diff.critical) {
+        const dotIdx = diff.key.indexOf('.');
+        text = applyFix(text, diff.key.slice(0, dotIdx), diff.key.slice(dotIdx + 1), diff.expected);
+      }
+    }
+    setModifiedCfg(text);
+    setSaveStatus('idle'); setSaveMsg(null);
+  };
+
+  /** Envoie modifiedCfg vers Moonraker (POST /server/files/upload). */
+  const saveCfg = async () => {
+    if (!modifiedCfg) return;
+    setSaveStatus('saving'); setSaveMsg(null);
+    try {
+      const blob = new Blob([modifiedCfg], { type: 'text/plain' });
+      const fd = new FormData();
+      fd.append('root', 'config');
+      fd.append('path', '');
+      fd.append('file', blob, 'printer.cfg');
+      const res = await fetch(`${baseUrl}/server/files/upload`, {
+        method: 'POST', body: fd, signal: AbortSignal.timeout(15000),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setSaveStatus('ok');
+      setSaveMsg('✓ printer.cfg sauvegardé — lancez FIRMWARE_RESTART pour appliquer');
+      setActualCfg(modifiedCfg);    // la base de référence devient le fichier sauvegardé
+    } catch (e: unknown) {
+      setSaveStatus('error');
+      setSaveMsg(`✗ Erreur lors de la sauvegarde : ${e instanceof Error ? e.message : String(e)}`);
+    }
   };
 
   // ─── Derived ─────────────────────────────────────────────────────────────────
@@ -426,7 +521,7 @@ export function PrinterDiagnostic({ config }: { config: PrinterConfig }) {
   const configChecks   = objects.configfile ? buildConfigChecks(objects.configfile) : [];
   const meshAnalysis   = analyzeMesh(objects.bed_mesh?.probed_matrix);
   const generatedCfg   = generateConfig(config);
-  const diffLines      = actualCfg ? diffConfigs(generatedCfg, actualCfg) : [];
+  const diffLines      = (modifiedCfg ?? actualCfg) ? diffConfigs(generatedCfg, modifiedCfg ?? actualCfg!) : [];
 
   const ebbStats   = parseMcuStats(objects['mcu EBB42']?.last_stats);
   const cartoMcuKey: keyof PrinterObjects = objects['mcu scanner'] ? 'mcu scanner' : 'mcu cartographer';
@@ -931,14 +1026,47 @@ export function PrinterDiagnostic({ config }: { config: PrinterConfig }) {
             {cfgError && <div className="border-t border-gray-800 px-5 pb-4 text-xs text-red-400">{cfgError}</div>}
             {!actualCfg && !cfgError && <div className="border-t border-gray-800 px-5 pb-4 pt-2 text-xs text-gray-600">Cliquer "Charger printer.cfg" pour comparer votre config réelle avec celle générée par l'app.</div>}
             {actualCfg && showDiff && (
-              <div className="border-t border-gray-800 p-5">
+              <div className="border-t border-gray-800 p-5 space-y-4">
+                {/* Action bar */}
+                <div className="flex flex-wrap items-center gap-2">
+                  {diffLines.some(d => !d.match && d.critical) && (
+                    <button onClick={applyAllCriticalFixes}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-700 hover:bg-red-600 text-white text-xs font-medium transition-colors">
+                      ⚡ Appliquer corrections critiques
+                    </button>
+                  )}
+                  {modifiedCfg && modifiedCfg !== actualCfg && (
+                    <button onClick={saveCfg} disabled={saveStatus === 'saving'}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white text-xs font-medium transition-colors">
+                      {saveStatus === 'saving' ? <RefreshCw size={11} className="animate-spin" /> : <HardDrive size={11} />}
+                      {saveStatus === 'saving' ? 'Sauvegarde…' : 'Sauvegarder sur le Pi'}
+                    </button>
+                  )}
+                  {modifiedCfg && modifiedCfg !== actualCfg && (
+                    <button onClick={() => { setModifiedCfg(actualCfg); setSaveStatus('idle'); setSaveMsg(null); }}
+                      className="px-3 py-1.5 rounded-lg border border-gray-700 hover:border-gray-500 text-gray-400 hover:text-gray-200 text-xs transition-colors">
+                      Annuler modifications
+                    </button>
+                  )}
+                  {saveMsg && (
+                    <span className={`text-xs px-2 py-1 rounded ${saveStatus === 'ok' ? 'text-green-400 bg-green-900/30' : 'text-red-400 bg-red-900/30'}`}>
+                      {saveMsg}
+                    </span>
+                  )}
+                  {modifiedCfg && modifiedCfg !== actualCfg && saveStatus !== 'saving' && !saveMsg && (
+                    <span className="text-xs text-yellow-400">⚠ Modifications non sauvegardées</span>
+                  )}
+                </div>
+
+                {/* Diff table */}
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
                     <thead><tr className="text-gray-500 border-b border-gray-800">
                       <th className="text-left py-2 pr-4 font-medium">Paramètre</th>
                       <th className="text-left py-2 pr-4 font-medium">Attendu (app)</th>
                       <th className="text-left py-2 pr-4 font-medium">Réel (printer.cfg)</th>
-                      <th className="text-left py-2 font-medium">État</th>
+                      <th className="text-left py-2 pr-4 font-medium">État</th>
+                      <th className="text-left py-2 font-medium">Action</th>
                     </tr></thead>
                     <tbody className="divide-y divide-gray-800/50">
                       {diffLines.map(d => (
@@ -946,12 +1074,35 @@ export function PrinterDiagnostic({ config }: { config: PrinterConfig }) {
                           <td className="py-2 pr-4 font-mono text-gray-400">{d.label}</td>
                           <td className="py-2 pr-4 font-mono text-gray-200">{d.expected}</td>
                           <td className={`py-2 pr-4 font-mono ${d.match ? 'text-gray-200' : d.critical ? 'text-red-300' : 'text-yellow-300'}`}>{d.actual}</td>
-                          <td className="py-2">{d.match ? <span className="text-green-400">✓</span> : <span className={d.critical ? 'text-red-400 font-bold' : 'text-yellow-400'}>{d.critical ? '✗ CRITIQUE' : '≠'}</span>}</td>
+                          <td className="py-2 pr-4">
+                            {d.match
+                              ? <span className="text-green-400">✓</span>
+                              : <span className={d.critical ? 'text-red-400 font-bold' : 'text-yellow-400'}>{d.critical ? '✗ CRITIQUE' : '≠'}</span>
+                            }
+                          </td>
+                          <td className="py-2">
+                            {!d.match && (
+                              <button onClick={() => applyOneFix(d)}
+                                className={`px-2 py-0.5 rounded text-xs font-medium transition-colors ${
+                                  d.critical
+                                    ? 'bg-red-800 hover:bg-red-700 text-white'
+                                    : 'bg-yellow-800 hover:bg-yellow-700 text-white'
+                                }`}>
+                                Remplacer
+                              </button>
+                            )}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
+
+                {saveStatus === 'ok' && (
+                  <div className="p-3 rounded-lg border border-blue-800 bg-blue-900/10 text-xs text-blue-300">
+                    💡 Config sauvegardée. Lance <span className="font-mono bg-blue-900/30 px-1 rounded">FIRMWARE_RESTART</span> dans le panneau "Actions rapides" (ou via Mainsail) pour que les changements prennent effet.
+                  </div>
+                )}
               </div>
             )}
           </div>
