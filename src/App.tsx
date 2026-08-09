@@ -4,7 +4,8 @@ import { CANGuide } from './components/CANGuide';
 import { CartographerSetup } from './components/CartographerSetup';
 import { BedMeshMap } from './components/BedMeshMap';
 import { ConfigGenerator } from './components/ConfigGenerator';
-import { Cpu, Wifi, Crosshair, Grid3X3, FileCode } from 'lucide-react';
+import { PrinterDiagnostic } from './components/PrinterDiagnostic';
+import { Cpu, Wifi, Crosshair, Grid3X3, FileCode, Activity } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -110,11 +111,12 @@ export function defaultConfig(size: PrinterConfig['printerSize'] = 400): Printer
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
 const TABS = [
-  { id: 'hardware', label: 'Matériel & CAN', icon: Cpu, desc: 'Board, UUID, EBB42' },
-  { id: 'can',      label: 'Guide CAN Bus',  icon: Wifi, desc: 'Katapult, flash, réseau' },
-  { id: 'probe',    label: 'Cartographer',   icon: Crosshair, desc: 'Config probe, offsets' },
-  { id: 'mesh',     label: 'Bed Mesh',       icon: Grid3X3, desc: 'Cartographie plateau' },
-  { id: 'config',   label: 'printer.cfg',    icon: FileCode, desc: 'Config finale complète' },
+  { id: 'hardware',    label: 'Matériel & CAN', icon: Cpu,      desc: 'Board, UUID, EBB42' },
+  { id: 'can',         label: 'Guide CAN Bus',  icon: Wifi,     desc: 'Katapult, flash, réseau' },
+  { id: 'probe',       label: 'Cartographer',   icon: Crosshair,desc: 'Config probe, offsets' },
+  { id: 'mesh',        label: 'Bed Mesh',       icon: Grid3X3,  desc: 'Cartographie plateau' },
+  { id: 'config',      label: 'printer.cfg',    icon: FileCode, desc: 'Config finale complète' },
+  { id: 'diagnostic',  label: 'Diagnostic',     icon: Activity, desc: 'Connexion Moonraker live' },
 ] as const;
 
 type TabId = typeof TABS[number]['id'];
@@ -201,11 +203,12 @@ export default function App() {
 
       {/* Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-        {activeTab === 'hardware' && <HardwareSetup config={config} onChange={update} onNext={() => setActiveTab('can')} />}
-        {activeTab === 'can'      && <CANGuide      config={config} onChange={update} onNext={() => setActiveTab('probe')} />}
-        {activeTab === 'probe'    && <CartographerSetup config={config} onChange={update} onNext={() => setActiveTab('mesh')} />}
-        {activeTab === 'mesh'     && <BedMeshMap    config={config} onChange={update} onNext={() => setActiveTab('config')} />}
-        {activeTab === 'config'   && <ConfigGenerator config={config} />}
+        {activeTab === 'hardware'   && <HardwareSetup    config={config} onChange={update} onNext={() => setActiveTab('can')} />}
+        {activeTab === 'can'        && <CANGuide          config={config} onChange={update} onNext={() => setActiveTab('probe')} />}
+        {activeTab === 'probe'      && <CartographerSetup config={config} onChange={update} onNext={() => setActiveTab('mesh')} />}
+        {activeTab === 'mesh'       && <BedMeshMap        config={config} onChange={update} onNext={() => setActiveTab('config')} />}
+        {activeTab === 'config'     && <ConfigGenerator   config={config} />}
+        {activeTab === 'diagnostic' && <PrinterDiagnostic />}
       </main>
 
       <footer className="border-t border-gray-800 bg-gray-900 mt-8 py-4 text-center text-xs text-gray-600">
