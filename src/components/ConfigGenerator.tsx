@@ -32,7 +32,7 @@ const HOTEND_DATA: Record<string, { sensor: string; maxTemp: number }> = {
 
 // ─── Config generation ────────────────────────────────────────────────────────
 
-function generateConfig(c: PrinterConfig): string {
+export function generateConfig(c: PrinterConfig): string {
   const half = c.printerSize / 2;
   const boardPath = BOARD_RATOS_PATH[c.mainBoard];
   const ext = EXTRUDER_DATA[c.extruder];

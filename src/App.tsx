@@ -208,7 +208,7 @@ export default function App() {
         {activeTab === 'probe'      && <CartographerSetup config={config} onChange={update} onNext={() => setActiveTab('mesh')} />}
         {activeTab === 'mesh'       && <BedMeshMap        config={config} onChange={update} onNext={() => setActiveTab('config')} />}
         {activeTab === 'config'     && <ConfigGenerator   config={config} />}
-        {activeTab === 'diagnostic' && <PrinterDiagnostic />}
+        {activeTab === 'diagnostic' && <PrinterDiagnostic config={config} />}
       </main>
 
       <footer className="border-t border-gray-800 bg-gray-900 mt-8 py-4 text-center text-xs text-gray-600">
