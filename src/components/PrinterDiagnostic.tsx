@@ -35,13 +35,18 @@ interface CartographerFull {
 
 interface PrinterObjects {
   mcu?: McuStatus;
+  // EBB42 peut s'appeler "EBB42" ou "toolhead" selon la config RatOS
   'mcu EBB42'?: McuStatus;
+  'mcu toolhead'?: McuStatus;
+  // U2C peut aussi être un MCU Klipper (RatOS style)
+  'mcu u2c'?: McuStatus;
   'mcu scanner'?: McuStatus;
   'mcu cartographer'?: McuStatus;
   extruder?: TempSensor;
   heater_bed?: TempSensor;
   'temperature_sensor Chamber'?: TempSensor;
   'temperature_sensor EBB42'?: TempSensor;
+  'temperature_sensor toolhead'?: TempSensor;
   'temperature_sensor Octopus'?: TempSensor;
   toolhead?: ToolheadStatus;
   bed_mesh?: BedMeshStatus;
@@ -70,7 +75,7 @@ interface Check { label: string; status: CheckStatus; detail: string; hint?: str
 
 // ─── Config diff ──────────────────────────────────────────────────────────────
 
-interface DiffLine { key: string; label: string; expected: string; actual: string; match: boolean; critical: boolean; }
+interface DiffLine { key: string; label: string; expected: string; actual: string; match: boolean; critical: boolean; resolvedSection?: string; }
 
 function parseCfg(text: string): Record<string, Record<string, string>> {
   const r: Record<string, Record<string, string>> = {};
@@ -92,7 +97,7 @@ const COMPARE_KEYS: Array<{ section: string; key: string; label: string; critica
   { section: 'bed_mesh',   key: 'zero_reference_position', label: 'bed_mesh › zero_reference_position', critical: true  },
   { section: 'bed_mesh',   key: 'mesh_min',                label: 'bed_mesh › mesh_min',                critical: false },
   { section: 'bed_mesh',   key: 'mesh_max',                label: 'bed_mesh › mesh_max',                critical: false },
-  { section: 'mcu EBB42',  key: 'canbus_interface',        label: 'mcu EBB42 › canbus_interface',       critical: true  },
+  { section: 'mcu toolhead|mcu EBB42',  key: 'canbus_interface',  label: 'toolhead › canbus_interface',  critical: true  },
   { section: 'extruder',   key: 'rotation_distance',       label: 'extruder › rotation_distance',       critical: false },
   { section: 'extruder',   key: 'nozzle_diameter',         label: 'extruder › nozzle_diameter',         critical: false },
   { section: 'printer',    key: 'max_velocity',            label: 'printer › max_velocity',             critical: false },
@@ -101,13 +106,21 @@ const COMPARE_KEYS: Array<{ section: string; key: string; label: string; critica
 
 function diffConfigs(generated: string, actual: string): DiffLine[] {
   const gen = parseCfg(generated), act = parseCfg(actual);
-  return COMPARE_KEYS.map(({ section, key, label, critical }) => ({
-    key: `${section}.${key}`, label,
-    expected: gen[section]?.[key] ?? '—',
-    actual: act[section]?.[key] ?? '(absent)',
-    match: (gen[section]?.[key] ?? '—') === (act[section]?.[key] ?? '(absent)'),
-    critical,
-  }));
+  return COMPARE_KEYS.map(({ section, key, label, critical }) => {
+    // Support fallback sections via "primary|fallback" notation
+    const sections = section.split('|');
+    const genSec = sections.find(s => gen[s]?.[key] !== undefined) ?? sections[0];
+    const actSec = sections.find(s => act[s]?.[key] !== undefined) ?? sections[0];
+    return {
+      key: `${section}.${key}`, label,
+      expected: gen[genSec]?.[key] ?? '—',
+      actual: act[actSec]?.[key] ?? '(absent)',
+      match: (gen[genSec]?.[key] ?? '—') === (act[actSec]?.[key] ?? '(absent)'),
+      critical,
+      // Store resolved section names so applyFix targets the right section
+      resolvedSection: actSec,
+    };
+  });
 }
 
 // ─── applyFix ─────────────────────────────────────────────────────────────────
@@ -255,10 +268,11 @@ function buildRuntimeChecks(info: PrinterInfo, objs: PrinterObjects, gcodes: GCo
   checks.push({ label: 'MCU Principal (Octopus)',
     status: objs.mcu?.mcu_version ? 'ok' : 'error',
     detail: objs.mcu?.mcu_version ? `Firmware: ${objs.mcu.mcu_version.split('-')[0]}` : 'MCU non connecté ou firmware absent' });
-  checks.push({ label: 'EBB42 v1.2 (CAN)',
-    status: objs['mcu EBB42']?.mcu_version ? 'ok' : 'error',
-    detail: objs['mcu EBB42']?.mcu_version ? objs['mcu EBB42']!.mcu_version!.split('-')[0] : 'EBB42 introuvable sur le bus CAN',
-    hint: !objs['mcu EBB42']?.mcu_version ? 'Vérifier canbus_uuid EBB42, alimentation 24V, câbles CAN, résistances 120Ω' : undefined });
+  const ebbMcuObj = objs['mcu EBB42'] ?? objs['mcu toolhead'];
+  checks.push({ label: 'EBB42 v1.2 / toolhead (CAN)',
+    status: ebbMcuObj?.mcu_version ? 'ok' : 'error',
+    detail: ebbMcuObj?.mcu_version ? ebbMcuObj.mcu_version.split('-')[0] : 'EBB42 introuvable sur le bus CAN',
+    hint: !ebbMcuObj?.mcu_version ? 'Vérifier canbus_uuid EBB42, alimentation 24V, câbles CAN, résistances 120Ω' : undefined });
   const carto = objs['mcu scanner'] ?? objs['mcu cartographer'];
   checks.push({ label: 'Cartographer CAN',
     status: carto?.mcu_version ? 'ok' : 'error',
@@ -295,9 +309,9 @@ function buildConfigChecks(cfg: ConfigFileData): Check[] {
       status: c['bed_mesh']?.['zero_reference_position'] ? 'ok' : 'warn',
       detail: c['bed_mesh']?.['zero_reference_position'] ? `✓ ${c['bed_mesh']['zero_reference_position']}` : 'Non défini — à ajouter dans [bed_mesh]',
       hint: !c['bed_mesh']?.['zero_reference_position'] ? 'Ajouter zero_reference_position: 200, 200 dans [bed_mesh]' : undefined },
-    { label: 'EBB42 canbus_interface = can0',
-      status: c['mcu EBB42']?.['canbus_interface'] === 'can0' ? 'ok' : c['mcu EBB42']?.['canbus_interface'] ? 'warn' : 'unknown',
-      detail: c['mcu EBB42']?.['canbus_interface'] === 'can0' ? '✓ Interface CAN correcte' : `Actuel : ${c['mcu EBB42']?.['canbus_interface'] ?? 'non trouvé'}` },
+    { label: 'EBB42 / toolhead canbus_interface = can0',
+      status: (c['mcu toolhead'] ?? c['mcu EBB42'])?.['canbus_interface'] === 'can0' ? 'ok' : (c['mcu toolhead'] ?? c['mcu EBB42'])?.['canbus_interface'] ? 'warn' : 'unknown',
+      detail: (c['mcu toolhead'] ?? c['mcu EBB42'])?.['canbus_interface'] === 'can0' ? '✓ Interface CAN correcte' : `Actuel : ${(c['mcu toolhead'] ?? c['mcu EBB42'])?.['canbus_interface'] ?? 'non trouvé'}` },
     { label: 'Input Shaper configuré',
       status: c['input_shaper']?.['shaper_freq_x'] ? 'ok' : 'warn',
       detail: c['input_shaper']?.['shaper_freq_x']
@@ -378,9 +392,12 @@ export function PrinterDiagnostic({ config, onChange }: { config: PrinterConfig;
       const info: PrinterInfo = (await infoRes.json()).result;
 
       const objKeys = [
-        'mcu', 'mcu EBB42', 'mcu scanner', 'mcu cartographer',
+        'mcu', 'mcu EBB42', 'mcu toolhead', 'mcu u2c',
+        'mcu scanner', 'mcu cartographer',
         'extruder', 'heater_bed',
-        'temperature_sensor Chamber', 'temperature_sensor EBB42', 'temperature_sensor Octopus',
+        'temperature_sensor Chamber',
+        'temperature_sensor EBB42', 'temperature_sensor toolhead',
+        'temperature_sensor Octopus',
         'toolhead', 'bed_mesh', 'print_stats', 'z_tilt',
         'scanner', 'cartographer', 'webhooks', 'input_shaper', 'configfile',
       ];
@@ -419,7 +436,7 @@ export function PrinterDiagnostic({ config, onChange }: { config: PrinterConfig;
       // CAN error rates (delta between polls)
       const now = Date.now();
       const dt  = lastFetchTs.current ? (now - lastFetchTs.current) / 60000 : 0; // minutes
-      const ebbSt   = parseMcuStats((objData['mcu EBB42'] as McuStatus | undefined)?.last_stats);
+      const ebbSt   = parseMcuStats(((objData['mcu EBB42'] ?? objData['mcu toolhead']) as McuStatus | undefined)?.last_stats);
       const cartoSt = parseMcuStats(((objData['mcu scanner'] ?? objData['mcu cartographer']) as McuStatus | undefined)?.last_stats);
       if (dt > 0) {
         const ebbDelta  = (ebbSt.bytes_retransmit ?? 0)  - prevEbbRetransmit.current;
@@ -510,7 +527,8 @@ export function PrinterDiagnostic({ config, onChange }: { config: PrinterConfig;
     const base = modifiedCfg ?? actualCfg;
     if (!base) return;
     const dotIdx = diff.key.indexOf('.');
-    const sec = diff.key.slice(0, dotIdx);
+    // Use resolvedSection if present (handles "mcu toolhead|mcu EBB42" fallback sections)
+    const sec = diff.resolvedSection ?? diff.key.slice(0, dotIdx);
     const k   = diff.key.slice(dotIdx + 1);
     setModifiedCfg(applyFix(base, sec, k, diff.expected));
     setSaveStatus('idle'); setSaveMsg(null);
@@ -523,7 +541,8 @@ export function PrinterDiagnostic({ config, onChange }: { config: PrinterConfig;
     for (const diff of diffLines) {
       if (!diff.match && diff.critical) {
         const dotIdx = diff.key.indexOf('.');
-        text = applyFix(text, diff.key.slice(0, dotIdx), diff.key.slice(dotIdx + 1), diff.expected);
+        const sec = diff.resolvedSection ?? diff.key.slice(0, dotIdx);
+        text = applyFix(text, sec, diff.key.slice(dotIdx + 1), diff.expected);
       }
     }
     setModifiedCfg(text);
@@ -561,7 +580,10 @@ export function PrinterDiagnostic({ config, onChange }: { config: PrinterConfig;
   const generatedCfg   = generateConfig(config);
   const diffLines      = (modifiedCfg ?? actualCfg) ? diffConfigs(generatedCfg, modifiedCfg ?? actualCfg!) : [];
 
-  const ebbStats   = parseMcuStats(objects['mcu EBB42']?.last_stats);
+  // Résoudre le MCU toolhead (peut s'appeler "EBB42" ou "toolhead" selon RatOS)
+  const ebbMcu     = objects['mcu EBB42'] ?? objects['mcu toolhead'];
+  const ebbTempSensor = objects['temperature_sensor EBB42'] ?? objects['temperature_sensor toolhead'];
+  const ebbStats   = parseMcuStats(ebbMcu?.last_stats);
   const cartoMcuKey: keyof PrinterObjects = objects['mcu scanner'] ? 'mcu scanner' : 'mcu cartographer';
   const cartoStats = parseMcuStats((objects[cartoMcuKey] as McuStatus | undefined)?.last_stats);
 
@@ -666,7 +688,7 @@ export function PrinterDiagnostic({ config, onChange }: { config: PrinterConfig;
               <Network size={15} className="text-orange-400" />
               <h3 className="text-xs font-bold text-gray-300 uppercase tracking-widest">Topologie CAN Bus</h3>
             </div>
-            <TopologyDiagram sysInfo={sysInfo} ebbOk={!!objects['mcu EBB42']?.mcu_version}
+            <TopologyDiagram sysInfo={sysInfo} ebbOk={!!ebbMcu?.mcu_version}
               cartoOk={!!(objects['mcu scanner'] ?? objects['mcu cartographer'])?.mcu_version} config={config} />
           </div>
 
@@ -806,10 +828,10 @@ export function PrinterDiagnostic({ config, onChange }: { config: PrinterConfig;
                 {/* ─ EBB42 v1.2 ───────────────────────────────────────────── */}
                 <DeviceSection title="⚡ BTT EBB42 v1.2" subtitle="CAN toolhead board — STM32G0B1">
                   {/* Statut connexion + UUID */}
-                  <div className={`mb-4 p-3 rounded-lg border text-xs ${objects['mcu EBB42']?.mcu_version ? 'border-green-800 bg-green-900/10' : 'border-red-800 bg-red-900/10'}`}>
+                  <div className={`mb-4 p-3 rounded-lg border text-xs ${ebbMcu?.mcu_version ? 'border-green-800 bg-green-900/10' : 'border-red-800 bg-red-900/10'}`}>
                     <div className="flex items-center gap-2 mb-2">
-                      {objects['mcu EBB42']?.mcu_version
-                        ? <span className="text-green-400 font-medium">✓ EBB42 connecté sur can0</span>
+                      {ebbMcu?.mcu_version
+                        ? <span className="text-green-400 font-medium">✓ EBB42 connecté sur can0 (nommé {objects['mcu toolhead'] ? '[mcu toolhead]' : '[mcu EBB42]'})</span>
                         : <span className="text-red-400 font-medium">✗ EBB42 non visible sur le bus CAN</span>}
                     </div>
                     <div className="flex items-center gap-2">
@@ -818,7 +840,7 @@ export function PrinterDiagnostic({ config, onChange }: { config: PrinterConfig;
                         {config.ebb42Uuid || '⚠ vide — utiliser l\'outil "Découverte UUID" ci-dessus'}
                       </code>
                     </div>
-                    {!objects['mcu EBB42']?.mcu_version && (
+                    {!ebbMcu?.mcu_version && (
                       <div className="mt-2 text-yellow-300 leading-relaxed">
                         Causes possibles : UUID incorrect ou vide · Interface can0 inactive · EBB42 non alimenté (24V) ·
                         Câble CAN débranché ou inversé · Firmware Katapult/Klipper non flashé ·
@@ -827,8 +849,8 @@ export function PrinterDiagnostic({ config, onChange }: { config: PrinterConfig;
                     )}
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
-                    <StatCell label="Firmware" value={objects['mcu EBB42']?.mcu_version?.split('-')[0] ?? '—'}
-                      color={objects['mcu EBB42']?.mcu_version ? 'text-green-400' : 'text-red-400'} />
+                    <StatCell label="Firmware" value={ebbMcu?.mcu_version?.split('-')[0] ?? '—'}
+                      color={ebbMcu?.mcu_version ? 'text-green-400' : 'text-red-400'} />
                     <StatCell label="Retransmit total" value={String(ebbStats.bytes_retransmit ?? '—')}
                       color={(ebbStats.bytes_retransmit ?? 0) > 0 ? 'text-yellow-400' : 'text-green-400'} />
                     <StatCell label="Erreurs/min (live)"
@@ -837,11 +859,11 @@ export function PrinterDiagnostic({ config, onChange }: { config: PrinterConfig;
                     <StatCell label="MCU Awake" value={ebbStats.mcu_awake !== undefined ? `${(ebbStats.mcu_awake * 100).toFixed(1)}%` : '—'}
                       color="text-gray-400" />
                   </div>
-                  {objects['temperature_sensor EBB42']?.temperature !== undefined && (
+                  {ebbTempSensor?.temperature !== undefined && (
                     <div className="mb-4 p-3 rounded-lg border border-gray-700 bg-gray-800/40 text-xs">
                       <span className="text-gray-500">Température MCU EBB42 : </span>
-                      <span className="text-gray-200 font-medium">{fmtTemp(objects['temperature_sensor EBB42']?.temperature)}</span>
-                      {(objects['temperature_sensor EBB42']?.temperature ?? 0) > 60 && (
+                      <span className="text-gray-200 font-medium">{fmtTemp(ebbTempSensor?.temperature)}</span>
+                      {(ebbTempSensor?.temperature ?? 0) > 60 && (
                         <span className="text-orange-400 ml-2">⚠ Chaud — vérifier ventilation boîtier</span>
                       )}
                     </div>
