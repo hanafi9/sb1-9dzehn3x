@@ -232,6 +232,18 @@ function parseAxesNoise(lines: string[]): { x?: number; y?: number; z?: number }
   };
 }
 
+// ─── UUID discovery ───────────────────────────────────────────────────────────
+
+/** Extrait tous les UUID CAN (12 chars hex) d'une sortie Katapult / canbus_query */
+function parseCanUuids(text: string): string[] {
+  const found = new Set<string>();
+  // Format Katapult: "Detected UUID: a5aa39f23456"
+  // Format canbus_query: "Found canbus_uuid=a5aa39f23456"
+  // Fallback: tout bloc de 12 chars hex
+  for (const m of text.matchAll(/\b([0-9a-f]{12})\b/gi)) found.add(m[1].toLowerCase());
+  return [...found];
+}
+
 // ─── Check builders ───────────────────────────────────────────────────────────
 
 function buildRuntimeChecks(info: PrinterInfo, objs: PrinterObjects, gcodes: GCodeEntry[]): Check[] {
@@ -308,7 +320,7 @@ const QUICK_ACTIONS = [
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function PrinterDiagnostic({ config }: { config: PrinterConfig }) {
+export function PrinterDiagnostic({ config, onChange }: { config: PrinterConfig; onChange?: (p: Partial<PrinterConfig>) => void }) {
   const [ip, setIp]     = useState('192.168.1.41');
   const [port, setPort] = useState('80');
   const [connected, setConnected]   = useState(false);
@@ -343,6 +355,17 @@ export function PrinterDiagnostic({ config }: { config: PrinterConfig }) {
   const [modifiedCfg, setModifiedCfg] = useState<string | null>(null);
   const [saveStatus, setSaveStatus]   = useState<'idle' | 'saving' | 'ok' | 'error'>('idle');
   const [saveMsg, setSaveMsg]         = useState<string | null>(null);
+
+  // UUID discovery
+  const [uuidInput, setUuidInput]     = useState('');
+  const [foundUuids, setFoundUuids]   = useState<string[]>([]);
+
+  // CAN error-rate tracking
+  const prevEbbRetransmit  = useRef(0);
+  const prevCartoRetransmit = useRef(0);
+  const lastFetchTs         = useRef(0);
+  const [ebbErrorRate, setEbbErrorRate]     = useState<number | null>(null);
+  const [cartoErrorRate, setCartoErrorRate] = useState<number | null>(null);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const baseUrl = `http://${ip}:${port}`;
@@ -392,6 +415,21 @@ export function PrinterDiagnostic({ config }: { config: PrinterConfig }) {
         mem_available: sysMem.available ? sysMem.available * 1024 : undefined,
         cpu_model: si.cpu_info?.model_name,
       });
+
+      // CAN error rates (delta between polls)
+      const now = Date.now();
+      const dt  = lastFetchTs.current ? (now - lastFetchTs.current) / 60000 : 0; // minutes
+      const ebbSt   = parseMcuStats((objData['mcu EBB42'] as McuStatus | undefined)?.last_stats);
+      const cartoSt = parseMcuStats(((objData['mcu scanner'] ?? objData['mcu cartographer']) as McuStatus | undefined)?.last_stats);
+      if (dt > 0) {
+        const ebbDelta  = (ebbSt.bytes_retransmit ?? 0)  - prevEbbRetransmit.current;
+        const cartoDelta = (cartoSt.bytes_retransmit ?? 0) - prevCartoRetransmit.current;
+        setEbbErrorRate(Math.max(0, ebbDelta)  / dt);
+        setCartoErrorRate(Math.max(0, cartoDelta) / dt);
+      }
+      prevEbbRetransmit.current  = ebbSt.bytes_retransmit  ?? 0;
+      prevCartoRetransmit.current = cartoSt.bytes_retransmit ?? 0;
+      lastFetchTs.current = now;
 
       setPrinterInfo(info); setObjects(objData); setGcodes(gcData);
       setConnected(true); setLastUpdate(new Date());
@@ -675,15 +713,127 @@ export function PrinterDiagnostic({ config }: { config: PrinterConfig }) {
                   <TestOutput result={testResults['u2c_ping']} />
                 </DeviceSection>
 
+                {/* ─ Découverte UUID CAN ──────────────────────────────────── */}
+                <DeviceSection title="🔍 Découverte UUID CAN" subtitle="Identifier les canbus_uuid de l'EBB42 et du Cartographer">
+                  {/* UUID actuellement configurés */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
+                    {[
+                      { label: 'UUID EBB42 (app)', value: config.ebb42Uuid, key: 'ebb42Uuid' as const },
+                      { label: 'UUID Cartographer (app)', value: config.cartographerUuid, key: 'cartographerUuid' as const },
+                    ].map(item => (
+                      <div key={item.key} className={`p-3 rounded-lg border text-xs ${item.value ? 'border-green-800 bg-green-900/10' : 'border-red-800 bg-red-900/10'}`}>
+                        <div className="text-gray-500 mb-1">{item.label}</div>
+                        <code className={`font-mono text-sm ${item.value ? 'text-green-400' : 'text-red-400'}`}>
+                          {item.value || '⚠ non configuré'}
+                        </code>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Commandes SSH */}
+                  <div className="p-3 rounded-lg border border-gray-700 bg-gray-900/60 mb-4 text-xs">
+                    <div className="text-gray-400 mb-2 font-medium">Exécutez sur le Raspberry Pi (SSH) :</div>
+                    {[
+                      'python3 ~/katapult/scripts/flashtool.py -i can0 -q',
+                      'python3 ~/klipper/scripts/canbus_query.py can0',
+                    ].map(cmd => (
+                      <div key={cmd} className="flex items-center gap-2 mb-1.5">
+                        <code className="flex-1 text-orange-300 font-mono bg-gray-800 px-2 py-1.5 rounded text-xs">{cmd}</code>
+                        <button onClick={() => navigator.clipboard?.writeText(cmd)}
+                          title="Copier"
+                          className="text-gray-500 hover:text-gray-200 px-2 py-1.5 rounded border border-gray-700 hover:border-gray-500 transition-colors text-xs">
+                          📋
+                        </button>
+                      </div>
+                    ))}
+                    <div className="text-gray-600 mt-2">
+                      Si can0 est inactif : <code className="text-gray-400 bg-gray-800 px-1 rounded">ip link show can0</code> doit afficher "UP" et le bitrate {config.canSpeed / 1000}k
+                    </div>
+                  </div>
+
+                  {/* Zone de collage */}
+                  <div className="mb-3">
+                    <label className="text-xs text-gray-400 mb-1 block">Collez le résultat ici :</label>
+                    <textarea
+                      value={uuidInput}
+                      onChange={e => { setUuidInput(e.target.value); setFoundUuids([]); }}
+                      rows={5}
+                      placeholder={"Detected UUID: a5aa39f23456, Application: Klipper\nDetected UUID: b4bb48d34567, Application: Katapult"}
+                      className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-xs text-gray-200 font-mono focus:outline-none focus:border-orange-500 resize-none"
+                    />
+                    <button onClick={() => setFoundUuids(parseCanUuids(uuidInput))} disabled={!uuidInput.trim()}
+                      className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-700 hover:bg-orange-600 disabled:opacity-40 text-white text-xs font-medium transition-colors">
+                      🔍 Analyser les UUIDs
+                    </button>
+                  </div>
+
+                  {/* Résultats */}
+                  {foundUuids.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="text-xs text-gray-400 font-medium">{foundUuids.length} UUID{foundUuids.length > 1 ? 's' : ''} trouvé{foundUuids.length > 1 ? 's' : ''} :</div>
+                      {foundUuids.map((uuid, i) => (
+                        <div key={uuid} className="flex flex-wrap items-center gap-2 p-2 rounded-lg border border-gray-700 bg-gray-800/40">
+                          <span className="text-xs text-gray-500 w-4">{i + 1}.</span>
+                          <code className="text-sm font-mono text-orange-300 flex-1">{uuid}</code>
+                          {onChange && (
+                            <>
+                              <button onClick={() => onChange({ ebb42Uuid: uuid })}
+                                className="text-xs px-2 py-1 rounded bg-blue-800 hover:bg-blue-700 text-white transition-colors">
+                                → EBB42
+                              </button>
+                              <button onClick={() => onChange({ cartographerUuid: uuid })}
+                                className="text-xs px-2 py-1 rounded bg-purple-800 hover:bg-purple-700 text-white transition-colors">
+                                → Cartographer
+                              </button>
+                            </>
+                          )}
+                          <button onClick={() => navigator.clipboard?.writeText(uuid)}
+                            className="text-xs px-2 py-0.5 rounded border border-gray-700 text-gray-400 hover:text-gray-200 transition-colors">
+                            📋
+                          </button>
+                        </div>
+                      ))}
+                      <p className="text-xs text-gray-600">Cliquer "→ EBB42" ou "→ Cartographer" copie l'UUID dans l'onglet Matériel et le reporte dans le printer.cfg généré.</p>
+                    </div>
+                  )}
+                  {foundUuids.length === 0 && uuidInput.trim() && (
+                    <div className="p-3 rounded-lg border border-yellow-800 bg-yellow-900/10 text-xs text-yellow-300">
+                      ⚠ Aucun UUID trouvé — vérifier que can0 est UP, que les appareils sont alimentés, et que le câble CAN est branché des deux côtés.
+                    </div>
+                  )}
+                </DeviceSection>
+
                 {/* ─ EBB42 v1.2 ───────────────────────────────────────────── */}
                 <DeviceSection title="⚡ BTT EBB42 v1.2" subtitle="CAN toolhead board — STM32G0B1">
+                  {/* Statut connexion + UUID */}
+                  <div className={`mb-4 p-3 rounded-lg border text-xs ${objects['mcu EBB42']?.mcu_version ? 'border-green-800 bg-green-900/10' : 'border-red-800 bg-red-900/10'}`}>
+                    <div className="flex items-center gap-2 mb-2">
+                      {objects['mcu EBB42']?.mcu_version
+                        ? <span className="text-green-400 font-medium">✓ EBB42 connecté sur can0</span>
+                        : <span className="text-red-400 font-medium">✗ EBB42 non visible sur le bus CAN</span>}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-500">canbus_uuid :</span>
+                      <code className={`font-mono ${config.ebb42Uuid ? 'text-gray-200' : 'text-red-400'}`}>
+                        {config.ebb42Uuid || '⚠ vide — utiliser l\'outil "Découverte UUID" ci-dessus'}
+                      </code>
+                    </div>
+                    {!objects['mcu EBB42']?.mcu_version && (
+                      <div className="mt-2 text-yellow-300 leading-relaxed">
+                        Causes possibles : UUID incorrect ou vide · Interface can0 inactive · EBB42 non alimenté (24V) ·
+                        Câble CAN débranché ou inversé · Firmware Katapult/Klipper non flashé ·
+                        Résistances de terminaison 120Ω manquantes (U2C + Cartographer uniquement, EBB42 = nœud milieu)
+                      </div>
+                    )}
+                  </div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
                     <StatCell label="Firmware" value={objects['mcu EBB42']?.mcu_version?.split('-')[0] ?? '—'}
                       color={objects['mcu EBB42']?.mcu_version ? 'text-green-400' : 'text-red-400'} />
-                    <StatCell label="Retransmit CAN" value={String(ebbStats.bytes_retransmit ?? '—')}
+                    <StatCell label="Retransmit total" value={String(ebbStats.bytes_retransmit ?? '—')}
                       color={(ebbStats.bytes_retransmit ?? 0) > 0 ? 'text-yellow-400' : 'text-green-400'} />
-                    <StatCell label="Bad CRC" value={String(ebbStats.bad_crc ?? '—')}
-                      color={(ebbStats.bad_crc ?? 0) > 0 ? 'text-yellow-400' : 'text-green-400'} />
+                    <StatCell label="Erreurs/min (live)"
+                      value={ebbErrorRate !== null ? (ebbErrorRate < 0.1 ? '0 ✓' : `${ebbErrorRate.toFixed(1)} ⚠`) : '—'}
+                      color={ebbErrorRate !== null ? (ebbErrorRate < 0.1 ? 'text-green-400' : 'text-orange-400') : 'text-gray-500'} />
                     <StatCell label="MCU Awake" value={ebbStats.mcu_awake !== undefined ? `${(ebbStats.mcu_awake * 100).toFixed(1)}%` : '—'}
                       color="text-gray-400" />
                   </div>
@@ -785,17 +935,41 @@ export function PrinterDiagnostic({ config }: { config: PrinterConfig }) {
                     const isCalibrated = carto?.cal_pos_x !== undefined || carto?.last_z_result !== undefined;
                     return (
                       <>
+                        {/* Statut connexion + UUID */}
+                        <div className={`mb-4 p-3 rounded-lg border text-xs ${cartoMcu?.mcu_version ? 'border-green-800 bg-green-900/10' : 'border-red-800 bg-red-900/10'}`}>
+                          <div className="flex items-center gap-2 mb-2">
+                            {cartoMcu?.mcu_version
+                              ? <span className="text-green-400 font-medium">✓ Cartographer connecté sur can0</span>
+                              : <span className="text-red-400 font-medium">✗ Cartographer non visible sur le bus CAN</span>}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-gray-500">canbus_uuid :</span>
+                            <code className={`font-mono ${config.cartographerUuid ? 'text-gray-200' : 'text-red-400'}`}>
+                              {config.cartographerUuid || '⚠ vide — utiliser l\'outil "Découverte UUID" ci-dessus'}
+                            </code>
+                          </div>
+                          {!cartoMcu?.mcu_version && (
+                            <div className="mt-2 text-yellow-300 leading-relaxed">
+                              Causes possibles : UUID incorrect ou vide · Cartographer non alimenté (3.3V depuis EBB42) ·
+                              Câble CAN Cartographer→EBB42 débranché · Jumper 120Ω Cartographer manquant (il est au bout de la chaîne) ·
+                              EBB42 lui-même non connecté (prérequis)
+                            </div>
+                          )}
+                        </div>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
                           <StatCell label="Firmware" value={cartoMcu?.mcu_version?.split('-')[0] ?? '—'}
                             color={cartoMcu?.mcu_version ? 'text-green-400' : 'text-red-400'} />
-                          <StatCell label="Retransmit CAN" value={String(cartoStats.bytes_retransmit ?? '—')}
+                          <StatCell label="Retransmit total" value={String(cartoStats.bytes_retransmit ?? '—')}
                             color={(cartoStats.bytes_retransmit ?? 0) > 0 ? 'text-yellow-400' : 'text-green-400'} />
-                          <StatCell label="Fréquence capteur" value={carto?.frequency !== undefined ? `${(carto.frequency / 1_000_000).toFixed(3)} MHz` : '—'}
-                            color="text-blue-400" />
+                          <StatCell label="Erreurs/min (live)"
+                            value={cartoErrorRate !== null ? (cartoErrorRate < 0.1 ? '0 ✓' : `${cartoErrorRate.toFixed(1)} ⚠`) : '—'}
+                            color={cartoErrorRate !== null ? (cartoErrorRate < 0.1 ? 'text-green-400' : 'text-orange-400') : 'text-gray-500'} />
                           <StatCell label="Temp capteur" value={carto?.temp !== undefined ? fmtTemp(carto.temp) : '—'}
                             color="text-gray-400" />
                         </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+                          <StatCell label="Fréquence capteur" value={carto?.frequency !== undefined ? `${(carto.frequency / 1_000_000).toFixed(3)} MHz` : '—'}
+                            color="text-blue-400" />
                           <StatCell label="Dernier Z result" value={carto?.last_z_result !== undefined ? `${carto.last_z_result.toFixed(4)} mm` : '—'}
                             color={carto?.last_z_result !== undefined ? 'text-green-400' : 'text-gray-500'} />
                           <StatCell label="Calibration position" value={carto?.cal_pos_x !== undefined ? `X:${carto.cal_pos_x.toFixed(1)} Y:${carto.cal_pos_y?.toFixed(1)}` : 'Non calibré'}
