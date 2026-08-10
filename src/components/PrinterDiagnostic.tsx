@@ -321,6 +321,43 @@ function buildConfigChecks(cfg: ConfigFileData): Check[] {
   ];
 }
 
+// ─── Flash helpers ────────────────────────────────────────────────────────────
+
+function CmdLine({ cmd }: { cmd: string }) {
+  return (
+    <div className="flex items-start gap-2 my-1">
+      <code className="flex-1 text-orange-300 font-mono bg-gray-800/80 px-2 py-1.5 rounded text-xs break-all leading-relaxed">{cmd}</code>
+      <button onClick={() => navigator.clipboard?.writeText(cmd)} title="Copier"
+        className="flex-shrink-0 text-gray-500 hover:text-gray-200 px-2 py-1.5 rounded border border-gray-700 hover:border-gray-500 transition-colors text-xs">
+        📋
+      </button>
+    </div>
+  );
+}
+
+function FlashStep({ n, title, warn, children }: { n: number; title: string; warn?: boolean; children: React.ReactNode }) {
+  return (
+    <div className={`rounded-lg border overflow-hidden ${warn ? 'border-yellow-800/60' : 'border-gray-700'}`}>
+      <div className={`px-3 py-2 flex items-center gap-2.5 ${warn ? 'bg-yellow-900/20' : 'bg-gray-800/50'}`}>
+        <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 ${warn ? 'bg-yellow-700' : 'bg-orange-700'}`}>{n}</span>
+        <span className="text-xs font-semibold text-gray-200">{title}</span>
+        {warn && <span className="ml-auto text-xs text-yellow-600">⚠ Critique</span>}
+      </div>
+      <div className="px-3 py-3 text-xs space-y-1.5 text-gray-300">{children}</div>
+    </div>
+  );
+}
+
+function MenuconfigHint({ lines }: { lines: string[] }) {
+  return (
+    <div className="bg-gray-900 rounded-lg p-3 border border-gray-700 font-mono text-xs space-y-0.5">
+      {lines.map((l, i) => (
+        <div key={i} className={l.startsWith('  ') ? 'text-orange-300' : l.startsWith('#') ? 'text-gray-500 italic' : 'text-gray-400'}>{l}</div>
+      ))}
+    </div>
+  );
+}
+
 // ─── Quick actions ────────────────────────────────────────────────────────────
 
 const QUICK_ACTIONS = [
@@ -373,6 +410,11 @@ export function PrinterDiagnostic({ config, onChange }: { config: PrinterConfig;
   // UUID discovery
   const [uuidInput, setUuidInput]     = useState('');
   const [foundUuids, setFoundUuids]   = useState<string[]>([]);
+
+  // Flash tools
+  const [showFlashTools, setShowFlashTools] = useState(false);
+  const [flashDevice, setFlashDevice] = useState<'ebb42' | 'carto'>('ebb42');
+  const [flashMethod, setFlashMethod] = useState<'can' | 'usb'>('can');
 
   // CAN error-rate tracking
   const prevEbbRetransmit  = useRef(0);
@@ -1077,6 +1119,266 @@ export function PrinterDiagnostic({ config, onChange }: { config: PrinterConfig;
                     );
                   })()}
                 </DeviceSection>
+              </div>
+            )}
+          </div>
+
+          {/* ── Flash Firmware ───────────────────────────────────────────────── */}
+          <div className="rounded-xl border border-yellow-900/40 bg-gray-900/60 overflow-hidden">
+            <button onClick={() => setShowFlashTools(v => !v)}
+              className="w-full flex items-center justify-between p-5 hover:bg-gray-800/30 transition-colors">
+              <div className="flex items-center gap-2">
+                <Zap size={15} className="text-yellow-400" />
+                <span className="text-xs font-bold text-yellow-300 uppercase tracking-widest">Flash Firmware — EBB42 · Cartographer</span>
+                <span className="hidden sm:inline text-xs text-yellow-700 font-normal ml-1">⚠ Opération avancée</span>
+              </div>
+              {showFlashTools ? <ChevronUp size={16} className="text-gray-500" /> : <ChevronDown size={16} className="text-gray-500" />}
+            </button>
+
+            {showFlashTools && (
+              <div className="border-t border-gray-800 p-5 space-y-5">
+                {/* Avertissement global */}
+                <div className="p-3 rounded-lg border border-yellow-800 bg-yellow-900/10 text-xs text-yellow-300 leading-relaxed">
+                  ⚠ Ne jamais couper l'alimentation ni le câble CAN pendant un flash. Un flash interrompu nécessite une intervention DFU/USB pour récupérer l'appareil.
+                </div>
+
+                {/* Sélection appareil */}
+                <div>
+                  <div className="text-xs text-gray-500 mb-2 uppercase tracking-wider">Appareil à flasher</div>
+                  <div className="flex gap-2">
+                    {(['ebb42', 'carto'] as const).map(d => (
+                      <button key={d} onClick={() => setFlashDevice(d)}
+                        className={`px-4 py-2 rounded-lg text-xs font-medium transition-colors border ${
+                          flashDevice === d
+                            ? 'bg-yellow-700 border-yellow-600 text-white'
+                            : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-gray-200 hover:border-gray-600'
+                        }`}>
+                        {d === 'ebb42' ? '⚡ EBB42 v1.2' : '📡 Cartographer CAN'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Sélection méthode */}
+                <div>
+                  <div className="text-xs text-gray-500 mb-2 uppercase tracking-wider">Méthode</div>
+                  <div className="flex gap-2">
+                    {(['can', 'usb'] as const).map(m => (
+                      <button key={m} onClick={() => setFlashMethod(m)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
+                          flashMethod === m
+                            ? 'bg-gray-600 border-gray-500 text-white'
+                            : 'bg-gray-900 border-gray-700 text-gray-500 hover:text-gray-300 hover:border-gray-600'
+                        }`}>
+                        {m === 'can' ? '🔌 Via CAN (Katapult installé)' : '💻 Via USB/DFU (première install)'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* ── EBB42 — Via CAN ──────────────────────────────────────────── */}
+                {flashDevice === 'ebb42' && flashMethod === 'can' && (
+                  <div className="space-y-3">
+                    <div className="p-3 rounded-lg border border-gray-700 bg-gray-800/40 text-xs">
+                      <span className="text-gray-400">Prérequis : </span>
+                      <span className="text-gray-300">Katapult est déjà installé sur l'EBB42 · UUID configuré : </span>
+                      <code className={`font-mono ${config.ebb42Uuid ? 'text-orange-300' : 'text-red-400'}`}>
+                        {config.ebb42Uuid || '⚠ non configuré — Découverte UUID d\'abord'}
+                      </code>
+                    </div>
+
+                    <FlashStep n={1} title="Arrêter Klipper">
+                      <CmdLine cmd="sudo systemctl stop klipper" />
+                    </FlashStep>
+
+                    <FlashStep n={2} title="Mettre l'EBB42 en mode bootloader Katapult" warn>
+                      <p className="text-gray-400">Envoie un signal reset via CAN pour activer le bootloader :</p>
+                      <CmdLine cmd={`python3 ~/katapult/scripts/flashtool.py -i can0 -r -u ${config.ebb42Uuid || '<UUID_EBB42>'}`} />
+                    </FlashStep>
+
+                    <FlashStep n={3} title="Vérifier que Katapult répond">
+                      <CmdLine cmd="python3 ~/katapult/scripts/flashtool.py -i can0 -q" />
+                      <p className="text-gray-500">✓ Doit afficher l'UUID avec "Application: Katapult"</p>
+                    </FlashStep>
+
+                    <FlashStep n={4} title="Compiler Klipper pour EBB42 (STM32G0B1)">
+                      <p className="text-gray-400 mb-1">Configurer dans menuconfig :</p>
+                      <CmdLine cmd="cd ~/klipper && make menuconfig" />
+                      <MenuconfigHint lines={[
+                        '# Paramètres make menuconfig pour EBB42 v1.2 :',
+                        '  [*] Enable extra low-level configuration options',
+                        '  Micro-controller: STMicroelectronics STM32',
+                        '  Processor model: STM32G0B1',
+                        '  Bootloader offset: 8KiB bootloader',
+                        '  Clock Reference: 8 MHz crystal',
+                        '  Communication: CAN bus (on PB0/PB1)',
+                        `  CAN bus speed: ${config.canSpeed}`,
+                      ]} />
+                      <p className="text-gray-400 mt-2">Puis compiler :</p>
+                      <CmdLine cmd="make clean && make" />
+                    </FlashStep>
+
+                    <FlashStep n={5} title="Flasher Klipper sur l'EBB42" warn>
+                      <CmdLine cmd={`python3 ~/katapult/scripts/flashtool.py -i can0 -f ~/klipper/out/klipper.bin -u ${config.ebb42Uuid || '<UUID_EBB42>'}`} />
+                      <p className="text-gray-500">✓ Doit afficher "CAN Flash Success"</p>
+                    </FlashStep>
+
+                    <FlashStep n={6} title="Redémarrer Klipper">
+                      <CmdLine cmd="sudo systemctl start klipper" />
+                      <p className="text-gray-500">✓ Vérifier dans le Diagnostic que l'EBB42 est de nouveau connecté</p>
+                    </FlashStep>
+                  </div>
+                )}
+
+                {/* ── EBB42 — Via USB/DFU ──────────────────────────────────────── */}
+                {flashDevice === 'ebb42' && flashMethod === 'usb' && (
+                  <div className="space-y-3">
+                    <div className="p-3 rounded-lg border border-gray-700 bg-gray-800/40 text-xs">
+                      <span className="text-gray-400">Utiliser pour : </span>
+                      <span className="text-gray-300">Première installation de Katapult · Récupération si le flash CAN a échoué.</span>
+                      <br /><span className="text-gray-400 mt-1 block">Brancher un câble USB-C directement entre l'EBB42 et le Raspberry Pi.</span>
+                    </div>
+
+                    <FlashStep n={1} title="Brancher l'EBB42 en USB sur le Raspberry Pi">
+                      <p>Port USB-C de l'EBB42 → port USB du Pi. Maintenir le câble CAN déconnecté pendant cette étape.</p>
+                    </FlashStep>
+
+                    <FlashStep n={2} title="Passer en mode DFU" warn>
+                      <p className="text-gray-400"><strong className="text-white">EBB42 v1.2 :</strong> Maintenir le bouton <strong className="text-white">BOOT</strong>, appuyer brièvement sur <strong className="text-white">RESET</strong>, relâcher BOOT.</p>
+                      <p className="text-gray-500">Alternative : placer le jumper BOOT0 avant de brancher le câble USB.</p>
+                    </FlashStep>
+
+                    <FlashStep n={3} title="Vérifier la détection DFU">
+                      <CmdLine cmd='lsusb | grep "0483:df11"' />
+                      <p className="text-gray-500">✓ Doit afficher "STMicroelectronics STM Device in DFU Mode"</p>
+                    </FlashStep>
+
+                    <FlashStep n={4} title="Compiler Katapult pour EBB42">
+                      <CmdLine cmd="cd ~/katapult && make menuconfig" />
+                      <MenuconfigHint lines={[
+                        '# Paramètres make menuconfig Katapult pour EBB42 v1.2 :',
+                        '  Micro-controller: STMicroelectronics STM32',
+                        '  Processor model: STM32G0B1',
+                        '  Build Katapult deployment application: (none)',
+                        '  Clock Reference: 8 MHz crystal',
+                        '  Communication interface: CAN bus (on PB0/PB1)',
+                        `  CAN bus speed: ${config.canSpeed}`,
+                        '  [*] Support bootloader entry on rapid double click of reset',
+                        '  [*] Enable status LED   GPIO pin: PA13',
+                      ]} />
+                      <CmdLine cmd="make clean && make" />
+                    </FlashStep>
+
+                    <FlashStep n={5} title="Flasher Katapult sur l'EBB42 via DFU" warn>
+                      <CmdLine cmd="sudo dfu-util -a 0 -D ~/katapult/out/katapult.bin -s 0x08000000:force:leave" />
+                      <p className="text-gray-500">✓ Doit afficher "File downloaded successfully"</p>
+                    </FlashStep>
+
+                    <FlashStep n={6} title="Reconnecter à CAN + flasher Klipper">
+                      <p>Débrancher USB, rebrancher les câbles CAN, puis suivre la méthode <strong className="text-yellow-400">Via CAN (Katapult)</strong> pour flasher Klipper.</p>
+                    </FlashStep>
+                  </div>
+                )}
+
+                {/* ── Cartographer — Via CAN ────────────────────────────────────── */}
+                {flashDevice === 'carto' && flashMethod === 'can' && (
+                  <div className="space-y-3">
+                    <div className="p-3 rounded-lg border border-gray-700 bg-gray-800/40 text-xs">
+                      <span className="text-gray-400">Prérequis : </span>
+                      <span className="text-gray-300">Katapult est déjà installé sur le Cartographer · UUID : </span>
+                      <code className={`font-mono ${config.cartographerUuid ? 'text-orange-300' : 'text-red-400'}`}>
+                        {config.cartographerUuid || '⚠ non configuré — utiliser Découverte UUID d\'abord'}
+                      </code>
+                    </div>
+
+                    <FlashStep n={1} title="Télécharger le firmware Cartographer">
+                      <p className="text-gray-400 mb-1">Consulter les releases pour la version de votre matériel (v2, v3, K1, Survey…) :</p>
+                      <a href="https://github.com/Cartographer3D/cartographer-klipper/releases"
+                        target="_blank" rel="noreferrer"
+                        className="text-orange-400 hover:text-orange-300 underline text-xs inline-block mb-1">
+                        github.com/Cartographer3D/cartographer-klipper/releases ↗
+                      </a>
+                      <p className="text-gray-500">Copier le .bin sur le Pi avec SCP depuis votre PC :</p>
+                      <CmdLine cmd="scp cartographer-firmware.bin pi@192.168.1.41:~/" />
+                    </FlashStep>
+
+                    <FlashStep n={2} title="Arrêter Klipper">
+                      <CmdLine cmd="sudo systemctl stop klipper" />
+                    </FlashStep>
+
+                    <FlashStep n={3} title="Mettre le Cartographer en mode bootloader Katapult" warn>
+                      <CmdLine cmd={`python3 ~/katapult/scripts/flashtool.py -i can0 -r -u ${config.cartographerUuid || '<UUID_CARTO>'}`} />
+                    </FlashStep>
+
+                    <FlashStep n={4} title="Vérifier que Katapult répond">
+                      <CmdLine cmd="python3 ~/katapult/scripts/flashtool.py -i can0 -q" />
+                      <p className="text-gray-500">✓ Doit afficher l'UUID du Cartographer avec "Application: Katapult"</p>
+                    </FlashStep>
+
+                    <FlashStep n={5} title="Flasher le firmware Cartographer" warn>
+                      <CmdLine cmd={`python3 ~/katapult/scripts/flashtool.py -i can0 -f ~/cartographer-firmware.bin -u ${config.cartographerUuid || '<UUID_CARTO>'}`} />
+                      <p className="text-gray-500">✓ Doit afficher "CAN Flash Success"</p>
+                    </FlashStep>
+
+                    <FlashStep n={6} title="Redémarrer Klipper">
+                      <CmdLine cmd="sudo systemctl start klipper" />
+                      <p className="text-gray-500">✓ Le Cartographer doit apparaître connecté dans le Diagnostic</p>
+                    </FlashStep>
+                  </div>
+                )}
+
+                {/* ── Cartographer — Via USB/DFU ────────────────────────────────── */}
+                {flashDevice === 'carto' && flashMethod === 'usb' && (
+                  <div className="space-y-3">
+                    <div className="p-3 rounded-lg border border-gray-700 bg-gray-800/40 text-xs">
+                      <span className="text-gray-400">Utiliser si : </span>
+                      <span className="text-gray-300">Le Cartographer n'est pas visible sur CAN · Première installation · Récupération.</span>
+                      <br /><span className="text-gray-400 mt-1 block">Brancher le Cartographer directement en USB sur le Raspberry Pi.</span>
+                    </div>
+
+                    <FlashStep n={1} title="Télécharger le firmware Cartographer">
+                      <a href="https://github.com/Cartographer3D/cartographer-klipper/releases"
+                        target="_blank" rel="noreferrer"
+                        className="text-orange-400 hover:text-orange-300 underline text-xs inline-block mb-1">
+                        github.com/Cartographer3D/cartographer-klipper/releases ↗
+                      </a>
+                      <p className="text-gray-500">Télécharger le <strong>.bin</strong> (MCU STM32) ou <strong>.uf2</strong> (MCU RP2040) selon votre modèle.</p>
+                    </FlashStep>
+
+                    <FlashStep n={2} title="Identifier le type de MCU">
+                      <CmdLine cmd="lsusb" />
+                      <div className="mt-1 grid grid-cols-2 gap-2">
+                        <div className="p-2 rounded border border-gray-700 bg-gray-800/40">
+                          <code className="text-yellow-400">0483:df11</code>
+                          <div className="text-gray-500 mt-0.5">STM32 → méthode DFU</div>
+                        </div>
+                        <div className="p-2 rounded border border-gray-700 bg-gray-800/40">
+                          <code className="text-yellow-400">2e8a:0003</code>
+                          <div className="text-gray-500 mt-0.5">RP2040 → méthode UF2</div>
+                        </div>
+                      </div>
+                    </FlashStep>
+
+                    <FlashStep n={3} title="Flash STM32 — Mode DFU" warn>
+                      <p className="text-gray-400 mb-1">Maintenir <strong className="text-white">BOOT</strong>, appuyer sur <strong className="text-white">RESET</strong>, relâcher BOOT. Puis :</p>
+                      <CmdLine cmd="sudo dfu-util -a 0 -D cartographer-firmware.bin -s 0x08000000:force:leave" />
+                    </FlashStep>
+
+                    <FlashStep n={4} title="Flash RP2040 — Mode UF2" warn>
+                      <p className="text-gray-400 mb-1">Maintenir BOOT, brancher USB → le Cartographer apparaît comme clé USB RPI-RP2 :</p>
+                      <CmdLine cmd="ls /media/pi/ | grep RPI" />
+                      <CmdLine cmd="cp cartographer-firmware.uf2 /media/pi/RPI-RP2/" />
+                    </FlashStep>
+
+                    <FlashStep n={5} title="Vérifier l'UUID sur CAN après flash">
+                      <CmdLine cmd="sudo systemctl stop klipper" />
+                      <CmdLine cmd="~/klippy-env/bin/python ~/klipper/scripts/canbus_query.py can0" />
+                      <p className="text-gray-500">✓ Le Cartographer doit maintenant apparaître avec son UUID. Utiliser l'outil "Découverte UUID" pour l'assigner dans la config.</p>
+                      <CmdLine cmd="sudo systemctl start klipper" />
+                    </FlashStep>
+                  </div>
+                )}
+
               </div>
             )}
           </div>
