@@ -3,7 +3,7 @@ import {
   Activity, Wifi, WifiOff, RefreshCw, AlertTriangle, CheckCircle2,
   XCircle, Thermometer, Cpu, Zap, Clock, Terminal, Info,
   ChevronDown, ChevronUp, Play, HardDrive, BarChart3,
-  Shield, Send, GitCompare, Network, Wrench, Gauge,
+  Shield, Send, GitCompare, Network, Wrench,
 } from 'lucide-react';
 import type { PrinterConfig } from '../App';
 import { generateConfig } from './ConfigGenerator';
@@ -1063,8 +1063,23 @@ export function PrinterDiagnostic({ config, onChange }: { config: PrinterConfig;
                   )}
                   {sysInfo?.can0_bitrate && sysInfo.can0_bitrate !== config.canSpeed && (
                     <div className="p-3 rounded-lg border border-orange-800 bg-orange-900/10 text-xs text-orange-300 mb-3">
-                      ⚠ Vitesse CAN ({(sysInfo.can0_bitrate / 1000).toFixed(0)}k) ≠ config ({(config.canSpeed / 1000).toFixed(0)}k) —
-                      corriger BitRate dans /etc/systemd/network/can0.network
+                      <div className="mb-2">
+                        ⚠ L'imprimante tourne à <strong>{(sysInfo.can0_bitrate / 1000).toFixed(0)}k</strong>,
+                        l'app est réglée sur <strong>{(config.canSpeed / 1000).toFixed(0)}k</strong>.
+                      </div>
+                      <p className="text-gray-400 mb-2.5">
+                        C'est la valeur réelle de can0 qui fait foi. Si {(sysInfo.can0_bitrate / 1000).toFixed(0)}k est
+                        bien ce que tu veux, aligne l'app — sinon corrige BitRate dans
+                        <code className="bg-gray-800 px-1 rounded mx-1">/etc/systemd/network/can0.network</code>
+                        puis reflashe les cartes CAN à la même vitesse.
+                      </p>
+                      {onChange && (sysInfo.can0_bitrate === 500000 || sysInfo.can0_bitrate === 1000000) && (
+                        <button
+                          onClick={() => onChange({ canSpeed: sysInfo.can0_bitrate as PrinterConfig['canSpeed'] })}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-700 hover:bg-orange-600 text-white text-xs font-medium transition-colors">
+                          ⚡ Aligner l'app sur {(sysInfo.can0_bitrate / 1000).toFixed(0)}k (valeur détectée)
+                        </button>
+                      )}
                     </div>
                   )}
                   <div className="flex flex-wrap gap-2">
