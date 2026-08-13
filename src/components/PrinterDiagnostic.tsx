@@ -792,24 +792,29 @@ export function PrinterDiagnostic({ config, onChange }: { config: PrinterConfig;
     if (klipperErrorMsg.includes("Can't register") && klipperErrorMsg.includes('invalid name')) {
       hints.push({
         id: 'klipper_register_invalid',
-        title: "Un plugin enregistre une commande G-code au nom invalide",
+        title: "Bug du plugin Cartographer — commande « probe » en minuscules",
         detail: `Klipper refuse de démarrer :\n  "${klipperErrorMsg.slice(0, 200)}"\n\n` +
-          "D'où vient ce message : de gcode.py::register_command(). Klipper impose que toute commande\n" +
-          "non traditionnelle soit en MAJUSCULES. Un module a demandé d'enregistrer « probe » en\n" +
-          "minuscules — Klipper rejette.\n\n" +
-          "Ce n'est donc PAS une erreur de syntaxe dans ta config : c'est du code de plugin qui ne\n" +
-          "correspond plus à l'API de ta version de Klipper. Typiquement après une mise à jour de\n" +
-          "Klipper par RatOS sans mise à jour du plugin de sonde.\n\n" +
-          "Pistes, dans l'ordre :\n" +
-          "  1. Lire le traceback de klippy.log — il nomme le fichier .py fautif (onglet Terminal)\n" +
-          "  2. Mettre à jour le plugin nommé (cartographer-klipper ou beacon)\n" +
-          "  3. Vérifier qu'un seul plugin de sonde est lié dans klippy/extras/\n" +
-          "  4. Vérifier que les liens symboliques ne sont pas cassés après update",
+          "CAUSE EXACTE — ce n'est pas ta configuration.\n\n" +
+          "Dans cartographer.py, classe CartographerProbe :\n" +
+          '    self.gcode.register_command("probe", self.cmd_PROBE, ...)\n' +
+          "                                 ^^^^^ minuscules\n\n" +
+          "Dans klippy/gcode.py, register_command() :\n" +
+          "    if (cmd.upper() != cmd or not cmd.replace('_', 'A').isalnum()\n" +
+          "        or cmd[0].isdigit() or cmd[1:2].isdigit()):\n" +
+          '        raise config_error("Can\'t register \'%s\' as it is an invalid name")\n\n' +
+          "Klipper exige des commandes en MAJUSCULES. Toutes les autres commandes du plugin\n" +
+          "respectent la règle (CARTOGRAPHER_QUERY, PROBE_ACCURACY, Z_OFFSET_APPLY_PROBE) —\n" +
+          "seule celle-ci porte la coquille.\n\n" +
+          "Pourquoi maintenant : RatOS met Klipper à jour automatiquement, le plugin non.\n" +
+          "La validation côté Klipper a fini par rattraper le plugin.\n\n" +
+          "CORRECTIF — remplacer \"probe\" par \"PROBE\" dans le fichier du plugin, puis\n" +
+          "redémarrer Klipper. À refaire si le plugin se met à jour en écrasant le patch.",
         sshCmds: [
-          "ls -la ~/klipper/klippy/extras/ | grep -E 'cartographer|beacon|scanner|probe'",
-          "grep -n \"register_command('probe'\\|register_command(\\\"probe\\\"\" ~/klipper/klippy/extras/*.py",
-          "cd ~/cartographer-klipper && git fetch && git log --oneline -3 && git status -sb",
-          "tail -n 120 ~/printer_data/logs/klippy.log",
+          'grep -rn \'register_command("probe"\' ~/cartographer-klipper/ ~/klipper/klippy/extras/',
+          'cp ~/cartographer-klipper/cartographer.py ~/cartographer.py.bak',
+          "sed -i 's/register_command(\"probe\"/register_command(\"PROBE\"/' ~/cartographer-klipper/cartographer.py",
+          'grep -n \'register_command("PROBE"\' ~/cartographer-klipper/cartographer.py',
+          'sudo systemctl restart klipper',
         ],
       });
     }
