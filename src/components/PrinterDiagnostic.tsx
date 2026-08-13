@@ -404,35 +404,48 @@ function analyzeConfigProblems(cfgText: string): ConfigProblem[] {
     });
   }
 
-  // ── 2. [beacon] + [cartographer] conflict ─────────────────────────────────
-  const hasBeaconSec = lines.some(l => l.trim().match(/^\[beacon\]$/i));
-  const hasCartoSec  = lines.some(l => l.trim().match(/^\[cartographer\]$/i));
+  // ── 2. Deux sondes Z chargées en même temps ───────────────────────────────
+  const hasBeaconSec  = lines.some(l => l.trim().match(/^\[beacon\]$/i));
+  const hasCartoSec   = lines.some(l => l.trim().match(/^\[cartographer\]$/i));
+  const zProbeInclude = lines.find(l => l.trim().match(/^\[include\s+RatOS\/z-probe\//i));
   if (hasBeaconSec && hasCartoSec) {
     problems.push({
       id: 'probe_conflict',
       severity: 'error',
-      title: "Conflit [beacon] + [cartographer] → Can't register 'probe'",
-      detail: "Les deux sections [beacon] et [cartographer] sont actives simultanément.\nChacune tente d'enregistrer l'interface 'probe' — la seconde échoue avec :\n  Can't register 'probe' as it is an invalid name",
-      hint: "Commenter ou supprimer [beacon] si vous utilisez uniquement le Cartographer comme sonde Z.",
+      title: 'Deux sondes Z déclarées — [beacon] et [cartographer]',
+      detail: "Les sections [beacon] et [cartographer] sont actives simultanément.\n" +
+        "Les deux veulent être la sonde Z de la machine : Klipper ne peut pas trancher.",
+      hint: "Garder une seule des deux. Avec un Cartographer monté, commenter [beacon].",
       autoFix: commentBeaconSection,
       autoFixLabel: 'Commenter [beacon] (garder [cartographer])',
     });
   }
-
-  // ── 3. [mcu u2c] commented out ────────────────────────────────────────────
-  const hasCommentedU2c = lines.some(l => l.trim().match(/^#\s*\[mcu\s+u2c\]/i));
-  const hasActiveU2c    = lines.some(l => l.trim().match(/^\[mcu\s+u2c\]/i));
-  if (hasCommentedU2c && !hasActiveU2c) {
+  if (hasCartoSec && zProbeInclude) {
     problems.push({
-      id: 'u2c_disabled',
+      id: 'zprobe_include_conflict',
+      severity: 'error',
+      title: 'Un [include RatOS/z-probe/…] cohabite avec [cartographer]',
+      detail: `Ligne trouvée :\n  ${zProbeInclude.trim()}\n\n` +
+        "RatOS v2.1 ne fournit pas de z-probe/cartographer.cfg — cet include charge donc une AUTRE sonde,\n" +
+        "qui entre en concurrence avec ta section [cartographer].",
+      hint: "Commenter cette ligne d'include si le Cartographer est ta sonde Z.",
+      sshCmds: ["grep -n 'z-probe' ~/printer_data/config/printer.cfg"],
+    });
+  }
+
+  // ── 3. [mcu u2c] déclaré alors que RatOS ne connaît pas cette carte ───────
+  const hasActiveU2c = lines.some(l => l.trim().match(/^\[mcu\s+u2c\]/i));
+  if (hasActiveU2c) {
+    problems.push({
+      id: 'u2c_declared',
       severity: 'warn',
-      title: '[mcu u2c] est commenté — supervision Klipper désactivée',
-      detail: 'La section [mcu u2c] est désactivée dans printer.cfg.\nLe U2C répond bien sur CAN (UUID 6092d36469e1) — il peut être réactivé pour une supervision complète du firmware bridge.',
-      hint: 'Décommenter [mcu u2c] + canbus_interface/canbus_uuid, puis FIRMWARE_RESTART.',
-      sshCmds: [
-        "grep -n 'u2c' ~/printer_data/config/printer.cfg",
-        "# Décommenter manuellement les lignes [mcu u2c], canbus_interface: can0, canbus_uuid: 6092d36469e1",
-      ],
+      title: '[mcu u2c] déclaré — inutile et fragile sous RatOS',
+      detail: "Le BTT U2C est un pont USB↔CAN : il fait apparaître l'interface réseau can0 sous Linux.\n" +
+        "RatOS ne définit aucune carte U2C, car ce n'est pas un microcontrôleur Klipper dans son modèle.\n" +
+        "Le déclarer en [mcu] ajoute un nœud qui doit répondre au démarrage — donc un point de panne\n" +
+        "supplémentaire, sans rien piloter (ni moteur, ni chauffe, ni capteur).",
+      hint: "Commenter la section [mcu u2c] : can0 continuera de fonctionner exactement pareil.",
+      sshCmds: ["grep -n 'u2c' ~/printer_data/config/printer.cfg"],
     });
   }
 
@@ -776,21 +789,27 @@ export function PrinterDiagnostic({ config, onChange }: { config: PrinterConfig;
   // Détection de patterns d'erreur connus
   const errorHints = (() => {
     const hints: Array<{ id: string; title: string; detail: string; sshCmds?: string[] }> = [];
-    if (klipperErrorMsg.includes("Can't register 'probe'") || klipperErrorMsg.includes("probe' is already registered")) {
+    if (klipperErrorMsg.includes("Can't register") && klipperErrorMsg.includes('invalid name')) {
       hints.push({
-        id: 'klipper_probe_conflict',
-        title: "Conflit d'enregistrement du probe",
-        detail: `Klipper refuse de démarrer : "${klipperErrorMsg.slice(0, 200)}"\n\n` +
-          "Cause probable : deux plugins (Beacon Surface Scanner + Cartographer) essaient tous les deux\n" +
-          "de s'enregistrer comme 'probe' — le second est rejeté par Klipper.\n\n" +
-          "Solutions possibles :\n" +
-          "  A) Commenter/supprimer la section [beacon] dans printer.cfg (si elle existe)\n" +
-          "  B) Désinstaller Beacon Surface Scanner (si vous n'utilisez que Cartographer)\n" +
-          "  C) Mettre à jour le plugin Cartographer vers une version compatible Klipper récente",
+        id: 'klipper_register_invalid',
+        title: "Un plugin enregistre une commande G-code au nom invalide",
+        detail: `Klipper refuse de démarrer :\n  "${klipperErrorMsg.slice(0, 200)}"\n\n` +
+          "D'où vient ce message : de gcode.py::register_command(). Klipper impose que toute commande\n" +
+          "non traditionnelle soit en MAJUSCULES. Un module a demandé d'enregistrer « probe » en\n" +
+          "minuscules — Klipper rejette.\n\n" +
+          "Ce n'est donc PAS une erreur de syntaxe dans ta config : c'est du code de plugin qui ne\n" +
+          "correspond plus à l'API de ta version de Klipper. Typiquement après une mise à jour de\n" +
+          "Klipper par RatOS sans mise à jour du plugin de sonde.\n\n" +
+          "Pistes, dans l'ordre :\n" +
+          "  1. Lire le traceback de klippy.log — il nomme le fichier .py fautif (onglet Terminal)\n" +
+          "  2. Mettre à jour le plugin nommé (cartographer-klipper ou beacon)\n" +
+          "  3. Vérifier qu'un seul plugin de sonde est lié dans klippy/extras/\n" +
+          "  4. Vérifier que les liens symboliques ne sont pas cassés après update",
         sshCmds: [
-          "grep -rn '\\[beacon\\]' ~/printer_data/config/",
-          "ls ~/klipper/klippy/extras/ | grep -E 'beacon|cartographer|probe'",
-          "cd ~/cartographer-klipper && git log --oneline -5",
+          "ls -la ~/klipper/klippy/extras/ | grep -E 'cartographer|beacon|scanner|probe'",
+          "grep -n \"register_command('probe'\\|register_command(\\\"probe\\\"\" ~/klipper/klippy/extras/*.py",
+          "cd ~/cartographer-klipper && git fetch && git log --oneline -3 && git status -sb",
+          "tail -n 120 ~/printer_data/logs/klippy.log",
         ],
       });
     }

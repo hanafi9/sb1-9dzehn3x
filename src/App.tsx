@@ -5,7 +5,13 @@ import { CartographerSetup } from './components/CartographerSetup';
 import { BedMeshMap } from './components/BedMeshMap';
 import { ConfigGenerator } from './components/ConfigGenerator';
 import { PrinterDiagnostic } from './components/PrinterDiagnostic';
-import { Cpu, Wifi, Crosshair, Grid3X3, FileCode, Activity } from 'lucide-react';
+import { PrinterTerminal } from './components/PrinterTerminal';
+import { WiringDiagrams } from './components/WiringDiagrams';
+import { RatOSGuide } from './components/RatOSGuide';
+import {
+  Cpu, Wifi, Crosshair, Grid3X3, FileCode, Activity,
+  Cable, Layers, Terminal,
+} from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -112,11 +118,14 @@ export function defaultConfig(size: PrinterConfig['printerSize'] = 400): Printer
 
 const TABS = [
   { id: 'hardware',    label: 'Matériel & CAN', icon: Cpu,      desc: 'Board, UUID, EBB42' },
+  { id: 'wiring',      label: 'Câblage',        icon: Cable,    desc: 'Schémas et connecteurs' },
+  { id: 'ratos',       label: 'RatOS',          icon: Layers,   desc: 'Architecture et includes' },
   { id: 'can',         label: 'Guide CAN Bus',  icon: Wifi,     desc: 'Katapult, flash, réseau' },
   { id: 'probe',       label: 'Cartographer',   icon: Crosshair,desc: 'Config probe, offsets' },
   { id: 'mesh',        label: 'Bed Mesh',       icon: Grid3X3,  desc: 'Cartographie plateau' },
   { id: 'config',      label: 'printer.cfg',    icon: FileCode, desc: 'Config finale complète' },
   { id: 'diagnostic',  label: 'Diagnostic',     icon: Activity, desc: 'Connexion Moonraker live' },
+  { id: 'terminal',    label: 'Terminal',       icon: Terminal, desc: 'Console, shell, klippy.log' },
 ] as const;
 
 type TabId = typeof TABS[number]['id'];
@@ -203,12 +212,15 @@ export default function App() {
 
       {/* Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-        {activeTab === 'hardware'   && <HardwareSetup    config={config} onChange={update} onNext={() => setActiveTab('can')} />}
+        {activeTab === 'hardware'   && <HardwareSetup    config={config} onChange={update} onNext={() => setActiveTab('wiring')} />}
+        {activeTab === 'wiring'     && <WiringDiagrams   config={config} />}
+        {activeTab === 'ratos'      && <RatOSGuide       config={config} />}
         {activeTab === 'can'        && <CANGuide          config={config} onChange={update} onNext={() => setActiveTab('probe')} />}
         {activeTab === 'probe'      && <CartographerSetup config={config} onChange={update} onNext={() => setActiveTab('mesh')} />}
         {activeTab === 'mesh'       && <BedMeshMap        config={config} onChange={update} onNext={() => setActiveTab('config')} />}
         {activeTab === 'config'     && <ConfigGenerator   config={config} />}
         {activeTab === 'diagnostic' && <PrinterDiagnostic config={config} onChange={update} />}
+        {activeTab === 'terminal'   && <PrinterTerminal   config={config} />}
       </main>
 
       <footer className="border-t border-gray-800 bg-gray-900 mt-8 py-4 text-center text-xs text-gray-600">
