@@ -321,6 +321,124 @@ function buildConfigChecks(cfg: ConfigFileData): Check[] {
   ];
 }
 
+// ─── Config Problem Analysis ──────────────────────────────────────────────────
+
+interface ConfigProblem {
+  id: string;
+  severity: 'error' | 'warn' | 'info';
+  title: string;
+  detail: string;
+  hint?: string;
+  sshCmds?: string[];
+  autoFix?: (cfgText: string) => string;
+  autoFixLabel?: string;
+}
+
+/** Remove duplicate [gcode_macro NAME] sections — keeps first occurrence */
+function removeDuplicateMacros(cfgText: string): string {
+  const lines = cfgText.split('\n');
+  const seenMacros = new Set<string>();
+  const result: string[] = [];
+  let skipping = false;
+
+  for (const line of lines) {
+    const stripped = line.trim();
+    const secMatch = stripped.match(/^\[(.+)\]$/);
+    if (secMatch) {
+      const sName = secMatch[1].trim();
+      if (sName.toLowerCase().startsWith('gcode_macro ')) {
+        const macroName = sName.toLowerCase().slice('gcode_macro '.length).trim();
+        if (seenMacros.has(macroName)) { skipping = true; continue; }
+        seenMacros.add(macroName);
+        skipping = false;
+      } else { skipping = false; }
+    }
+    if (!skipping) result.push(line);
+  }
+  return result.join('\n');
+}
+
+/** Comment out the [beacon] section entirely */
+function commentBeaconSection(cfgText: string): string {
+  const lines = cfgText.split('\n');
+  const result: string[] = [];
+  let inBeacon = false;
+
+  for (const line of lines) {
+    const stripped = line.trim();
+    if (stripped.match(/^\[beacon\]$/i)) {
+      inBeacon = true;
+      result.push(`# ${line}  # Désactivé — conflit avec [cartographer]`);
+      continue;
+    }
+    if (inBeacon && stripped.match(/^\[.+\]$/)) inBeacon = false;
+    result.push(inBeacon ? `# ${line}` : line);
+  }
+  return result.join('\n');
+}
+
+/** Analyze raw printer.cfg text for common problems */
+function analyzeConfigProblems(cfgText: string): ConfigProblem[] {
+  const problems: ConfigProblem[] = [];
+  const lines = cfgText.split('\n');
+
+  // ── 1. Duplicate [gcode_macro NAME] sections ──────────────────────────────
+  const macroCounts: Record<string, number[]> = {};
+  lines.forEach((line, i) => {
+    const m = line.trim().match(/^\[gcode_macro\s+(\S+)\]/i);
+    if (m) {
+      const name = m[1].toLowerCase();
+      (macroCounts[name] = macroCounts[name] ?? []).push(i + 1);
+    }
+  });
+  const dups = Object.entries(macroCounts).filter(([, ls]) => ls.length > 1);
+  if (dups.length > 0) {
+    problems.push({
+      id: 'duplicate_macros',
+      severity: 'error',
+      title: `${dups.length} macro${dups.length > 1 ? 's' : ''} GCode dupliquée${dups.length > 1 ? 's' : ''} — Klipper refusera de démarrer`,
+      detail: dups.map(([n, ls]) => `• [gcode_macro ${n.toUpperCase()}] × ${ls.length}  (lignes ${ls.join(', ')})`).join('\n'),
+      hint: 'Klipper refuse deux sections avec le même nom. Supprimer les doublons en gardant la première occurrence.',
+      autoFix: removeDuplicateMacros,
+      autoFixLabel: `Supprimer ${dups.length} doublon${dups.length > 1 ? 's' : ''} (garder le premier)`,
+    });
+  }
+
+  // ── 2. [beacon] + [cartographer] conflict ─────────────────────────────────
+  const hasBeaconSec = lines.some(l => l.trim().match(/^\[beacon\]$/i));
+  const hasCartoSec  = lines.some(l => l.trim().match(/^\[cartographer\]$/i));
+  if (hasBeaconSec && hasCartoSec) {
+    problems.push({
+      id: 'probe_conflict',
+      severity: 'error',
+      title: "Conflit [beacon] + [cartographer] → Can't register 'probe'",
+      detail: "Les deux sections [beacon] et [cartographer] sont actives simultanément.\nChacune tente d'enregistrer l'interface 'probe' — la seconde échoue avec :\n  Can't register 'probe' as it is an invalid name",
+      hint: "Commenter ou supprimer [beacon] si vous utilisez uniquement le Cartographer comme sonde Z.",
+      autoFix: commentBeaconSection,
+      autoFixLabel: 'Commenter [beacon] (garder [cartographer])',
+    });
+  }
+
+  // ── 3. [mcu u2c] commented out ────────────────────────────────────────────
+  const hasCommentedU2c = lines.some(l => l.trim().match(/^#\s*\[mcu\s+u2c\]/i));
+  const hasActiveU2c    = lines.some(l => l.trim().match(/^\[mcu\s+u2c\]/i));
+  if (hasCommentedU2c && !hasActiveU2c) {
+    problems.push({
+      id: 'u2c_disabled',
+      severity: 'warn',
+      title: '[mcu u2c] est commenté — supervision Klipper désactivée',
+      detail: 'La section [mcu u2c] est désactivée dans printer.cfg.\nLe U2C répond bien sur CAN (UUID 6092d36469e1) — il peut être réactivé pour une supervision complète du firmware bridge.',
+      hint: 'Décommenter [mcu u2c] + canbus_interface/canbus_uuid, puis FIRMWARE_RESTART.',
+      sshCmds: [
+        "grep -n 'u2c' ~/printer_data/config/printer.cfg",
+        "# Décommenter manuellement les lignes [mcu u2c], canbus_interface: can0, canbus_uuid: 6092d36469e1",
+      ],
+    });
+  }
+
+  return problems;
+}
+
 // ─── Flash helpers ────────────────────────────────────────────────────────────
 
 function CmdLine({ cmd }: { cmd: string }) {
@@ -416,6 +534,9 @@ export function PrinterDiagnostic({ config, onChange }: { config: PrinterConfig;
   const [flashDevice, setFlashDevice] = useState<'ebb42' | 'carto'>('ebb42');
   const [flashMethod, setFlashMethod] = useState<'can' | 'usb'>('can');
 
+  // Auto-fetch printer.cfg once on connection
+  const hasFetchedCfg = useRef(false);
+
   // CAN error-rate tracking
   const prevEbbRetransmit  = useRef(0);
   const prevCartoRetransmit = useRef(0);
@@ -506,6 +627,16 @@ export function PrinterDiagnostic({ config, onChange }: { config: PrinterConfig;
     if (autoRefresh && connected) intervalRef.current = setInterval(fetchAll, 5000);
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [autoRefresh, connected, fetchAll]);
+
+  // Auto-charger printer.cfg dès la première connexion (pour l'analyse de problèmes)
+  useEffect(() => {
+    if (connected && !hasFetchedCfg.current) {
+      hasFetchedCfg.current = true;
+      fetchPrinterCfg();
+    }
+    if (!connected) hasFetchedCfg.current = false;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connected]);
 
   const sendGcode = async (cmd: string) => {
     setSending(cmd); setSendFeedback(null);
@@ -638,6 +769,52 @@ export function PrinterDiagnostic({ config, onChange }: { config: PrinterConfig;
   const diffMismatches = diffLines.filter(d => !d.match).length;
   const diffCritical   = diffLines.filter(d => !d.match && d.critical).length;
 
+  // Analyse des problèmes config + message d'erreur Klipper courant
+  const cfgForAnalysis = modifiedCfg ?? actualCfg;
+  const configProblems = cfgForAnalysis ? analyzeConfigProblems(cfgForAnalysis) : [];
+  const klipperErrorMsg = objects.webhooks?.state_message ?? printerInfo?.state_message ?? '';
+  // Détection de patterns d'erreur connus
+  const errorHints = (() => {
+    const hints: Array<{ id: string; title: string; detail: string; sshCmds?: string[] }> = [];
+    if (klipperErrorMsg.includes("Can't register 'probe'") || klipperErrorMsg.includes("probe' is already registered")) {
+      hints.push({
+        id: 'klipper_probe_conflict',
+        title: "Conflit d'enregistrement du probe",
+        detail: `Klipper refuse de démarrer : "${klipperErrorMsg.slice(0, 200)}"\n\n` +
+          "Cause probable : deux plugins (Beacon Surface Scanner + Cartographer) essaient tous les deux\n" +
+          "de s'enregistrer comme 'probe' — le second est rejeté par Klipper.\n\n" +
+          "Solutions possibles :\n" +
+          "  A) Commenter/supprimer la section [beacon] dans printer.cfg (si elle existe)\n" +
+          "  B) Désinstaller Beacon Surface Scanner (si vous n'utilisez que Cartographer)\n" +
+          "  C) Mettre à jour le plugin Cartographer vers une version compatible Klipper récente",
+        sshCmds: [
+          "grep -rn '\\[beacon\\]' ~/printer_data/config/",
+          "ls ~/klipper/klippy/extras/ | grep -E 'beacon|cartographer|probe'",
+          "cd ~/cartographer-klipper && git log --oneline -5",
+        ],
+      });
+    }
+    if (klipperErrorMsg.includes('mcu') && klipperErrorMsg.includes('Unable to connect')) {
+      const mcuMatch = klipperErrorMsg.match(/mcu '([^']+)'/);
+      const mcuName = mcuMatch?.[1] ?? 'inconnu';
+      hints.push({
+        id: 'klipper_mcu_connect',
+        title: `MCU '${mcuName}' ne répond pas`,
+        detail: `Klipper ne peut pas joindre le MCU '${mcuName}' sur le bus CAN.\n\n` +
+          "Vérifications :\n" +
+          "  1. Interface can0 active : ip link show can0 (doit afficher UP)\n" +
+          "  2. UUID correct dans printer.cfg\n" +
+          "  3. Appareil alimenté et câble CAN branché\n" +
+          "  4. Si BUS-OFF : sudo ip link set can0 down && sudo ip link set can0 up type can bitrate 1000000 restart-ms 100",
+        sshCmds: [
+          "ip -details link show can0",
+          "sudo systemctl stop klipper && ~/klippy-env/bin/python ~/klipper/scripts/canbus_query.py can0",
+        ],
+      });
+    }
+    return hints;
+  })();
+
   const printerState = printerInfo?.state ?? 'disconnected';
   const stateColor = printerState === 'ready' ? 'text-green-400'
     : printerState === 'error' || printerState === 'shutdown' ? 'text-red-400' : 'text-yellow-400';
@@ -723,6 +900,107 @@ export function PrinterDiagnostic({ config, onChange }: { config: PrinterConfig;
               </div>
             ))}
           </div>
+
+          {/* ── Erreurs Klipper & Problèmes Config ──────────────────────────── */}
+          {(errorHints.length > 0 || configProblems.length > 0) && (
+            <div className="rounded-xl border border-red-900/60 bg-red-950/20 overflow-hidden">
+              <div className="flex items-center gap-2 px-5 pt-4 pb-3">
+                <AlertTriangle size={16} className="text-red-400 flex-shrink-0" />
+                <h3 className="text-sm font-bold text-red-300">
+                  {errorHints.length + configProblems.filter(p => p.severity === 'error').length > 0
+                    ? `${errorHints.length + configProblems.filter(p => p.severity === 'error').length} problème${errorHints.length + configProblems.filter(p => p.severity === 'error').length > 1 ? 's' : ''} critique${errorHints.length + configProblems.filter(p => p.severity === 'error').length > 1 ? 's' : ''} détecté${errorHints.length + configProblems.filter(p => p.severity === 'error').length > 1 ? 's' : ''}`
+                    : 'Avertissements config détectés'
+                  }
+                </h3>
+                {!cfgForAnalysis && (
+                  <span className="ml-auto text-xs text-gray-600">Charger printer.cfg pour analyse complète</span>
+                )}
+              </div>
+              <div className="border-t border-red-900/40 px-5 py-4 space-y-4">
+
+                {/* Erreurs runtime Klipper */}
+                {errorHints.map(hint => (
+                  <div key={hint.id} className="rounded-lg border border-red-800 bg-red-900/10 p-4">
+                    <div className="flex items-start gap-3">
+                      <XCircle size={15} className="text-red-400 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-sm text-red-200 mb-2">{hint.title}</div>
+                        <pre className="text-xs text-gray-400 whitespace-pre-wrap font-mono leading-relaxed mb-3">{hint.detail}</pre>
+                        {hint.sshCmds && hint.sshCmds.length > 0 && (
+                          <div>
+                            <div className="text-xs text-gray-500 mb-1.5">Commandes SSH pour diagnostiquer :</div>
+                            {hint.sshCmds.map(cmd => <CmdLine key={cmd} cmd={cmd} />)}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Problèmes dans printer.cfg */}
+                {configProblems.map(problem => (
+                  <div key={problem.id} className={`rounded-lg border p-4 ${
+                    problem.severity === 'error' ? 'border-red-800 bg-red-900/10'
+                    : problem.severity === 'warn' ? 'border-yellow-800 bg-yellow-900/10'
+                    : 'border-blue-800 bg-blue-900/10'
+                  }`}>
+                    <div className="flex items-start gap-3">
+                      {problem.severity === 'error'
+                        ? <XCircle size={15} className="text-red-400 flex-shrink-0 mt-0.5" />
+                        : problem.severity === 'warn'
+                        ? <AlertTriangle size={15} className="text-yellow-400 flex-shrink-0 mt-0.5" />
+                        : <Info size={15} className="text-blue-400 flex-shrink-0 mt-0.5" />}
+                      <div className="flex-1 min-w-0">
+                        <div className={`font-semibold text-sm mb-2 ${problem.severity === 'error' ? 'text-red-200' : problem.severity === 'warn' ? 'text-yellow-200' : 'text-blue-200'}`}>
+                          {problem.title}
+                        </div>
+                        <pre className="text-xs text-gray-400 whitespace-pre-wrap font-mono leading-relaxed mb-2">{problem.detail}</pre>
+                        {problem.hint && <p className="text-xs text-gray-500 italic mb-2">→ {problem.hint}</p>}
+                        {problem.sshCmds && problem.sshCmds.length > 0 && (
+                          <div className="mb-3">
+                            <div className="text-xs text-gray-500 mb-1.5">Commandes SSH :</div>
+                            {problem.sshCmds.map(cmd => <CmdLine key={cmd} cmd={cmd} />)}
+                          </div>
+                        )}
+                        {problem.autoFix && cfgForAnalysis && (
+                          <button
+                            onClick={() => {
+                              const fixed = problem.autoFix!(cfgForAnalysis);
+                              setModifiedCfg(fixed);
+                              setSaveStatus('idle'); setSaveMsg(null);
+                            }}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs font-medium transition-colors ${
+                              problem.severity === 'error'
+                                ? 'bg-red-700 hover:bg-red-600'
+                                : 'bg-yellow-700 hover:bg-yellow-600'
+                            }`}>
+                            ⚡ {problem.autoFixLabel}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Save + restart reminder */}
+                {configProblems.some(p => p.autoFix) && (
+                  <div className="flex flex-wrap items-center gap-3 pt-1 border-t border-gray-800">
+                    {modifiedCfg && modifiedCfg !== actualCfg && (
+                      <button onClick={saveCfg} disabled={saveStatus === 'saving'}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white text-xs font-medium transition-colors">
+                        {saveStatus === 'saving' ? <RefreshCw size={11} className="animate-spin" /> : <HardDrive size={11} />}
+                        {saveStatus === 'saving' ? 'Sauvegarde…' : 'Sauvegarder printer.cfg'}
+                      </button>
+                    )}
+                    {saveMsg && (
+                      <span className={`text-xs px-2 py-1 rounded ${saveStatus === 'ok' ? 'text-green-400 bg-green-900/30' : 'text-red-400 bg-red-900/30'}`}>{saveMsg}</span>
+                    )}
+                    <p className="text-xs text-gray-600">Après sauvegarde → <code className="bg-gray-800 px-1 rounded">FIRMWARE_RESTART</code> dans "Actions rapides"</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* ── Topologie CAN ───────────────────────────────────────────────── */}
           <div className="rounded-xl border border-gray-800 bg-gray-900/60 p-5">
