@@ -8,9 +8,10 @@ import { PrinterDiagnostic } from './components/PrinterDiagnostic';
 import { PrinterTerminal } from './components/PrinterTerminal';
 import { WiringDiagrams } from './components/WiringDiagrams';
 import { RatOSGuide } from './components/RatOSGuide';
+import { RatOSMigration } from './components/RatOSMigration';
 import {
   Cpu, Wifi, Crosshair, Grid3X3, FileCode, Activity,
-  Cable, Layers, Terminal,
+  Cable, Layers, Terminal, Rocket,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -126,6 +127,7 @@ const TABS = [
   { id: 'config',      label: 'printer.cfg',    icon: FileCode, desc: 'Config finale complète' },
   { id: 'diagnostic',  label: 'Diagnostic',     icon: Activity, desc: 'Connexion Moonraker live' },
   { id: 'terminal',    label: 'Terminal',       icon: Terminal, desc: 'Console, shell, klippy.log' },
+  { id: 'migration',   label: 'Migration 2.1.0', icon: Rocket,  desc: 'RC2 → 2.1.0 + flash MCU' },
 ] as const;
 
 type TabId = typeof TABS[number]['id'];
@@ -221,6 +223,7 @@ export default function App() {
         {activeTab === 'config'     && <ConfigGenerator   config={config} />}
         {activeTab === 'diagnostic' && <PrinterDiagnostic config={config} onChange={update} />}
         {activeTab === 'terminal'   && <PrinterTerminal   config={config} />}
+        {activeTab === 'migration'  && <RatOSMigration    config={config} />}
       </main>
 
       <footer className="border-t border-gray-800 bg-gray-900 mt-8 py-4 text-center text-xs text-gray-600">
