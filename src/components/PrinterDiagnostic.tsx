@@ -12,7 +12,7 @@ import { generateConfig } from './ConfigGenerator';
 
 interface PrinterInfo {
   state: string; state_message: string;
-  hostname: string; klipper_version: string; software_version: string;
+  hostname: string; klipper_version?: string; software_version?: string;
 }
 interface McuStatus { mcu_version?: string; last_stats?: string; }
 interface TempSensor { temperature?: number; target?: number; power?: number; }
@@ -284,16 +284,31 @@ function buildRuntimeChecks(info: PrinterInfo, objs: PrinterObjects, gcodes: GCo
   checks.push({ label: 'MCU Principal (Octopus)',
     status: objs.mcu?.mcu_version ? 'ok' : 'error',
     detail: objs.mcu?.mcu_version ? `Firmware: ${objs.mcu.mcu_version.split('-')[0]}` : 'MCU non connecté ou firmware absent' });
-  const ebbMcuObj = objs['mcu EBB42'] ?? objs['mcu toolhead'];
-  checks.push({ label: 'EBB42 v1.2 / toolhead (CAN)',
-    status: ebbMcuObj?.mcu_version ? 'ok' : 'error',
-    detail: ebbMcuObj?.mcu_version ? ebbMcuObj.mcu_version.split('-')[0] : 'EBB42 introuvable sur le bus CAN',
-    hint: !ebbMcuObj?.mcu_version ? 'Vérifier canbus_uuid EBB42, alimentation 24V, câbles CAN, résistances 120Ω' : undefined });
-  const carto = objs['mcu scanner'] ?? objs['mcu cartographer'];
+  // Klipper n'atteint JAMAIS "ready" si un MCU configuré ne répond pas.
+  // ready + section présente dans la config ⇒ carte connectée, même si
+  // l'objet mcu n'est pas remonté par la requête d'états.
+  const cfgSecs = objs.configfile?.config ?? {};
+  const ready = ks === 'ready';
+  const ebbMcuObj = [objs['mcu toolhead'], objs['mcu EBB42']].find(m => m?.mcu_version);
+  const ebbConfigured = !!(cfgSecs['mcu toolhead'] ?? cfgSecs['mcu EBB42']);
+  checks.push({ label: 'EBB42 / toolhead (CAN)',
+    status: ebbMcuObj ? 'ok' : (ready && ebbConfigured) ? 'ok' : 'error',
+    detail: ebbMcuObj?.mcu_version
+      ? ebbMcuObj.mcu_version.split('-').slice(0, 2).join('-')
+      : (ready && ebbConfigured)
+        ? 'Connecté (Klipper ready — un MCU configuré absent bloquerait le démarrage)'
+        : 'EBB42 introuvable sur le bus CAN',
+    hint: !ebbMcuObj && !(ready && ebbConfigured) ? 'Vérifier canbus_uuid EBB42, alimentation 24V, câbles CAN, résistances 120Ω' : undefined });
+  const carto = [objs['mcu scanner'], objs['mcu cartographer']].find(m => m?.mcu_version);
+  const cartoConfigured = !!(cfgSecs['cartographer'] ?? cfgSecs['scanner']);
   checks.push({ label: 'Cartographer CAN',
-    status: carto?.mcu_version ? 'ok' : 'error',
-    detail: carto?.mcu_version ? carto.mcu_version.split('-')[0] : 'Cartographer introuvable sur le bus CAN',
-    hint: !carto?.mcu_version ? 'Vérifier canbus_uuid Cartographer, jumper 120Ω, alimentation 3.3V depuis EBB42' : undefined });
+    status: carto ? 'ok' : (ready && cartoConfigured) ? 'ok' : 'error',
+    detail: carto?.mcu_version
+      ? carto.mcu_version.split('-').slice(0, 2).join('-')
+      : (ready && cartoConfigured)
+        ? 'Connecté (Klipper ready — un MCU configuré absent bloquerait le démarrage)'
+        : 'Cartographer introuvable sur le bus CAN',
+    hint: !carto && !(ready && cartoConfigured) ? 'Vérifier canbus_uuid Cartographer, jumper 120Ω, alimentation 3.3V depuis EBB42' : undefined });
   const homed = objs.toolhead?.homed_axes ?? '';
   checks.push({ label: 'Homing axes', status: homed === 'xyz' ? 'ok' : 'warn',
     detail: homed === 'xyz' ? 'Tous les axes homés (XYZ)' : homed === '' ? 'Aucun axe homé' : `Homés : ${homed}`, cmd: homed !== 'xyz' ? 'G28' : undefined });
@@ -782,12 +797,26 @@ export function PrinterDiagnostic({ config, onChange }: { config: PrinterConfig;
   const generatedCfg   = generateConfig(config);
   const diffLines      = (modifiedCfg ?? actualCfg) ? diffConfigs(generatedCfg, modifiedCfg ?? actualCfg!) : [];
 
-  // Résoudre le MCU toolhead (peut s'appeler "EBB42" ou "toolhead" selon RatOS)
-  const ebbMcu     = objects['mcu EBB42'] ?? objects['mcu toolhead'];
-  const ebbTempSensor = objects['temperature_sensor EBB42'] ?? objects['temperature_sensor toolhead'];
+  // Résoudre le MCU toolhead (peut s'appeler "EBB42" ou "toolhead" selon RatOS).
+  // On préfère l'instance qui expose réellement des données ("alive-first")
+  // pour éviter qu'une clé vide masque la bonne via ??.
+  const klipperReady = (objects.webhooks?.state ?? printerInfo?.state) === 'ready';
+  const cfgSections  = objects.configfile?.config ?? {};
+  const ebbMcu = [objects['mcu toolhead'], objects['mcu EBB42']].find(m => m?.mcu_version)
+    ?? objects['mcu toolhead'] ?? objects['mcu EBB42'];
+  const ebbConnected = !!ebbMcu?.mcu_version
+    || (klipperReady && !!(cfgSections['mcu toolhead'] ?? cfgSections['mcu EBB42']));
+  const ebbTempSensor = [objects['temperature_sensor toolhead'], objects['temperature_sensor EBB42']]
+    .find(s => s?.temperature !== undefined);
   const ebbStats   = parseMcuStats(ebbMcu?.last_stats);
-  const cartoMcuKey: keyof PrinterObjects = objects['mcu scanner'] ? 'mcu scanner' : 'mcu cartographer';
-  const cartoStats = parseMcuStats((objects[cartoMcuKey] as McuStatus | undefined)?.last_stats);
+  const cartoMcuObj = [objects['mcu scanner'], objects['mcu cartographer']]
+    .find(m => (m as McuStatus | undefined)?.mcu_version) as McuStatus | undefined;
+  const cartoConnected = !!cartoMcuObj?.mcu_version
+    || (klipperReady && !!(cfgSections['cartographer'] ?? cfgSections['scanner']));
+  const cartoStats = parseMcuStats(cartoMcuObj?.last_stats);
+  // UUID réellement chargés par Klipper (pour affichage quand l'app n'est pas configurée)
+  const cfgUuidEbb   = (cfgSections['mcu toolhead'] ?? cfgSections['mcu EBB42'])?.['canbus_uuid'];
+  const cfgUuidCarto = cfgSections['cartographer']?.['canbus_uuid'];
 
   const okCount     = runtimeChecks.filter(c => c.status === 'ok').length;
   const warnCount   = runtimeChecks.filter(c => c.status === 'warn').length;
@@ -929,7 +958,7 @@ export function PrinterDiagnostic({ config, onChange }: { config: PrinterConfig;
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
               { label: 'État Klipper',    value: printerState.toUpperCase(), color: stateColor, icon: Activity },
-              { label: 'Klipper',         value: printerInfo.klipper_version?.split('-')[0] ?? '—', color: 'text-gray-200', icon: Cpu },
+              { label: 'Klipper',         value: (printerInfo.software_version ?? printerInfo.klipper_version)?.split('-').slice(0, 2).join('-') ?? '—', color: 'text-gray-200', icon: Cpu },
               { label: 'Hostname',        value: printerInfo.hostname || ip, color: 'text-gray-200', icon: Wifi },
               { label: 'Checks',          value: `${okCount}✓  ${warnCount}⚠  ${errorCount}✗`,
                 color: errorCount > 0 ? 'text-red-400' : warnCount > 0 ? 'text-yellow-400' : 'text-green-400', icon: CheckCircle2 },
@@ -1048,8 +1077,8 @@ export function PrinterDiagnostic({ config, onChange }: { config: PrinterConfig;
               <Network size={15} className="text-orange-400" />
               <h3 className="text-xs font-bold text-gray-300 uppercase tracking-widest">Topologie CAN Bus</h3>
             </div>
-            <TopologyDiagram sysInfo={sysInfo} ebbOk={!!ebbMcu?.mcu_version}
-              cartoOk={!!(objects['mcu scanner'] ?? objects['mcu cartographer'])?.mcu_version} config={config} />
+            <TopologyDiagram sysInfo={sysInfo} ebbOk={ebbConnected}
+              cartoOk={cartoConnected} config={config} />
           </div>
 
           {/* ── TESTS MATÉRIEL ──────────────────────────────────────────────── */}
@@ -1203,19 +1232,30 @@ export function PrinterDiagnostic({ config, onChange }: { config: PrinterConfig;
                 {/* ─ EBB42 v1.2 ───────────────────────────────────────────── */}
                 <DeviceSection title="⚡ BTT EBB42 v1.2" subtitle="CAN toolhead board — STM32G0B1">
                   {/* Statut connexion + UUID */}
-                  <div className={`mb-4 p-3 rounded-lg border text-xs ${ebbMcu?.mcu_version ? 'border-green-800 bg-green-900/10' : 'border-red-800 bg-red-900/10'}`}>
+                  <div className={`mb-4 p-3 rounded-lg border text-xs ${ebbConnected ? 'border-green-800 bg-green-900/10' : 'border-red-800 bg-red-900/10'}`}>
                     <div className="flex items-center gap-2 mb-2">
-                      {ebbMcu?.mcu_version
-                        ? <span className="text-green-400 font-medium">✓ EBB42 connecté sur can0 (nommé {objects['mcu toolhead'] ? '[mcu toolhead]' : '[mcu EBB42]'})</span>
+                      {ebbConnected
+                        ? <span className="text-green-400 font-medium">✓ EBB42 connecté sur can0 (nommé {cfgSections['mcu toolhead'] ? '[mcu toolhead]' : '[mcu EBB42]'})</span>
                         : <span className="text-red-400 font-medium">✗ EBB42 non visible sur le bus CAN</span>}
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="text-gray-500">canbus_uuid :</span>
-                      <code className={`font-mono ${config.ebb42Uuid ? 'text-gray-200' : 'text-red-400'}`}>
-                        {config.ebb42Uuid || '⚠ vide — utiliser l\'outil "Découverte UUID" ci-dessus'}
+                      <code className={`font-mono ${(config.ebb42Uuid || cfgUuidEbb) ? 'text-gray-200' : 'text-red-400'}`}>
+                        {config.ebb42Uuid || cfgUuidEbb || '⚠ vide — utiliser l\'outil "Découverte UUID" ci-dessus'}
                       </code>
+                      {!config.ebb42Uuid && cfgUuidEbb && (
+                        <>
+                          <span className="text-gray-600">(lu dans printer.cfg)</span>
+                          {onChange && (
+                            <button onClick={() => onChange({ ebb42Uuid: cfgUuidEbb })}
+                              className="text-xs px-2 py-0.5 rounded bg-blue-800 hover:bg-blue-700 text-white transition-colors">
+                              → Enregistrer dans l'app
+                            </button>
+                          )}
+                        </>
+                      )}
                     </div>
-                    {!ebbMcu?.mcu_version && (
+                    {!ebbConnected && (
                       <div className="mt-2 text-yellow-300 leading-relaxed">
                         Causes possibles : UUID incorrect ou vide · Interface can0 inactive · EBB42 non alimenté (24V) ·
                         Câble CAN débranché ou inversé · Firmware Katapult/Klipper non flashé ·
@@ -1328,24 +1368,35 @@ export function PrinterDiagnostic({ config, onChange }: { config: PrinterConfig;
                 <DeviceSection title="🎯 Cartographer CAN" subtitle="Inductive probe + temperature compensation">
                   {(() => {
                     const carto: CartographerFull | undefined = objects.scanner ?? objects.cartographer;
-                    const cartoMcu = objects['mcu scanner'] ?? objects['mcu cartographer'];
+                    const cartoMcu = cartoMcuObj;
                     const isCalibrated = carto?.cal_pos_x !== undefined || carto?.last_z_result !== undefined;
                     return (
                       <>
                         {/* Statut connexion + UUID */}
-                        <div className={`mb-4 p-3 rounded-lg border text-xs ${cartoMcu?.mcu_version ? 'border-green-800 bg-green-900/10' : 'border-red-800 bg-red-900/10'}`}>
+                        <div className={`mb-4 p-3 rounded-lg border text-xs ${cartoConnected ? 'border-green-800 bg-green-900/10' : 'border-red-800 bg-red-900/10'}`}>
                           <div className="flex items-center gap-2 mb-2">
-                            {cartoMcu?.mcu_version
+                            {cartoConnected
                               ? <span className="text-green-400 font-medium">✓ Cartographer connecté sur can0</span>
                               : <span className="text-red-400 font-medium">✗ Cartographer non visible sur le bus CAN</span>}
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
                             <span className="text-gray-500">canbus_uuid :</span>
-                            <code className={`font-mono ${config.cartographerUuid ? 'text-gray-200' : 'text-red-400'}`}>
-                              {config.cartographerUuid || '⚠ vide — utiliser l\'outil "Découverte UUID" ci-dessus'}
+                            <code className={`font-mono ${(config.cartographerUuid || cfgUuidCarto) ? 'text-gray-200' : 'text-red-400'}`}>
+                              {config.cartographerUuid || cfgUuidCarto || '⚠ vide — utiliser l\'outil "Découverte UUID" ci-dessus'}
                             </code>
+                            {!config.cartographerUuid && cfgUuidCarto && (
+                              <>
+                                <span className="text-gray-600">(lu dans printer.cfg)</span>
+                                {onChange && (
+                                  <button onClick={() => onChange({ cartographerUuid: cfgUuidCarto })}
+                                    className="text-xs px-2 py-0.5 rounded bg-purple-800 hover:bg-purple-700 text-white transition-colors">
+                                    → Enregistrer dans l'app
+                                  </button>
+                                )}
+                              </>
+                            )}
                           </div>
-                          {!cartoMcu?.mcu_version && (
+                          {!cartoConnected && (
                             <div className="mt-2 text-yellow-300 leading-relaxed">
                               Causes possibles : UUID incorrect ou vide · Cartographer non alimenté (3.3V depuis EBB42) ·
                               Câble CAN Cartographer→EBB42 débranché · Jumper 120Ω Cartographer manquant (il est au bout de la chaîne) ·
