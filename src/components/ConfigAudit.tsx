@@ -37,7 +37,7 @@ export function ConfigAudit({ config }: { config: PrinterConfig }) {
   const fetchCfg = async () => {
     setLoading(true); setError(null); resetFixState();
     try {
-      const res = await fetch(`${baseUrl}/server/files/config/printer.cfg`, { signal: AbortSignal.timeout(8000) });
+      const res = await fetch(`${baseUrl}/server/files/config/printer.cfg`, { cache: 'no-store', signal: AbortSignal.timeout(8000) });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const text = await res.text();
       setCfgText(text);
@@ -92,7 +92,7 @@ export function ConfigAudit({ config }: { config: PrinterConfig }) {
     try {
       // 1. Garde anti-écrasement : le fichier sur le Pi doit être IDENTIQUE
       //    à celui qu'on a analysé (protège contre un onglet Mainsail fantôme)
-      const cur = await fetch(`${baseUrl}/server/files/config/printer.cfg`, { signal: AbortSignal.timeout(8000) });
+      const cur = await fetch(`${baseUrl}/server/files/config/printer.cfg`, { cache: 'no-store', signal: AbortSignal.timeout(8000) });
       if (!cur.ok) throw new Error(`relecture impossible (HTTP ${cur.status})`);
       const curText = await cur.text();
       if (curText !== cfgText) {
@@ -125,7 +125,7 @@ export function ConfigAudit({ config }: { config: PrinterConfig }) {
       if (!res.ok) throw new Error(`écriture refusée (HTTP ${res.status})`);
 
       // 4. Relecture + ré-audit pour confirmer l'état réel sur disque
-      const verify = await fetch(`${baseUrl}/server/files/config/printer.cfg`, { signal: AbortSignal.timeout(8000) });
+      const verify = await fetch(`${baseUrl}/server/files/config/printer.cfg`, { cache: 'no-store', signal: AbortSignal.timeout(8000) });
       const verifyText = verify.ok ? await verify.text() : stagedText;
       setCfgText(verifyText);
       setCfgOrigin(`${baseUrl} · ${new Date().toLocaleTimeString('fr-FR')} · ${(verifyText.length / 1024).toFixed(1)} kB (corrigé)`);

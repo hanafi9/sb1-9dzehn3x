@@ -69,7 +69,7 @@ export async function fetchObjectsList(baseUrl: string): Promise<string[]> {
 
 /** Télécharge klippy.log brut (peut faire plusieurs Mo). */
 export async function fetchKlippyLog(baseUrl: string, timeoutMs = 30000): Promise<string> {
-  const res = await fetch(`${baseUrl}/server/files/klippy.log`, { signal: AbortSignal.timeout(timeoutMs) });
+  const res = await fetch(`${baseUrl}/server/files/klippy.log`, { cache: 'no-store', signal: AbortSignal.timeout(timeoutMs) });
   if (!res.ok) throw new Error(`HTTP ${res.status} — klippy.log introuvable`);
   return res.text();
 }

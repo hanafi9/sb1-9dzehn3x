@@ -104,6 +104,21 @@ const COMPARE_KEYS: Array<{ section: string; key: string; label: string; critica
   { section: 'printer',    key: 'max_accel',               label: 'printer › max_accel',                critical: false },
 ];
 
+/** Égalité tolérante : "0.4" ≡ "0.400", "200, 200" ≡ "200,200" */
+function cfgValuesEqual(a: string, b: string): boolean {
+  if (a === b) return true;
+  const na = parseFloat(a), nb = parseFloat(b);
+  if (!Number.isNaN(na) && !Number.isNaN(nb) && /^-?[\d.]+$/.test(a.trim()) && /^-?[\d.]+$/.test(b.trim())) {
+    return na === nb;
+  }
+  // Listes de nombres ("200, 200") : comparer élément par élément
+  const la = a.split(',').map(s => s.trim()), lb = b.split(',').map(s => s.trim());
+  if (la.length === lb.length && la.length > 1) {
+    return la.every((v, i) => cfgValuesEqual(v, lb[i]));
+  }
+  return false;
+}
+
 function diffConfigs(generated: string, actual: string): DiffLine[] {
   const gen = parseCfg(generated), act = parseCfg(actual);
   return COMPARE_KEYS.map(({ section, key, label, critical }) => {
@@ -111,11 +126,12 @@ function diffConfigs(generated: string, actual: string): DiffLine[] {
     const sections = section.split('|');
     const genSec = sections.find(s => gen[s]?.[key] !== undefined) ?? sections[0];
     const actSec = sections.find(s => act[s]?.[key] !== undefined) ?? sections[0];
+    const expected = gen[genSec]?.[key] ?? '—';
+    const actualVal = act[actSec]?.[key] ?? '(absent)';
     return {
       key: `${section}.${key}`, label,
-      expected: gen[genSec]?.[key] ?? '—',
-      actual: act[actSec]?.[key] ?? '(absent)',
-      match: (gen[genSec]?.[key] ?? '—') === (act[actSec]?.[key] ?? '(absent)'),
+      expected, actual: actualVal,
+      match: cfgValuesEqual(expected, actualVal),
       critical,
       // Store resolved section names so applyFix targets the right section
       resolvedSection: actSec,
@@ -696,7 +712,7 @@ export function PrinterDiagnostic({ config, onChange }: { config: PrinterConfig;
   const fetchPrinterCfg = async () => {
     setCfgLoading(true); setCfgError(null);
     try {
-      const res = await fetch(`${baseUrl}/server/files/config/printer.cfg`, { signal: AbortSignal.timeout(8000) });
+      const res = await fetch(`${baseUrl}/server/files/config/printer.cfg`, { cache: 'no-store', signal: AbortSignal.timeout(8000) });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const text = await res.text();
       setActualCfg(text);
