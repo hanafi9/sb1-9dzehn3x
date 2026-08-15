@@ -13,6 +13,9 @@ export interface AuditResult {
   detail: string;
   lines?: number[];
   cmds?: string[];
+  /** Correction automatique disponible */
+  fixLabel?: string;
+  applyFix?: (text: string) => string;
 }
 
 // UUIDs vérifiés de CETTE machine (session de dépannage du 13/08/2026)
@@ -78,6 +81,142 @@ export function parseForAudit(raw: string): Parsed {
   return { instances, merged, includes, hasSaveConfig, lineCount: lines.length };
 }
 
+// ─── Correcteurs de texte ─────────────────────────────────────────────────────
+// Chaque fonction est pure : texte → texte. Le bloc SAVE_CONFIG (#*#) n'est
+// jamais touché — toutes les insertions se font au-dessus.
+
+/** Index de la première ligne du bloc SAVE_CONFIG, ou length si absent */
+function saveConfigStart(lines: string[]): number {
+  const i = lines.findIndex(l => l.startsWith('#*#'));
+  return i === -1 ? lines.length : i;
+}
+
+/** Plages de chaque instance de section (header → dernière ligne avant la suivante) */
+function sectionRanges(lines: string[]): Array<{ name: string; start: number; end: number }> {
+  const limit = saveConfigStart(lines);
+  const out: Array<{ name: string; start: number; end: number }> = [];
+  for (let i = 0; i < limit; i++) {
+    const m = lines[i].split(/[#;]/)[0].trim().match(/^\[(.+)\]$/);
+    if (m && !m[1].trim().match(/^include\s/i)) {
+      if (out.length) out[out.length - 1].end = i - 1;
+      out.push({ name: m[1].trim(), start: i, end: limit - 1 });
+    }
+  }
+  return out;
+}
+
+/** Remplace (ou insère) `key: value` dans la PREMIÈRE instance de [section] */
+export function fixSetKey(text: string, section: string, key: string, value: string): string {
+  const lines = text.split('\n');
+  const inst = sectionRanges(lines).find(r => r.name === section);
+  if (!inst) return text;
+  for (let i = inst.start + 1; i <= inst.end; i++) {
+    const kv = lines[i].split(/[#;]/)[0].match(/^(\s*)([\w.]+)\s*[:=]/);
+    if (kv && kv[2] === key) {
+      lines[i] = `${kv[1]}${key}: ${value}`;
+      return lines.join('\n');
+    }
+  }
+  lines.splice(inst.start + 1, 0, `${key}: ${value}`);
+  return lines.join('\n');
+}
+
+/** Commente toutes les instances de [section] (header + clés) */
+export function fixCommentSection(text: string, section: string): string {
+  const lines = text.split('\n');
+  const targets = sectionRanges(lines).filter(r => r.name === section);
+  for (const t of targets.reverse()) {
+    for (let i = t.start; i <= t.end; i++) {
+      const stripped = lines[i].trim();
+      if (!stripped || stripped.startsWith('#')) continue;
+      // Ne commente que le header et les clés, pas les lignes déjà commentées
+      const isHeader = i === t.start;
+      const isKey = /^\s*[\w.]+\s*[:=]/.test(lines[i]) || /^\s+\S/.test(lines[i]);
+      if (isHeader || isKey) lines[i] = `#${lines[i]}`;
+      // Une nouvelle section non ciblée arrête le bloc (sécurité)
+      if (!isHeader && stripped.match(/^\[.+\]$/)) break;
+    }
+  }
+  return lines.join('\n');
+}
+
+/** Commente une ligne [include …] qui matche le motif */
+export function fixCommentInclude(text: string, pattern: RegExp): string {
+  return text.split('\n').map(l => {
+    const t = l.trim();
+    return t.match(/^\[include\s/i) && pattern.test(t) ? `#${l}  # désactivé par l'audit` : l;
+  }).join('\n');
+}
+
+/** Supprime les instances dupliquées d'une section en GARDANT LA DERNIÈRE
+ *  (c'est celle que Klipper applique — le comportement actuel est préservé) */
+export function fixRemoveEarlierDuplicates(text: string): string {
+  const lines = text.split('\n');
+  const ranges = sectionRanges(lines);
+  const byName = new Map<string, typeof ranges>();
+  for (const r of ranges) byName.set(r.name, [...(byName.get(r.name) ?? []), r]);
+  const toRemove = [...byName.values()]
+    .filter(rs => rs.length > 1)
+    .flatMap(rs => rs.slice(0, -1));          // toutes sauf la dernière
+  toRemove.sort((a, b) => b.start - a.start); // suppression de bas en haut
+  for (const r of toRemove) lines.splice(r.start, r.end - r.start + 1);
+  return lines.join('\n');
+}
+
+/** Insère une ligne tout en haut du fichier */
+export function fixInsertTop(text: string, line: string): string {
+  return `${line}\n${text}`;
+}
+
+/** Ajoute un bloc juste AVANT le bloc SAVE_CONFIG (ou en fin de fichier) */
+export function fixAppendBlock(text: string, block: string): string {
+  const lines = text.split('\n');
+  const at = saveConfigStart(lines);
+  lines.splice(at, 0, '', block, '');
+  return lines.join('\n');
+}
+
+function startPrintBlock(withLeds: boolean): string {
+  const s = (m: string) => (withLeds ? `    ${m}\n` : '');
+  return `[gcode_macro START_PRINT]
+gcode:
+    {% set BED = params.BED_TEMP|default(60)|float %}
+    {% set HOTEND = params.EXTRUDER_TEMP|default(230)|float %}
+${s('STATUS_LOADING')}    CLEAR_PAUSE
+    G90
+    M83
+    _USER_START_PRINT_BEFORE_HOMING
+${s('STATUS_HEATING_BED')}    M140 S{BED}
+    M190 S{BED}
+    _USER_START_PRINT_AFTER_HEATING_BED
+${s('STATUS_HOMING')}    G28
+${s('STATUS_LEVELING')}    Z_TILT_ADJUST
+    G28 Z
+${s('STATUS_MESHING')}    BED_MESH_CALIBRATE
+    _USER_START_PRINT_BEFORE_HEATING_EXTRUDER
+${s('STATUS_HEATING_NOZZLE')}    M109 S{HOTEND}
+    _USER_START_PRINT_PARK
+${s('STATUS_PRINTING')}    G1 X10 Y10 Z0.3 F6000
+    G1 X150 Y10 E15 F1200
+    G1 Z2 F600`;
+}
+
+function endPrintBlock(withLeds: boolean): string {
+  return `[gcode_macro END_PRINT]
+gcode:
+    M400
+    G91
+    G1 E-3 F1800
+    G1 Z10 F600
+    G90
+    TURN_OFF_HEATERS
+    _USER_END_PRINT_AFTER_HEATERS_OFF
+    M107
+    _USER_END_PRINT_PARK
+    G1 X10 Y{printer.toolhead.axis_maximum.y - 10} F6000
+${withLeds ? '    STATUS_DONE\n' : ''}    M84`;
+}
+
 // ─── Règles ───────────────────────────────────────────────────────────────────
 
 export function runAudit(raw: string, config: PrinterConfig): AuditResult[] {
@@ -106,6 +245,8 @@ export function runAudit(raw: string, config: PrinterConfig): AuditResult[] {
         '\nKlipper fusionne silencieusement : la dernière définition écrase les précédentes. ' +
         'Les premières sont du code mort.',
       lines: dups.flatMap(([, ls]) => ls),
+      fixLabel: 'Supprimer les doublons (garde la dernière définition — le comportement actuel est conservé)',
+      applyFix: fixRemoveEarlierDuplicates,
     });
   } else {
     r.push({ id: 'dup_sections', severity: 'ok', title: 'Aucune section dupliquée', detail: 'Chaque section n\'est déclarée qu\'une fois.' });
@@ -125,13 +266,20 @@ export function runAudit(raw: string, config: PrinterConfig): AuditResult[] {
         `Correct : [${toolheadSec}] → ${expectEbb} · [cartographer] → ${expectCarto}.\n` +
         `NE JAMAIS flasher en CAN avec des UUID permutés.`,
       lines: [lineOf(toolheadSec!, 'canbus_uuid'), lineOf('cartographer', 'canbus_uuid')].filter((x): x is number => !!x),
+      fixLabel: `Rétablir : [${toolheadSec}] → ${expectEbb} · [cartographer] → ${expectCarto}`,
+      applyFix: t => fixSetKey(fixSetKey(t, toolheadSec!, 'canbus_uuid', expectEbb), 'cartographer', 'canbus_uuid', expectCarto),
     });
   } else {
     if (toolheadSec) {
       if (thUuid === expectEbb) {
         r.push({ id: 'uuid_th', severity: 'ok', title: `[${toolheadSec}] → UUID EBB42 correct`, detail: `canbus_uuid: ${thUuid}` });
       } else if (!thUuid) {
-        r.push({ id: 'uuid_th', severity: 'error', title: `[${toolheadSec}] sans canbus_uuid`, detail: 'La section existe mais aucun UUID n\'est défini.' });
+        r.push({
+          id: 'uuid_th', severity: 'error', title: `[${toolheadSec}] sans canbus_uuid`,
+          detail: 'La section existe mais aucun UUID n\'est défini.',
+          fixLabel: `Définir canbus_uuid: ${expectEbb}`,
+          applyFix: t => fixSetKey(t, toolheadSec!, 'canbus_uuid', expectEbb),
+        });
       } else {
         r.push({
           id: 'uuid_th', severity: 'warn',
@@ -139,6 +287,8 @@ export function runAudit(raw: string, config: PrinterConfig): AuditResult[] {
           detail: `Trouvé : ${thUuid} — attendu pour cette machine : ${expectEbb}.\nSi le matériel a changé, mettre à jour l'app (onglet Matériel).`,
           lines: [lineOf(toolheadSec, 'canbus_uuid')!],
           cmds: ['sudo systemctl stop klipper && ~/klippy-env/bin/python ~/klipper/scripts/canbus_query.py can0 ; sudo systemctl start klipper'],
+          fixLabel: `Remplacer par l'UUID connu de la machine (${expectEbb})`,
+          applyFix: t => fixSetKey(t, toolheadSec!, 'canbus_uuid', expectEbb),
         });
       }
     } else {
@@ -154,6 +304,8 @@ export function runAudit(raw: string, config: PrinterConfig): AuditResult[] {
           title: '[cartographer] : canbus_uuid invalide',
           detail: `Valeur : "${caUuid ?? '(absente)'}" — Klipper refusera avec "Invalid CAN uuid".`,
           lines: lineOf('cartographer', 'canbus_uuid') ? [lineOf('cartographer', 'canbus_uuid')!] : undefined,
+          fixLabel: `Définir canbus_uuid: ${expectCarto}`,
+          applyFix: t => fixSetKey(t, 'cartographer', 'canbus_uuid', expectCarto),
         });
       } else {
         r.push({
@@ -161,6 +313,8 @@ export function runAudit(raw: string, config: PrinterConfig): AuditResult[] {
           title: '[cartographer] a un UUID inattendu',
           detail: `Trouvé : ${caUuid} — attendu : ${expectCarto}.`,
           lines: [lineOf('cartographer', 'canbus_uuid')!],
+          fixLabel: `Remplacer par l'UUID connu de la machine (${expectCarto})`,
+          applyFix: t => fixSetKey(t, 'cartographer', 'canbus_uuid', expectCarto),
         });
       }
     }
@@ -192,6 +346,8 @@ export function runAudit(raw: string, config: PrinterConfig): AuditResult[] {
         'Le déclarer en [mcu] ajoute un nœud qui doit répondre au démarrage. ' +
         'RatOS ne définit aucune carte U2C. → Commenter la section.',
       lines: l ? [l] : undefined,
+      fixLabel: 'Commenter la section [mcu u2c]',
+      applyFix: t => fixCommentSection(t, 'mcu u2c'),
     });
   } else {
     r.push({ id: 'u2c', severity: 'ok', title: 'Pas de [mcu u2c] actif', detail: 'Le U2C n\'est pas déclaré comme MCU — correct.' });
@@ -204,6 +360,8 @@ export function runAudit(raw: string, config: PrinterConfig): AuditResult[] {
       id: 'probe_conflict', severity: 'error',
       title: '[beacon] et [cartographer] actifs en même temps',
       detail: 'Deux sondes Z déclarées — Klipper ne peut pas trancher. Commenter [beacon].',
+      fixLabel: 'Commenter [beacon] (garder [cartographer])',
+      applyFix: t => fixCommentSection(t, 'beacon'),
     });
   } else if (zprobeInc && has('cartographer')) {
     r.push({
@@ -211,6 +369,8 @@ export function runAudit(raw: string, config: PrinterConfig): AuditResult[] {
       title: `Un include z-probe cohabite avec [cartographer] (ligne ${zprobeInc.line})`,
       detail: `"${zprobeInc.target}" charge une autre sonde en plus du Cartographer. À commenter.`,
       lines: [zprobeInc.line],
+      fixLabel: 'Commenter cette ligne d\'include',
+      applyFix: t => fixCommentInclude(t, /z-probe\//i),
     });
   } else if (has('cartographer')) {
     r.push({ id: 'probe_conflict', severity: 'ok', title: 'Une seule sonde Z ([cartographer])', detail: 'Pas de conflit beacon / z-probe.' });
@@ -228,6 +388,8 @@ export function runAudit(raw: string, config: PrinterConfig): AuditResult[] {
         title: `stepper_z › endstop_pin = "${ep ?? '(absent)'}"`,
         detail: 'Avec un Cartographer, le Z doit se homer sur probe:z_virtual_endstop.',
         lines: lineOf('stepper_z', 'endstop_pin') ? [lineOf('stepper_z', 'endstop_pin')!] : undefined,
+        fixLabel: 'Définir endstop_pin: probe:z_virtual_endstop',
+        applyFix: t => fixSetKey(t, 'stepper_z', 'endstop_pin', 'probe:z_virtual_endstop'),
       });
     }
     if (hrd === '0') {
@@ -238,6 +400,8 @@ export function runAudit(raw: string, config: PrinterConfig): AuditResult[] {
         title: `stepper_z › homing_retract_dist = "${hrd ?? '(absent)'}"`,
         detail: 'Doit valoir 0 avec le Cartographer.',
         lines: lineOf('stepper_z', 'homing_retract_dist') ? [lineOf('stepper_z', 'homing_retract_dist')!] : undefined,
+        fixLabel: 'Définir homing_retract_dist: 0',
+        applyFix: t => fixSetKey(t, 'stepper_z', 'homing_retract_dist', '0'),
       });
     }
   }
@@ -255,6 +419,8 @@ export function runAudit(raw: string, config: PrinterConfig): AuditResult[] {
         'DANGER : les températures affichées sont fausses, les protections aussi. ' +
         'Remplacer par sensor_type: PT1000, puis refaire PID_CALIBRATE.',
       lines: lineOf('extruder', 'sensor_type') ? [lineOf('extruder', 'sensor_type')!] : undefined,
+      fixLabel: 'Remplacer par sensor_type: PT1000 (⚠ refaire PID_CALIBRATE ensuite)',
+      applyFix: t => fixSetKey(t, 'extruder', 'sensor_type', 'PT1000'),
     });
   } else if (sensorType) {
     r.push({ id: 'thermistor', severity: 'info', title: `sensor_type = "${sensorType}"`, detail: 'Vérifier que ça correspond au capteur réellement monté dans le hotend.' });
@@ -270,6 +436,8 @@ export function runAudit(raw: string, config: PrinterConfig): AuditResult[] {
       id: 'mainsail', severity: 'error',
       title: 'Ni [include mainsail.cfg] ni [virtual_sdcard]',
       detail: 'Sans virtual_sdcard, AUCUNE impression depuis Mainsail n\'est possible. Ajouter [include mainsail.cfg].',
+      fixLabel: 'Ajouter [include mainsail.cfg] en tête de fichier',
+      applyFix: t => fixInsertTop(t, '[include mainsail.cfg]'),
     });
   }
 
@@ -286,6 +454,15 @@ export function runAudit(raw: string, config: PrinterConfig): AuditResult[] {
       detail: (userHooks.length
         ? `${userHooks.length} hooks _USER_*_PRINT_* existent (lignes ${userHooks.map(h => h.line).join(', ')}) mais rien ne les appelle — ce sont des restes RatOS orphelins.\n`
         : '') + 'Le G-code de démarrage du trancheur échouera sur "Unknown command".',
+      fixLabel: 'Ajouter START_PRINT et END_PRINT (appellent tes hooks _USER_* existants' +
+        (p.includes.some(i => i.target.toLowerCase().includes('leds')) ? ' + macros LED STATUS_*' : '') + ')',
+      applyFix: t => {
+        const withLeds = t.split('\n').some(l => l.trim().match(/^\[include\s+.*leds/i));
+        let out = t;
+        if (!hasStart) out = fixAppendBlock(out, startPrintBlock(withLeds));
+        if (!hasEnd) out = fixAppendBlock(out, endPrintBlock(withLeds));
+        return out;
+      },
     });
   }
 
@@ -299,6 +476,8 @@ export function runAudit(raw: string, config: PrinterConfig): AuditResult[] {
         title: `[${sec}] › canbus_interface = "${ci}"`,
         detail: 'Cette machine n\'a qu\'une interface : can0.',
         lines: [lineOf(sec, 'canbus_interface')!],
+        fixLabel: 'Remplacer par canbus_interface: can0',
+        applyFix: t => fixSetKey(t, sec, 'canbus_interface', 'can0'),
       });
     }
   }
@@ -312,6 +491,8 @@ export function runAudit(raw: string, config: PrinterConfig): AuditResult[] {
         id: 'zrp', severity: 'warn',
         title: 'bed_mesh sans zero_reference_position',
         detail: `Recommandé avec une sonde scanner : zero_reference_position: ${config.printerSize / 2}, ${config.printerSize / 2}`,
+        fixLabel: `Ajouter zero_reference_position: ${config.printerSize / 2}, ${config.printerSize / 2}`,
+        applyFix: t => fixSetKey(t, 'bed_mesh', 'zero_reference_position', `${config.printerSize / 2}, ${config.printerSize / 2}`),
       });
     }
   }
