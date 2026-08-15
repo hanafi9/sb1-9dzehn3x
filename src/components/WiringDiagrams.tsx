@@ -1,8 +1,64 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  Cable, Zap, AlertTriangle, ExternalLink, ChevronDown, ChevronUp, Info,
+  Cable, Zap, AlertTriangle, ExternalLink, ChevronDown, ChevronUp, Info, RefreshCw,
 } from 'lucide-react';
 import type { PrinterConfig } from '../App';
+
+// ─── SVG distant rendu inline ─────────────────────────────────────────────────
+// Les schémas drawio de RatOS référencent l'image de la carte en externe.
+// Un SVG affiché via <img> n'a pas le droit de charger de ressources externes :
+// les fils (vectoriels) apparaissent, la carte (bitmap référencé) disparaît.
+// Solution : récupérer le SVG en texte, réécrire les href relatifs en absolus,
+// et l'injecter inline — là, le navigateur charge tout.
+
+function RemoteSvg({ url }: { url: string }) {
+  const [svg, setSvg] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    setSvg(null); setErr(null);
+    fetch(url)
+      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.text(); })
+      .then(text => {
+        if (!alive) return;
+        const base = url.slice(0, url.lastIndexOf('/') + 1);
+        // href/xlink:href relatifs → absolus (en épargnant http(s):, data:, #ancres)
+        const fixed = text
+          .replace(/(xlink:href|href)="(?!https?:|data:|#)([^"]+)"/g,
+            (_m, attr: string, rel: string) => `${attr}="${base}${rel}"`)
+          // Laisse le conteneur imposer la taille
+          .replace(/<svg([^>]*?)\s(width|height)="[^"]*"/g, '<svg$1')
+          .replace(/<svg([^>]*?)\s(width|height)="[^"]*"/g, '<svg$1');
+        setSvg(fixed);
+      })
+      .catch(e => { if (alive) setErr(e instanceof Error ? e.message : String(e)); });
+    return () => { alive = false; };
+  }, [url]);
+
+  if (err) {
+    return (
+      <div className="p-4 text-xs text-yellow-300 bg-yellow-950/20 rounded-lg border border-yellow-900/50">
+        ⚠ Schéma inaccessible ({err}) — il faut un accès Internet vers raw.githubusercontent.com.
+        Utiliser le lien « Ouvrir » pour le voir sur GitHub.
+      </div>
+    );
+  }
+  if (!svg) {
+    return (
+      <div className="flex items-center justify-center py-16 text-gray-600">
+        <RefreshCw size={16} className="animate-spin mr-2" /> <span className="text-xs">Chargement du schéma…</span>
+      </div>
+    );
+  }
+  return (
+    <div
+      className="w-full overflow-x-auto [&_svg]:w-full [&_svg]:h-auto [&_svg]:max-w-none"
+      // SVG provenant du dépôt officiel RatOS — même origine de confiance que les liens
+      dangerouslySetInnerHTML={{ __html: svg }}
+    />
+  );
+}
 
 // ─── Données matériel (vérifiées depuis RatOS-configuration v2.1.x) ───────────
 
@@ -501,9 +557,11 @@ export function WiringDiagrams({ config }: { config: PrinterConfig }) {
                     Ouvrir <ExternalLink size={10} />
                   </a>
                 </div>
-                <div className="rounded-lg border border-gray-800 bg-white p-3 overflow-x-auto">
-                  <img src={`${RATOS_RAW}/${d.path}`} alt={d.label}
-                    loading="lazy" className="max-w-full h-auto mx-auto block" />
+                <div className="rounded-lg border border-gray-800 bg-gray-950 p-3 overflow-x-auto">
+                  {d.path.endsWith('.svg')
+                    ? <RemoteSvg url={`${RATOS_RAW}/${d.path}`} />
+                    : <img src={`${RATOS_RAW}/${d.path}`} alt={d.label}
+                        loading="lazy" className="max-w-full h-auto mx-auto block rounded" />}
                 </div>
               </div>
             ))}
