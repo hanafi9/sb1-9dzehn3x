@@ -14,7 +14,7 @@ interface PrinterInfo {
   state: string; state_message: string;
   hostname: string; klipper_version?: string; software_version?: string;
 }
-interface McuStatus { mcu_version?: string; last_stats?: string; }
+interface McuStatus { mcu_version?: string; last_stats?: string | Record<string, unknown>; }
 interface TempSensor { temperature?: number; target?: number; power?: number; }
 interface ToolheadStatus { homed_axes?: string; }
 interface BedMeshStatus { profile_name?: string; probed_matrix?: number[][]; }
@@ -190,9 +190,19 @@ function fmtBytes(b?: number) {
   if (b >= 1048576) return `${(b / 1048576).toFixed(0)} Mo`;
   return `${(b / 1024).toFixed(0)} Ko`;
 }
-function parseMcuStats(s?: string): Record<string, number> {
+/** last_stats arrive en chaîne "clé=valeur ..." (anciens Moonraker) ou en
+ *  objet {clé: valeur} (Moonraker récents) — accepter les deux. */
+function parseMcuStats(s?: string | Record<string, unknown>): Record<string, number> {
   if (!s) return {};
   const r: Record<string, number> = {};
+  if (typeof s === 'object') {
+    for (const [k, v] of Object.entries(s)) {
+      const n = typeof v === 'number' ? v : parseFloat(String(v));
+      if (!Number.isNaN(n)) r[k] = n;
+    }
+    return r;
+  }
+  if (typeof s !== 'string') return r;
   for (const m of s.matchAll(/(\w+)=([\d.]+)/g)) r[m[1]] = parseFloat(m[2]);
   return r;
 }
