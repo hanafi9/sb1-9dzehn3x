@@ -692,6 +692,19 @@ export function PrinterDiagnostic({ config, onChange }: { config: PrinterConfig;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connected]);
 
+  // Auto-adopter les UUID depuis la config chargée par Klipper quand l'app
+  // n'en a pas encore — ne remplace JAMAIS une valeur déjà saisie.
+  useEffect(() => {
+    if (!onChange) return;
+    const cfg = objects.configfile?.config ?? {};
+    const ebb = (cfg['mcu toolhead'] ?? cfg['mcu EBB42'])?.['canbus_uuid'];
+    const carto = cfg['cartographer']?.['canbus_uuid'];
+    const patch: Partial<PrinterConfig> = {};
+    if (!config.ebb42Uuid && ebb?.match(/^[0-9a-f]{12}$/i)) patch.ebb42Uuid = ebb;
+    if (!config.cartographerUuid && carto?.match(/^[0-9a-f]{12}$/i)) patch.cartographerUuid = carto;
+    if (Object.keys(patch).length) onChange(patch);
+  }, [objects, config.ebb42Uuid, config.cartographerUuid, onChange]);
+
   const sendGcode = async (cmd: string) => {
     setSending(cmd); setSendFeedback(null);
     try {

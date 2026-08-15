@@ -136,8 +136,21 @@ type TabId = typeof TABS[number]['id'];
 
 // ─── App ──────────────────────────────────────────────────────────────────────
 
+const LS_CONFIG = 'ratos.printerConfig';
+
+/** Charge la config persistée, fusionnée avec les défauts (les champs
+ *  ajoutés par les mises à jour de l'app gardent leur valeur par défaut). */
+function loadConfig(): PrinterConfig {
+  const base = defaultConfig(400);
+  try {
+    const saved = localStorage.getItem(LS_CONFIG);
+    if (saved) return { ...base, ...JSON.parse(saved) as Partial<PrinterConfig> };
+  } catch { /* JSON corrompu ou stockage indisponible → défauts */ }
+  return base;
+}
+
 export default function App() {
-  const [config, setConfig] = useState<PrinterConfig>(defaultConfig(400));
+  const [config, setConfig] = useState<PrinterConfig>(loadConfig);
   const [activeTab, setActiveTab] = useState<TabId>('hardware');
 
   const update = (partial: Partial<PrinterConfig>) =>
@@ -148,6 +161,7 @@ export default function App() {
         next.meshMaxY = partial.printerSize - 20;
         next.mainBoardSerial = prev.mainBoardSerial;
       }
+      try { localStorage.setItem(LS_CONFIG, JSON.stringify(next)); } catch { /* stockage plein */ }
       return next;
     });
 
