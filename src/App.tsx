@@ -9,9 +9,10 @@ import { PrinterTerminal } from './components/PrinterTerminal';
 import { WiringDiagrams } from './components/WiringDiagrams';
 import { RatOSGuide } from './components/RatOSGuide';
 import { RatOSMigration } from './components/RatOSMigration';
+import { ConfigAudit } from './components/ConfigAudit';
 import {
   Cpu, Wifi, Crosshair, Grid3X3, FileCode, Activity,
-  Cable, Layers, Terminal, Rocket,
+  Cable, Layers, Terminal, Rocket, FileSearch,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -126,6 +127,7 @@ const TABS = [
   { id: 'mesh',        label: 'Bed Mesh',       icon: Grid3X3,  desc: 'Cartographie plateau' },
   { id: 'config',      label: 'printer.cfg',    icon: FileCode, desc: 'Config finale complète' },
   { id: 'diagnostic',  label: 'Diagnostic',     icon: Activity, desc: 'Connexion Moonraker live' },
+  { id: 'audit',       label: 'Audit .cfg',     icon: FileSearch, desc: 'Vérifier le printer.cfg réel' },
   { id: 'terminal',    label: 'Terminal',       icon: Terminal, desc: 'Console, shell, klippy.log' },
   { id: 'migration',   label: 'Migration 2.1.0', icon: Rocket,  desc: 'RC2 → 2.1.0 + flash MCU' },
 ] as const;
@@ -222,6 +224,7 @@ export default function App() {
         {activeTab === 'mesh'       && <BedMeshMap        config={config} onChange={update} onNext={() => setActiveTab('config')} />}
         {activeTab === 'config'     && <ConfigGenerator   config={config} />}
         {activeTab === 'diagnostic' && <PrinterDiagnostic config={config} onChange={update} />}
+        {activeTab === 'audit'      && <ConfigAudit       config={config} />}
         {activeTab === 'terminal'   && <PrinterTerminal   config={config} />}
         {activeTab === 'migration'  && <RatOSMigration    config={config} />}
       </main>
