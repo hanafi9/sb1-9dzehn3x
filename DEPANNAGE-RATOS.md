@@ -119,6 +119,57 @@ démarrage, sans rien piloter — un point de panne gratuit.
 
 ---
 
+## Panne 5 — `stepper_z2` ne tourne jamais (EN COURS)
+
+**Constat.** `FORCE_MOVE STEPPER=stepper_z DISTANCE=5 VELOCITY=5` et son
+équivalent sur `stepper_z1` entraînent chacun leur vis. La même commande sur
+`stepper_z2` ne produit rien : pas de mouvement, pas de bruit, pas d'erreur.
+
+Les trois moteurs sont neufs et la carte Octopus Pro est neuve. Ça n'élimine
+qu'une cause sur trois :
+
+- un moteur neuf ne garantit pas son **câble** (sertissage, connecteur JST) ;
+- un driver qui répond en **UART** ne garantit pas son étage de puissance —
+  déjà vérifié sur l'ancienne carte, où `DUMP_TMC` passait avec un pont en H
+  mort. Les deux circuits sont indépendants ;
+- une carte neuve ne garantit pas un **slot** exempt de soudure froide.
+
+**Chaîne de preuve invalidée.** Une première série de tests concluait à deux
+pannes indépendantes (branche arrière + slot MOTOR4). Cette conclusion est
+retirée : entre les deux séries, le mapping physique s'est inversé
+(`stepper_z` est passé de avant-gauche à avant-droite, `stepper_z1`
+l'inverse). Des câbles ont donc bougé sans être tracés, et le test
+« moteur arrière sur MOTOR3 → rien » ne prouve plus rien.
+
+**Protocole de reprise.** Un drapeau de scotch sur chacun des trois
+accouplements d'abord : un accouplement desserré donne un moteur qui tourne et
+une vis immobile, indiscernable d'une panne électrique tant qu'on regarde le
+plateau au lieu de l'arbre.
+
+Puis deux tests, un seul changement à la fois, résultats notés séparément :
+
+| Test | Manipulation | Commande |
+|---|---|---|
+| A | moteur arrière **et son câble** sur MOTOR2 | `FORCE_MOVE STEPPER=stepper_z DISTANCE=5 VELOCITY=5` |
+| B | moteur avant-droit **et son câble** sur MOTOR4 | `FORCE_MOVE STEPPER=stepper_z2 DISTANCE=5 VELOCITY=5` |
+
+| A | B | Conclusion |
+|---|---|---|
+| rien | tourne | branche arrière (moteur ou câble) |
+| tourne | rien | slot MOTOR4 de la carte |
+| rien | rien | les deux, indépendamment |
+| tourne | tourne | erreur de suivi antérieure — rien à réparer |
+
+**Mesure d'arbitrage** si le test A échoue — au multimètre, câble débranché,
+côté connecteur carte : chaque paire à 2–4 Ω, les deux paires isolées entre
+elles. Refaire la mesure sur le connecteur du moteur pour séparer câble et
+moteur. Cette mesure ne fait intervenir ni Klipper ni la carte.
+
+**Contournement** si MOTOR4 est mort : déplacer `stepper_z2` sur MOTOR5, voir
+`machine/z-axis.cfg`.
+
+---
+
 ## Dette technique restante
 
 ### Firmware des MCU en retard d'une version majeure
@@ -150,6 +201,19 @@ Trois issues durables :
   `moonraker.conf` — on garde Cartographer, on perd les mises à jour Klipper.
 - **Passer à Beacon**, supporté nativement par RatOS (`RatOS/z-probe/beacon.cfg`)
   et déjà installé sur cette machine. Suppose un changement de matériel de sonde.
+
+### Axe Z : sens inversé, `z_tilt` à réordonner, ventilateur muet
+
+Réunis dans `machine/z-axis.cfg`, à appliquer quand les trois vis tourneront :
+
+- les trois `dir_pin` Z sont à inverser (un `DISTANCE` positif fait monter le
+  plateau, l'inverse de la convention Klipper) ;
+- `[z_tilt]` n'apparaît pas dans `printer.cfg`, mais RatOS en fournit un pour
+  la VCore 3 dans ses bricks — à vérifier par `grep -rn "^\[z_tilt\]" -A12
+  ~/printer_data/config/RatOS/printers/` avant d'écrire quoi que ce soit. S'il
+  existe, seul l'**ordre** des lignes de `z_positions` est à corriger pour
+  suivre le câblage réel ; les coordonnées elles-mêmes sont justes ;
+- le ventilateur sur CNC FAN2 (`PD12`) n'était piloté par aucune section.
 
 ### Beacon et Cartographer installés en parallèle
 
