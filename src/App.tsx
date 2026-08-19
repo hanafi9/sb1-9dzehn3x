@@ -10,9 +10,10 @@ import { WiringDiagrams } from './components/WiringDiagrams';
 import { RatOSGuide } from './components/RatOSGuide';
 import { RatOSMigration } from './components/RatOSMigration';
 import { ConfigAudit } from './components/ConfigAudit';
+import { ConfigFilesGenerator } from './components/ConfigFilesGenerator';
 import {
   Cpu, Wifi, Crosshair, Grid3X3, FileCode, Activity,
-  Cable, Layers, Terminal, Rocket, FileSearch,
+  Cable, Layers, Terminal, Rocket, FileSearch, Files,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -126,6 +127,7 @@ const TABS = [
   { id: 'probe',       label: 'Cartographer',   icon: Crosshair,desc: 'Config probe, offsets' },
   { id: 'mesh',        label: 'Bed Mesh',       icon: Grid3X3,  desc: 'Cartographie plateau' },
   { id: 'config',      label: 'printer.cfg',    icon: FileCode, desc: 'Config finale complète' },
+  { id: 'files',       label: 'Générateur .cfg', icon: Files,   desc: 'Macro, LED, Shaketune…' },
   { id: 'diagnostic',  label: 'Diagnostic',     icon: Activity, desc: 'Connexion Moonraker live' },
   { id: 'audit',       label: 'Audit .cfg',     icon: FileSearch, desc: 'Vérifier le printer.cfg réel' },
   { id: 'terminal',    label: 'Terminal',       icon: Terminal, desc: 'Console, shell, klippy.log' },
@@ -237,6 +239,7 @@ export default function App() {
         {activeTab === 'probe'      && <CartographerSetup config={config} onChange={update} onNext={() => setActiveTab('mesh')} />}
         {activeTab === 'mesh'       && <BedMeshMap        config={config} onChange={update} onNext={() => setActiveTab('config')} />}
         {activeTab === 'config'     && <ConfigGenerator   config={config} />}
+        {activeTab === 'files'      && <ConfigFilesGenerator config={config} />}
         {activeTab === 'diagnostic' && <PrinterDiagnostic config={config} onChange={update} />}
         {activeTab === 'audit'      && <ConfigAudit       config={config} />}
         {activeTab === 'terminal'   && <PrinterTerminal   config={config} />}
