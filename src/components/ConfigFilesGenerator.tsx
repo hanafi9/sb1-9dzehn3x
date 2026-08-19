@@ -191,6 +191,162 @@ gcode:
 `;
 }
 
+// ── leds-effects.cfg (LED animées via le plugin led_effect) ──────────────────
+
+function genLedsEffects(c: PrinterConfig): string {
+  if (!c.hasNeopixel) {
+    return `# Les effets animés nécessitent un bandeau Neopixel/WS2812.
+# Active « Neopixel » dans l'onglet Matériel pour générer ce fichier.
+`;
+  }
+  const cob = c.hasCOBLed;
+  return `#############################################################################################################
+### LED ANIMÉES — inspirées d'une config VCore 3 (effets par état d'impression)
+###
+### ⚠️ NÉCESSITE le plugin klipper-led_effect (Julian Schill) :
+###     cd ~ && git clone https://github.com/julianschill/klipper-led_effect
+###     cd klipper-led_effect && ./install-led_effect.sh
+###
+### ⚠️ À utiliser À LA PLACE de leds.cfg (pas les deux : mêmes noms de macros).
+### Le bandeau référencé est [neopixel chamber_leds] défini dans printer.cfg.
+#############################################################################################################
+
+[led_effect e_travail]
+leds:
+    neopixel:chamber_leds
+layers:
+    static 1 0 top (0.6, 0.6, 0.6)          # blanc doux — impression
+autostart: false
+
+[led_effect e_scan]
+leds:
+    neopixel:chamber_leds
+layers:
+    chase 0.8 10 top (1.0, 1.0, 1.0)        # chenillard blanc — palpage/homing
+autostart: false
+frame_rate: 20
+
+[led_effect e_chauffe]
+leds:
+    neopixel:chamber_leds
+layers:
+    breathing 3 1 top (1.0, 0.25, 0.0)      # respiration orange — chauffe
+autostart: false
+frame_rate: 12
+
+[led_effect e_termine]
+leds:
+    neopixel:chamber_leds
+layers:
+    static 1 0 top (0.0, 1.0, 0.0)          # vert franc — terminé
+autostart: false
+
+[led_effect e_pause]
+leds:
+    neopixel:chamber_leds
+layers:
+    breathing 3 1 top (1.0, 0.30, 0.0)      # respiration ambre — pause
+autostart: false
+frame_rate: 10
+
+[led_effect e_erreur]
+leds:
+    neopixel:chamber_leds
+layers:
+    blink 1 0.5 top (1.0, 0.0, 0.0)         # clignotement rouge — erreur
+autostart: false
+run_on_error: true                          # reste allumé même en shutdown
+frame_rate: 10
+
+# ── Point d'entrée unique ───────────────────────────────────────────────────
+[gcode_macro _LED]
+description: STATE=off|travail|scan|chauffe|termine|pause|erreur
+gcode:
+    {% set etat = params.STATE|default('travail')|lower %}
+    {% if etat == 'off' %}
+        STOP_LED_EFFECTS
+        SET_LED LED=chamber_leds RED=0 GREEN=0 BLUE=0 SYNC=0
+    {% elif etat in ['travail','scan','chauffe','termine','pause','erreur'] %}
+        SET_LED_EFFECT EFFECT=e_{etat} REPLACE=1 RESTART=1
+    {% else %}
+        { action_raise_error("_LED : état inconnu '%s'" % etat) }
+    {% endif %}
+
+# ── Alias compatibles avec START_PRINT / END_PRINT ──────────────────────────
+[gcode_macro LED_SCAN]
+gcode:
+    _LED STATE=scan
+[gcode_macro LED_CHAUFFE]
+gcode:
+    _LED STATE=chauffe
+[gcode_macro LED_TRAVAIL]
+gcode:
+    _LED STATE=travail${cob ? '\n    SET_PIN PIN=cob_led VALUE=1.0' : ''}
+[gcode_macro LED_TERMINE]
+gcode:
+    _LED STATE=termine
+[gcode_macro LED_PAUSE]
+gcode:
+    _LED STATE=pause
+[gcode_macro LED_ERREUR]
+gcode:
+    _LED STATE=erreur
+`;
+}
+
+// ── client-macros.cfg (hooks Mainsail : pause/reprise/annulation → LED) ───────
+
+function genClientHooks(): string {
+  return `#############################################################################################################
+### HOOKS MAINSAIL — les LED suivent automatiquement PAUSE / RESUME / CANCEL
+### À inclure APRÈS mainsail.cfg dans printer.cfg.
+#############################################################################################################
+
+[gcode_macro _CLIENT_VARIABLE]
+variable_use_custom_pos   : False
+variable_custom_park_x    : 0.0
+variable_custom_park_y    : 0.0
+variable_park_at_cancel   : True
+variable_retract          : 1.0
+variable_cancel_retract   : 3.0
+variable_speed_retract    : 35.0
+variable_unretract        : 1.0
+variable_speed_unretract  : 35.0
+variable_speed_hop        : 15.0
+variable_speed_move       : 300.0
+variable_user_pause_macro : "LED_PAUSE"
+variable_user_resume_macro: "LED_TRAVAIL"
+variable_user_cancel_macro: "LED_ERREUR"
+gcode:
+`;
+}
+
+// ── timelapse.cfg (nécessite le plugin moonraker-timelapse) ──────────────────
+
+function genTimelapse(c: PrinterConfig): string {
+  const parkX = 20;
+  const parkY = c.printerSize - 20;
+  return `#############################################################################################################
+### TIMELAPSE — nécessite le plugin moonraker-timelapse installé
+###     https://github.com/mainsail-crew/moonraker-timelapse
+### Le parking est calé sur ce plateau ${c.printerSize}×${c.printerSize}.
+#############################################################################################################
+
+[timelapse]
+output_path: ~/timelapse/
+frame_path: /tmp/timelapse/
+ffmpeg_binary_path: /usr/bin/ffmpeg
+
+# Position de parking de la tête pendant la prise de vue (coin arrière-gauche)
+[gcode_macro TIMELAPSE_TAKE_FRAME]
+rename_existing: _TIMELAPSE_TAKE_FRAME_BASE
+gcode:
+    {% if printer['gcode_macro _TIMELAPSE_TAKE_FRAME_BASE'] is defined %}
+        _TIMELAPSE_TAKE_FRAME_BASE PARK_X=${parkX} PARK_Y=${parkY} {rawparams}
+    {% endif %}
+`;
+}
+
 // ── Shaketune_macros.cfg (générique) ─────────────────────────────────────────
 
 function genShaketune(): string {
@@ -253,7 +409,10 @@ restart_threshold: 10
 
 const FILES: CfgFile[] = [
   { name: 'Macro.cfg', desc: 'Macros d\'impression : START_PRINT, END_PRINT, PARK_HOTEND, PRIME_LINE', generate: genMacros },
-  { name: 'leds.cfg', desc: 'Macros LED par étape (scan, chauffe, travail, terminé…)', generate: genLeds },
+  { name: 'leds.cfg', desc: 'Macros LED par étape — version simple (SET_LED)', generate: genLeds },
+  { name: 'leds-effects.cfg', desc: 'LED animées par état — chenillard, respiration…', hint: 'Nécessite le plugin led_effect · à utiliser au lieu de leds.cfg', generate: genLedsEffects },
+  { name: 'client-macros.cfg', desc: 'Hooks Mainsail : pause/reprise/annulation → LED', generate: genClientHooks },
+  { name: 'timelapse.cfg', desc: 'Timelapse, parking calé sur le plateau', hint: 'Nécessite le plugin moonraker-timelapse', generate: genTimelapse },
   { name: 'Shaketune_macros.cfg', desc: 'Raccourcis Shake&Tune (input shaper)', hint: 'Nécessite le plugin Shake&Tune', generate: genShaketune },
   { name: 'sonar.conf', desc: 'Garde la connexion WiFi active', generate: genSonar },
 ];
