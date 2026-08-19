@@ -119,7 +119,55 @@ démarrage, sans rien piloter — un point de panne gratuit.
 
 ---
 
-## Panne 5 — `stepper_z2` ne tourne jamais (EN COURS)
+## Panne 5 — deux slots moteur morts sur une Octopus Pro neuve (RÉSOLUE)
+
+**Constat final.** Sur une carte BTT Octopus Pro 446 sortie du carton, **deux
+slots ne pilotent pas** :
+
+- **MOTOR3** (`y1_*` : PG4/PC1/PA0, uart PC7) — l'UART répond, mais aucun
+  courant n'atteint le moteur : arbre libre à la main, moteur non maintenu.
+- **MOTOR5** (`z0_*` : PC13/PF0/PF1, uart PE4) — courant présent (moteur dur),
+  mais aucune impulsion de pas ne le fait tourner.
+
+MOTOR4 avait déjà été écarté plus tôt. Trois slots consécutifs défaillants sur
+une carte neuve : défaut de fabrication, pas un hasard.
+
+**Ce qui a prouvé que c'était la carte.** L'échange des deux câbles moteur
+entre eux, alimentation coupée : la panne est restée sur le **connecteur**, pas
+sur le moteur qui s'y branchait. Les trois moteurs, les trois câbles et les
+trois drivers (tous neufs) sont sains — chacun a fonctionné dès qu'il était
+relié à un bon slot.
+
+**Correctif.** Déplacer les deux steppers vers les slots inutilisés MOTOR6 et
+MOTOR7, avec leurs broches officielles :
+
+```ini
+[stepper_z1]              [stepper_z2]
+step_pin: PE2             step_pin: PE6
+dir_pin: PE3              dir_pin: PA14
+enable_pin: !PD4          enable_pin: !PE0
+[tmc2209 stepper_z1]      [tmc2209 stepper_z2]
+uart_pin: PE1             uart_pin: PD3
+```
+
+Les trois vis tournent. `DUMP_TMC` répond sur les deux nouveaux slots
+(`GSTAT: 0`, `IFCNT` incrémenté) et `FORCE_MOVE` entraîne chaque moteur.
+
+**Méthode — leçon.** Le diagnostic a duré bien trop longtemps parce que le nom
+« z1 » a désigné trois vis différentes au fil des re-câblages, et que des
+conclusions ont été tirées de tests dont le montage avait changé entre-temps.
+Ce qui a débloqué : réduire la config à UN stepper, étiqueter les câbles, et ne
+changer qu'UNE variable par test. L'échange des câbles — le seul test qui
+isolait le connecteur de tout le reste — aurait dû venir en premier.
+
+**Note sécurité.** Une panne qui se déplace de slot en slot au fil des
+manipulations est la signature de drivers extraits/insérés sous tension.
+Toujours couper le 24 V et attendre l'extinction des LED avant de toucher un
+driver.
+
+---
+
+## Panne 5 bis — historique du diagnostic z2 (archivé)
 
 **Constat.** `FORCE_MOVE STEPPER=stepper_z DISTANCE=5 VELOCITY=5` et son
 équivalent sur `stepper_z1` entraînent chacun leur vis. La même commande sur
