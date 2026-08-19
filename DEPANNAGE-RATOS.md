@@ -202,18 +202,51 @@ Trois issues durables :
 - **Passer à Beacon**, supporté nativement par RatOS (`RatOS/z-probe/beacon.cfg`)
   et déjà installé sur cette machine. Suppose un changement de matériel de sonde.
 
-### Axe Z : sens inversé, `z_tilt` à réordonner, ventilateur muet
+### La configuration est autonome, et a perdu les réglages de RatOS
 
-Réunis dans `machine/z-axis.cfg`, à appliquer quand les trois vis tourneront :
+`~/printer_data/config/RatOS/` n'existe pas et `printer.cfg` ne contient aucun
+`[include]` : le fichier a été réécrit à la main. Il n'hérite donc de rien, et
+tout ce que RatOS réglait doit y figurer explicitement.
 
-- les trois `dir_pin` Z sont à inverser (un `DISTANCE` positif fait monter le
-  plateau, l'inverse de la convention Klipper) ;
-- `[z_tilt]` n'apparaît pas dans `printer.cfg`, mais RatOS en fournit un pour
-  la VCore 3 dans ses bricks — à vérifier par `grep -rn "^\[z_tilt\]" -A12
-  ~/printer_data/config/RatOS/printers/` avant d'écrire quoi que ce soit. S'il
-  existe, seul l'**ordre** des lignes de `z_positions` est à corriger pour
-  suivre le câblage réel ; les coordonnées elles-mêmes sont justes ;
-- le ventilateur sur CNC FAN2 (`PD12`) n'était piloté par aucune section.
+La référence reste disponible sur la machine, dans
+`~/printer_data/config/.RatOS_repo_backup/printers/v-core-3/`. Comparer avec
+elle plutôt que deviner. Ce qui manquait, réuni dans `machine/z-axis.cfg` :
+
+| Manque | Référence RatOS |
+|---|---|
+| `[z_tilt]` absent | `400.cfg` — positions mesurées sur le châssis |
+| `max_z_accel: 300` | `speed-limits-basic.cfg` : 30 · `-performance.cfg` : 150 |
+| `minimum_cruise_ratio` absent | fixé à 0.5 dans les deux profils |
+| `position_min` absent sur Z | `steppers.cfg` : `-5`, requis par `z_tilt` |
+| ventilateur CNC FAN2 non piloté | `[controller_fan]` sur `PD12` |
+| trois `dir_pin` Z non inversés | `DISTANCE` positif fait monter le plateau |
+
+### Bruit sur les cinq moteurs — accélérations hors spécification
+
+Symptôme : les cinq moteurs (X, Y et les trois Z) émettent un grognement absent
+avant la reconstruction de la machine.
+
+Deux fausses pistes écartées en cours de route, toutes deux par comparaison
+avec la source RatOS :
+
+- **StealthChop / SpreadCycle.** `stealthchop_threshold: 0` semblait suspect,
+  mais `tmc2209.cfg` livre `stealthchop_threshold: 1` sur les cinq axes —
+  fonctionnellement le même réglage. Ce n'est pas la cause.
+- **`microsteps: 64`.** RatOS utilise 64 sur tous les axes, Z compris. Correct.
+
+La cause est dans `[printer]` : `max_z_accel: 300`, soit le double du profil
+performance de RatOS et dix fois son profil prudent, sur un axe à vis qui
+déplace tout le plateau. `max_accel: 10000` place par ailleurs la machine en
+territoire performance, dont RatOS écrit en tête de fichier :
+
+```
+# DO NOT ENABLE THIS WITHOUT ACTIVELY COOLED STEPPER DRIVERS.
+```
+
+⚠️ Combinaison à risque relevée sur cette machine : profil d'accélération de
+type performance, `run_current: 1.2` sur X et Y — le plafond continu d'un
+TMC2209 avec shunts de 0,110 Ω — et ventilateur de carte non piloté. Le
+`[controller_fan]` est à appliquer avant toute impression.
 
 ### Beacon et Cartographer installés en parallèle
 
