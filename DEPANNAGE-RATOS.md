@@ -201,6 +201,36 @@ Après migration : plus aucune incompatibilité de version — `scanner.py` est
 écrit pour ce Klipper. Les pannes 1, 2 et 6 (patchs sur `cartographer.py`)
 deviennent sans objet.
 
+### Corollaire — le firmware de la sonde doit suivre
+
+`scanner.py` envoie la commande MCU `cartographer_home` avec un paramètre
+`trigger_method` que le firmware **CARTOGRAPHER 2.2.0** ne connaît pas :
+`mcu 'scanner': Command format mismatch`. Il faut flasher la sonde en
+**5.1.0** (dossier `firmware/v2-v3/survey/5.1.0/`, binaire
+`Survey_Cartographer_CAN_1000000_8kib_offset.bin` pour CAN 1 Mbit, offset 8 kib).
+
+Procédure de flash CAN (sonde STM32F042, UUID `4973681e12df`) :
+
+```bash
+sudo systemctl stop klipper
+# La sonde a un node-id attribué par Klipper → canbus_query la voit plus.
+# On la fait sauter en bootloader par une commande CIBLÉE sur son UUID :
+~/klippy-env/bin/python ~/katapult/scripts/flashtool.py -i can0 -u 4973681e12df -r
+~/klippy-env/bin/python ~/katapult/scripts/flashtool.py -i can0 -q   # doit lister l'UUID en "Katapult"
+~/klippy-env/bin/python ~/katapult/scripts/flashtool.py -i can0 -u 4973681e12df \
+  -f ~/cartographer-klipper/firmware/v2-v3/survey/5.1.0/Survey_Cartographer_CAN_1000000_8kib_offset.bin
+sudo systemctl start klipper
+```
+
+⚠️ Piège de diagnostic rencontré : `canbus_query` renvoyait « 0 uuids » alors
+que les trois MCU étaient visibles au dashboard. Ce n'est ni un problème de bus
+ni de câble — une fois Klipper connecté, les cartes ont un node-id et ne
+répondent plus à la requête de découverte (qui ne cherche que les nœuds non
+attribués). La commande `-r` ciblée par UUID, elle, passe toujours.
+
+L'UUID est écrit en dur → seule la sonde est flashée, jamais l'EBB42
+(`564fed93e397`) sur le même bus.
+
 ---
 
 ## Panne 4 — `mcu 'u2c': Unable to connect`
