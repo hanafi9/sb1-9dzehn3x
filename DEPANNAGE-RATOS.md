@@ -106,6 +106,46 @@ dans le Cartographer.
 
 ---
 
+## Panne 6 — `Z_TILT_ADJUST` → `get_offsets() takes 1 positional argument but 2 were given`
+
+**Cause.** Troisième incompatibilité de signature entre le plugin Cartographer
+et Klipper, de la même famille que les pannes 1 et 2.
+
+Le `probe.py` de Klipper appelle désormais la sonde avec un argument :
+
+```python
+# klipper/klippy/extras/probe.py:494
+self.probe_offsets = probe.get_offsets(gcmd)
+```
+
+Mais `cartographer.py` définit la méthode sans l'accepter :
+
+```python
+def get_offsets(self):
+```
+
+D'où `TypeError: get_offsets() takes 1 positional argument but 2 were given`.
+La panne ne se déclenche qu'au premier `Z_TILT_ADJUST` (ou toute opération
+multi-points), seul chemin qui appelle `get_offsets` — inatteignable tant que
+la sonde n'a pas de modèle calibré.
+
+À noter : `scanner.py` du même dépôt a déjà la signature corrigée
+(`get_offsets(self, gcmd=None)`), mais la config charge `[cartographer]`, donc
+`cartographer.py`, resté en retard.
+
+**Correctif.**
+
+```bash
+sed -i 's/def get_offsets(self):/def get_offsets(self, gcmd=None):/' \
+  ~/cartographer-klipper/cartographer.py
+```
+
+Ajouter `gcmd=None` est sans risque : la méthode n'utilise pas l'argument,
+elle l'absorbe seulement. Les deux occurrences du fichier (lignes 240 et 1279)
+sont corrigées d'un coup. `idm.py` porte le même défaut mais n'est pas chargé.
+
+---
+
 ## Panne 4 — `mcu 'u2c': Unable to connect`
 
 **Cause.** Une section `[mcu u2c]` avait été ajoutée à `printer.cfg`.
