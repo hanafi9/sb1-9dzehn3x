@@ -146,6 +146,63 @@ sont corrigées d'un coup. `idm.py` porte le même défaut mais n'est pas charg�
 
 ---
 
+## Panne 7 — `AttributeError: 'list' object has no attribute 'bed_z'` (migration scanner.py)
+
+**Cause.** `cartographer.py` est en retard sur l'API sonde de Klipper. Le
+Klipper récent (v0.13, `homing.py` **standard**, vérifié `git status` propre)
+utilise l'API « probe session » : `probe_session.pull_probed_results()`
+renvoie des objets avec un attribut `.bed_z`. L'ancien `cartographer.py`
+renvoie des listes `[x, y, z]` — d'où le plantage à la première mesure Z d'un
+`G28 Z` ou `Z_TILT_ADJUST`.
+
+Ce n'est pas une coquille : toute l'interface de résultats a changé. La panne 6
+(`get_offsets`) était le premier symptôme, celle-ci le second ; patcher fonction
+par fonction reviendrait à réécrire à la main le module maintenu.
+
+**Ce module maintenu existe déjà** dans le dépôt : `scanner.py`. Il implémente
+la nouvelle API (`.bed_z`, ligne ~1305), enregistre `PROBE` en majuscules
+(pas de panne 1) et a déjà `get_offsets(self, gcmd=None)` (pas de panne 6).
+`cartographer.py` est l'ancien module, gardé pour les Klipper plus anciens
+(comme celui qui fait tourner la config de l'ami de référence).
+
+**Correctif — migrer de `[cartographer]` vers `[scanner]`.** Gabarit officiel :
+`cartographer-klipper/scripts/setup.py`.
+
+Remplacer toute la section `[cartographer]` par :
+
+```ini
+[mcu scanner]
+canbus_uuid: 4973681e12df
+
+[scanner]
+mcu: scanner
+x_offset: 0
+y_offset: 21.1
+backlash_comp: 0.5
+sensor: cartographer
+sensor_alt: carto
+mesh_runs: 2
+
+[temperature_sensor Cartographer_MCU]
+sensor_type: temperature_mcu
+sensor_mcu: scanner
+min_temp: 0
+max_temp: 105
+```
+
+- `[stepper_z] endstop_pin: probe:z_virtual_endstop` reste valide : `scanner.py`
+  enregistre la puce `probe` (scanner.py:309).
+- Retirer le bloc `#*# [cartographer model default]` du bas : format propre à
+  `cartographer.py`, non lu par `scanner`. Recalibration nécessaire.
+- La commande de calibration reste `CARTOGRAPHER_CALIBRATE` (le module scanner
+  l'enregistre — confirmé par son propre `cartographer_ci_test.cfg`).
+
+Après migration : plus aucune incompatibilité de version — `scanner.py` est
+écrit pour ce Klipper. Les pannes 1, 2 et 6 (patchs sur `cartographer.py`)
+deviennent sans objet.
+
+---
+
 ## Panne 4 — `mcu 'u2c': Unable to connect`
 
 **Cause.** Une section `[mcu u2c]` avait été ajoutée à `printer.cfg`.
