@@ -347,6 +347,100 @@ gcode:
 `;
 }
 
+// ── chamber.cfg (caisson régulé + filtration) ───────────────────────────────
+
+function genChamber(c: PrinterConfig): string {
+  if (!c.hasChamberFan && !c.hasChamberSensor) {
+    return `# Active « Ventilateur enceinte » et « Capteur température enceinte »
+# dans l'onglet Matériel pour générer la régulation du caisson.
+`;
+  }
+  return `#############################################################################################################
+### CAISSON — ventilateur régulé en température + filtration
+###
+### ⚠️ REMPLACE le [fan_generic chamber_fan] et les macros CHAMBER_FAN_ON/OFF
+###    de printer.cfg (même broche ${c.chamberFanPin}). Retire-les pour éviter le conflit.
+### Capteur : ${c.chamberSensorPin} (NTC 100K — ajuste sensor_type si besoin).
+#############################################################################################################
+
+[temperature_fan chamber]
+pin: ${c.chamberFanPin}
+sensor_type: Generic 3950
+sensor_pin: ${c.chamberSensorPin}
+control: watermark
+gcode_id: C
+min_temp: 0
+max_temp: 80
+target_temp: 40
+max_speed: 1.0
+min_speed: 0.0
+
+# Filtration douce (à lancer à la main si besoin)
+[gcode_macro START_FILTER]
+gcode:
+    SET_TEMPERATURE_FAN_TARGET TEMPERATURE_FAN=chamber TARGET=5 MIN_SPEED=0.35 MAX_SPEED=0.35
+
+[gcode_macro STOP_FILTER]
+gcode:
+    SET_TEMPERATURE_FAN_TARGET TEMPERATURE_FAN=chamber TARGET=45 MIN_SPEED=0.0 MAX_SPEED=0.40
+
+# Extraction à fond puis retour en douceur — à lancer avant d'ouvrir la porte
+[gcode_macro PURGE_CAISSON]
+description: Extraction 3 min avant ouverture
+gcode:
+    SET_TEMPERATURE_FAN_TARGET TEMPERATURE_FAN=chamber TARGET=5 MIN_SPEED=1.0 MAX_SPEED=1.0
+    UPDATE_DELAYED_GCODE ID=_FIN_PURGE_CAISSON DURATION=180
+
+[delayed_gcode _FIN_PURGE_CAISSON]
+gcode:
+    SET_TEMPERATURE_FAN_TARGET TEMPERATURE_FAN=chamber TARGET=50 MIN_SPEED=0.0 MAX_SPEED=0.40
+`;
+}
+
+// ── moonraker-updates.cfg (gestionnaire de mise à jour des plugins) ──────────
+
+function genMoonrakerUpdates(): string {
+  return `#############################################################################################################
+### GESTIONNAIRE DE MISE À JOUR — plugins Klipper tiers
+### À AJOUTER à la fin de moonraker.conf (ne PAS remplacer le fichier entier).
+###
+### ⚠️ Rappel : mettre à jour cartographer-klipper écrase les patchs manuels
+###    éventuels (voir DEPANNAGE-RATOS.md).
+#############################################################################################################
+
+[update_manager cartographer]
+type: git_repo
+path: ~/cartographer-klipper
+origin: https://github.com/Cartographer3D/cartographer-klipper.git
+managed_services: klipper
+primary_branch: master
+install_script: install.sh
+
+[update_manager led_effect]
+type: git_repo
+path: ~/klipper-led_effect
+origin: https://github.com/julianschill/klipper-led_effect.git
+managed_services: klipper
+primary_branch: master
+
+[update_manager Shake&Tune]
+type: git_repo
+path: ~/klippain_shaketune
+origin: https://github.com/Frix-x/klippain-shaketune.git
+managed_services: klipper
+primary_branch: main
+install_script: install.sh
+requirements: requirements.txt
+
+[update_manager timelapse]
+type: git_repo
+path: ~/moonraker-timelapse
+origin: https://github.com/mainsail-crew/moonraker-timelapse.git
+primary_branch: main
+managed_services: klipper moonraker
+`;
+}
+
 // ── Shaketune_macros.cfg (générique) ─────────────────────────────────────────
 
 function genShaketune(): string {
@@ -412,8 +506,10 @@ const FILES: CfgFile[] = [
   { name: 'leds.cfg', desc: 'Macros LED par étape — version simple (SET_LED)', generate: genLeds },
   { name: 'leds-effects.cfg', desc: 'LED animées par état — chenillard, respiration…', hint: 'Nécessite le plugin led_effect · à utiliser au lieu de leds.cfg', generate: genLedsEffects },
   { name: 'client-macros.cfg', desc: 'Hooks Mainsail : pause/reprise/annulation → LED', generate: genClientHooks },
+  { name: 'chamber.cfg', desc: 'Caisson régulé en température + filtration', hint: 'Remplace fan_generic chamber_fan', generate: genChamber },
   { name: 'timelapse.cfg', desc: 'Timelapse, parking calé sur le plateau', hint: 'Nécessite le plugin moonraker-timelapse', generate: genTimelapse },
   { name: 'Shaketune_macros.cfg', desc: 'Raccourcis Shake&Tune (input shaper)', hint: 'Nécessite le plugin Shake&Tune', generate: genShaketune },
+  { name: 'moonraker-updates.cfg', desc: 'Gestionnaire de mise à jour des plugins', hint: 'À ajouter à moonraker.conf', generate: genMoonrakerUpdates },
   { name: 'sonar.conf', desc: 'Garde la connexion WiFi active', generate: genSonar },
 ];
 
