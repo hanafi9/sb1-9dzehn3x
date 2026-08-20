@@ -397,6 +397,59 @@ gcode:
 `;
 }
 
+// ── filament-sensor.cfg (BTT Smart Filament Sensor V1.0) ─────────────────────
+
+function genFilamentSensor(c: PrinterConfig): string {
+  const hasLeds = c.hasNeopixel || c.hasCOBLed;
+  return `#############################################################################################################
+### BIGTREETECH SMART FILAMENT SENSOR V1.0 — sur l'Octopus
+###
+### Capteur combiné : détecte la FIN de filament ET l'ABSENCE DE MOUVEMENT
+### (bourrage / extrudeur qui patine). C'est un capteur de MOUVEMENT : il
+### déclenche si l'extrudeur pousse « detection_length » mm sans que la roue
+### du capteur ne tourne.
+###
+### CÂBLAGE (Octopus) :
+###   Branché ici sur le port ENDSTOP « Z-STOP » (PG10), libre car le Z est
+###   géré par le Cartographer. Connecteur 3 fils du SFS :
+###     - Signal → broche SIGNAL du port Z-STOP (PG10)
+###     - GND    → broche GND du port
+###     - 5V     → une sortie 5V de la carte (le SFS V1.0 est alimenté)
+###   Si tu préfères un autre port libre : PG6 (X-STOP, libre car X sur EBB42),
+###   ou PG11..PG15. Remplace alors PG10 partout ci-dessous.
+###
+###   Si Klipper signale « runout » en permanence, inverse la logique du pin :
+###     ^PG10  <->  ^!PG10
+#############################################################################################################
+
+[filament_motion_sensor SFS]
+switch_pin: ^PG10
+detection_length: 7.0            # mm d'extrusion sans mouvement avant alarme (V1.0 : ~7 mm)
+extruder: extruder
+pause_on_runout: True
+runout_gcode:
+    M117 Filament : fin ou bourrage !${hasLeds ? '\n    LED_ERREUR' : ''}
+    PAUSE
+insert_gcode:
+    M117 Filament détecté
+
+# Activer / désactiver à la volée (ex : couper pendant un chargement manuel)
+[gcode_macro SFS_ENABLE]
+gcode:
+    SET_FILAMENT_SENSOR SENSOR=SFS ENABLE=1
+
+[gcode_macro SFS_DISABLE]
+gcode:
+    SET_FILAMENT_SENSOR SENSOR=SFS ENABLE=0
+
+#############################################################################################################
+### Conseil : dans START_PRINT, mets « SFS_ENABLE » juste après PRIME_LINE
+### (filament chargé), et « SFS_DISABLE » dans END_PRINT. Évite les fausses
+### alertes pendant la purge et les mouvements à vide.
+#############################################################################################################
+`;
+}
+
 // ── moonraker-updates.cfg (gestionnaire de mise à jour des plugins) ──────────
 
 function genMoonrakerUpdates(): string {
@@ -507,6 +560,7 @@ const FILES: CfgFile[] = [
   { name: 'leds-effects.cfg', desc: 'LED animées par état — chenillard, respiration…', hint: 'Nécessite le plugin led_effect · à utiliser au lieu de leds.cfg', generate: genLedsEffects },
   { name: 'client-macros.cfg', desc: 'Hooks Mainsail : pause/reprise/annulation → LED', generate: genClientHooks },
   { name: 'chamber.cfg', desc: 'Caisson régulé en température + filtration', hint: 'Remplace fan_generic chamber_fan', generate: genChamber },
+  { name: 'filament-sensor.cfg', desc: 'BTT Smart Filament Sensor V1.0 (fin + bourrage)', hint: 'Port Z-STOP libre (PG10)', generate: genFilamentSensor },
   { name: 'timelapse.cfg', desc: 'Timelapse, parking calé sur le plateau', hint: 'Nécessite le plugin moonraker-timelapse', generate: genTimelapse },
   { name: 'Shaketune_macros.cfg', desc: 'Raccourcis Shake&Tune (input shaper)', hint: 'Nécessite le plugin Shake&Tune', generate: genShaketune },
   { name: 'moonraker-updates.cfg', desc: 'Gestionnaire de mise à jour des plugins', hint: 'À ajouter à moonraker.conf', generate: genMoonrakerUpdates },
