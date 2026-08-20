@@ -71,11 +71,18 @@ ${hasLeds ? ledChauffe + '\n' : ''}    M117 Chauffe buse {HOTEND|int}C...
 ${ledOn}
     M117 Purge...
     PRIME_LINE
+    # Capteur de filament : activé une fois le filament chargé (si présent)
+    {% if printer['filament_motion_sensor SFS'] is defined %}
+        SET_FILAMENT_SENSOR SENSOR=SFS ENABLE=1
+    {% endif %}
     M117 Impression...
 
 [gcode_macro END_PRINT]
 gcode:
     M400
+    {% if printer['filament_motion_sensor SFS'] is defined %}
+        SET_FILAMENT_SENSOR SENSOR=SFS ENABLE=0
+    {% endif %}
     M140 S0
     M104 S0
     M106 S0
