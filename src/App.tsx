@@ -11,9 +11,10 @@ import { RatOSGuide } from './components/RatOSGuide';
 import { RatOSMigration } from './components/RatOSMigration';
 import { ConfigAudit } from './components/ConfigAudit';
 import { ConfigFilesGenerator } from './components/ConfigFilesGenerator';
+import { AnomalyDetection } from './components/AnomalyDetection';
 import {
   Cpu, Wifi, Crosshair, Grid3X3, FileCode, Activity,
-  Cable, Layers, Terminal, Rocket, FileSearch, Files,
+  Cable, Layers, Terminal, Rocket, FileSearch, Files, Eye,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -129,6 +130,7 @@ const TABS = [
   { id: 'config',      label: 'printer.cfg',    icon: FileCode, desc: 'Config finale complète' },
   { id: 'files',       label: 'Générateur .cfg', icon: Files,   desc: 'Macro, LED, Shaketune…' },
   { id: 'diagnostic',  label: 'Diagnostic',     icon: Activity, desc: 'Connexion Moonraker live' },
+  { id: 'anomaly',     label: 'Détection IA',    icon: Eye,      desc: 'Anti-spaghetti n8n + GPT-4o' },
   { id: 'audit',       label: 'Audit .cfg',     icon: FileSearch, desc: 'Vérifier le printer.cfg réel' },
   { id: 'terminal',    label: 'Terminal',       icon: Terminal, desc: 'Console, shell, klippy.log' },
   { id: 'migration',   label: 'Migration 2.1.0', icon: Rocket,  desc: 'RC2 → 2.1.0 + flash MCU' },
@@ -241,6 +243,7 @@ export default function App() {
         {activeTab === 'config'     && <ConfigGenerator   config={config} />}
         {activeTab === 'files'      && <ConfigFilesGenerator config={config} />}
         {activeTab === 'diagnostic' && <PrinterDiagnostic config={config} onChange={update} />}
+        {activeTab === 'anomaly'    && <AnomalyDetection />}
         {activeTab === 'audit'      && <ConfigAudit       config={config} />}
         {activeTab === 'terminal'   && <PrinterTerminal   config={config} />}
         {activeTab === 'migration'  && <RatOSMigration    config={config} />}
