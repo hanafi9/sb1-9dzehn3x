@@ -125,6 +125,165 @@ gcode:
 `;
 }
 
+// ── macros-utiles.cfg (confort quotidien : filament, préchauffe, tests) ──────
+
+function genUtilityMacros(c: PrinterConfig): string {
+  const hasLeds = c.hasNeopixel || c.hasCOBLed;
+  const half = Math.round(c.printerSize / 2);
+  const back = c.printerSize - 5;
+  const hasSFS = true; // le capteur SFS est géré dans filament-sensor.cfg
+  const sfsOff = hasSFS
+    ? "    {% if printer['filament_motion_sensor SFS'] is defined %}\n        SET_FILAMENT_SENSOR SENSOR=SFS ENABLE=0\n    {% endif %}\n"
+    : '';
+  const sfsOn = hasSFS
+    ? "    {% if printer['filament_motion_sensor SFS'] is defined %}\n        SET_FILAMENT_SENSOR SENSOR=SFS ENABLE=1\n    {% endif %}\n"
+    : '';
+
+  return `#############################################################################################################
+### MACROS UTILES — confort au quotidien (VCore 3.1 ${c.printerSize}×${c.printerSize})
+### Filament, préchauffage, parking, tests. Centre plateau calculé : X${half} Y${half}.
+###
+### Include : ajoute [include macros-utiles.cfg] en haut de printer.cfg.
+### ⚠️ Retire de printer.cfg toute macro du même nom pour éviter les doublons.
+#############################################################################################################
+
+# ── Filament ────────────────────────────────────────────────────────────────
+[gcode_macro LOAD_FILAMENT]
+description: Charge et purge le filament (chauffe si besoin)
+gcode:
+    {% set T = params.TEMP|default(220)|int %}
+${sfsOff}    {% if printer.extruder.temperature < T - 5 %}
+        M117 Chauffe buse {T}C...
+        M109 S{T}
+    {% endif %}
+    M83
+    G1 E60 F300                      # amène le filament jusqu'au hotend
+    G1 E40 F150                      # purge lente
+    M82
+    M117 Filament chargé
+${sfsOn}
+[gcode_macro UNLOAD_FILAMENT]
+description: Rétracte et retire le filament (chauffe si besoin)
+gcode:
+    {% set T = params.TEMP|default(220)|int %}
+${sfsOff}    {% if printer.extruder.temperature < T - 5 %}
+        M117 Chauffe buse {T}C...
+        M109 S{T}
+    {% endif %}
+    M83
+    G1 E10 F300                      # petite poussée (décolle le bouchon)
+    G1 E-60 F1000                    # retire le filament
+    M82
+    M117 Filament retiré
+
+[gcode_macro M600]
+description: Changement de filament (parking + rétraction)
+gcode:
+    {% set X = ${half} %}
+    {% set Y = 20 %}
+    {% set Z = 20 %}
+    SAVE_GCODE_STATE NAME=M600
+    PAUSE
+    G91
+    G1 E-2 F1000
+    {% set z_lift = [printer.toolhead.position.z + Z, printer.toolhead.axis_maximum.z]|min %}
+    G90
+    G1 Z{z_lift} F900
+    G1 X{X} Y{Y} F6000
+    M117 Change le filament puis RESUME
+    RESTORE_GCODE_STATE NAME=M600
+
+# ── Préchauffage rapide (boutons Mainsail) ──────────────────────────────────
+[gcode_macro PREHEAT_PLA]
+description: Lit 60 / buse 210
+gcode:
+${hasLeds ? '    LED_CHAUFFE\n' : ''}    SET_HEATER_TEMPERATURE HEATER=heater_bed TARGET=60
+    SET_HEATER_TEMPERATURE HEATER=extruder TARGET=210
+
+[gcode_macro PREHEAT_PETG]
+description: Lit 80 / buse 240
+gcode:
+${hasLeds ? '    LED_CHAUFFE\n' : ''}    SET_HEATER_TEMPERATURE HEATER=heater_bed TARGET=80
+    SET_HEATER_TEMPERATURE HEATER=extruder TARGET=240
+
+[gcode_macro PREHEAT_ABS]
+description: Lit 100 / buse 245
+gcode:
+${hasLeds ? '    LED_CHAUFFE\n' : ''}    SET_HEATER_TEMPERATURE HEATER=heater_bed TARGET=100
+    SET_HEATER_TEMPERATURE HEATER=extruder TARGET=245
+
+[gcode_macro COOLDOWN]
+description: Coupe tous les chauffages et ventilos
+gcode:
+    TURN_OFF_HEATERS
+    M107
+${hasLeds ? '    LED_TERMINE\n' : ''}    M117 Refroidissement
+
+# ── Parking / positionnement ────────────────────────────────────────────────
+[gcode_macro PARK_CENTER]
+description: Monte de 20mm et centre la tête
+gcode:
+    {% if "xyz" not in printer.toolhead.homed_axes %}
+        G28
+    {% endif %}
+    {% set z = [printer.toolhead.position.z + 20, printer.toolhead.axis_maximum.z]|min %}
+    G90
+    G1 Z{z} F1500
+    G1 X${half} Y${half} F6000
+
+[gcode_macro FRONT]
+description: Amène la tête devant (maintenance)
+gcode:
+    {% if "xyz" not in printer.toolhead.homed_axes %}
+        G28
+    {% endif %}
+    G90
+    G1 Z50 F1500
+    G1 X${half} Y15 F6000
+
+[gcode_macro BED_BACK]
+description: Avance le plateau tout au fond (accès tête)
+gcode:
+    {% if "xyz" not in printer.toolhead.homed_axes %}
+        G28
+    {% endif %}
+    G90
+    G1 Z100 F1500
+    G1 X${half} Y${back} F6000
+
+# ── Tests ───────────────────────────────────────────────────────────────────
+[gcode_macro TEST_SPEED]
+description: Teste vitesse/accel en diagonale (défaut 300mm/s)
+gcode:
+    {% set speed = params.SPEED|default(300)|int %}
+    {% set iterations = params.ITERATIONS|default(5)|int %}
+    {% set mn = 30 %}
+    {% set mx_x = printer.toolhead.axis_maximum.x - 30 %}
+    {% set mx_y = printer.toolhead.axis_maximum.y - 30 %}
+    G28
+    G90
+    {% for i in range(iterations) %}
+        G1 X{mn} Y{mn} F{speed*60}
+        G1 X{mx_x} Y{mx_y} F{speed*60}
+        G1 X{mn} Y{mx_y} F{speed*60}
+        G1 X{mx_x} Y{mn} F{speed*60}
+    {% endfor %}
+    G28
+    M117 Test vitesse {speed}mm/s OK
+
+[gcode_macro CALIBRATION_CUBE_PREP]
+description: Home + Z-Tilt + mesh, prêt à imprimer
+gcode:
+    G28
+    Z_TILT_ADJUST
+    G28 Z
+    BED_MESH_CLEAR
+    BED_MESH_CALIBRATE
+    PARK_CENTER
+    M117 Prêt à imprimer
+`;
+}
+
 // ── leds.cfg (macros d'état, sans le plugin led_effect) ──────────────────────
 
 function genLeds(c: PrinterConfig): string {
@@ -562,6 +721,7 @@ restart_threshold: 10
 
 const FILES: CfgFile[] = [
   { name: 'Macro.cfg', desc: 'Macros d\'impression : START_PRINT, END_PRINT, PARK_HOTEND, PRIME_LINE', generate: genMacros },
+  { name: 'macros-utiles.cfg', desc: 'Confort : LOAD/UNLOAD, M600, préchauffe PLA/PETG/ABS, PARK, TEST_SPEED', hint: 'Boutons Mainsail pratiques au quotidien', generate: genUtilityMacros },
   { name: 'leds.cfg', desc: 'Macros LED par étape — version simple (SET_LED)', generate: genLeds },
   { name: 'leds-effects.cfg', desc: 'LED animées par état — chenillard, respiration…', hint: 'Nécessite le plugin led_effect · à utiliser au lieu de leds.cfg', generate: genLedsEffects },
   { name: 'client-macros.cfg', desc: 'Hooks Mainsail : pause/reprise/annulation → LED', generate: genClientHooks },
