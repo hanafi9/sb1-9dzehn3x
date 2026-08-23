@@ -284,6 +284,135 @@ gcode:
 `;
 }
 
+// ── resonance-macros.cfg (accéléromètre + input shaper) ─────────────────────
+
+function genResonance(c: PrinterConfig): string {
+  const half = Math.round(c.printerSize / 2);
+  return `#############################################################################################################
+### ACCÉLÉROMÈTRE & COMPENSATION DE RÉSONANCE (Input Shaper)
+###
+### ⚠️ PRÉREQUIS dans printer.cfg (une seule fois) :
+###   [adxl345]                     # ou lis2dw selon ta puce (Cartographer = souvent lis2dw)
+###   cs_pin: ...                   # laisse la config existante de ton accéléromètre
+###
+###   [resonance_tester]
+###   accel_chip: adxl345           # doit correspondre au nom de la puce ci-dessus
+###   probe_points:
+###       ${half}, ${half}, 20        # centre du plateau ${c.printerSize}×${c.printerSize}
+###
+### ⚠️ Côté logiciel (une fois, en SSH) : sudo apt install python3-numpy python3-matplotlib
+###   pour générer les graphiques de résonance.
+#############################################################################################################
+
+# ── Vérifier que l'accéléromètre répond ─────────────────────────────────────
+[gcode_macro ACCEL_TEST]
+description: Lit l'accéléromètre (doit renvoyer x/y/z ~ 0,0,9800)
+gcode:
+    ACCELEROMETER_QUERY
+
+[gcode_macro ACCEL_NOISE]
+description: Mesure le bruit de fond de l'accéléromètre (moteurs à l'arrêt)
+gcode:
+    MEASURE_AXES_NOISE
+
+# ── Mesure des résonances (génère des .png dans ~/printer_data/config) ───────
+[gcode_macro RESONANCE_X]
+description: Test résonances axe X
+gcode:
+    {% if "xyz" not in printer.toolhead.homed_axes %}
+        G28
+    {% endif %}
+    G90
+    G1 X${half} Y${half} Z20 F6000
+    TEST_RESONANCES AXIS=X
+    M117 Résonances X : voir ~/printer_data/config/resonances_x_*.csv
+
+[gcode_macro RESONANCE_Y]
+description: Test résonances axe Y
+gcode:
+    {% if "xyz" not in printer.toolhead.homed_axes %}
+        G28
+    {% endif %}
+    G90
+    G1 X${half} Y${half} Z20 F6000
+    TEST_RESONANCES AXIS=Y
+    M117 Résonances Y : voir ~/printer_data/config/resonances_y_*.csv
+
+# ── Calibration automatique de l'input shaper (le plus simple) ──────────────
+[gcode_macro CALIBRATE_SHAPER]
+description: Auto-calibre l'input shaper X+Y puis sauvegarde
+gcode:
+    {% if "xyz" not in printer.toolhead.homed_axes %}
+        G28
+    {% endif %}
+    G90
+    G1 X${half} Y${half} Z20 F6000
+    M117 Calibration input shaper...
+    SHAPER_CALIBRATE
+    M117 Fait — SAVE_CONFIG pour enregistrer
+    # Décommente la ligne suivante pour sauvegarder+redémarrer automatiquement :
+    # SAVE_CONFIG
+
+#############################################################################################################
+### MODE D'EMPLOI
+### 1. ACCEL_TEST  → doit renvoyer des valeurs (z ~ 9800 = gravité). Si erreur → câblage/config accéléromètre.
+### 2. ACCEL_NOISE → bruit doit être faible (< ~50). Sinon, ventilo ou fixation à revoir.
+### 3. CALIBRATE_SHAPER → mesure X et Y, propose les filtres (ex: mzv, ei). Puis SAVE_CONFIG.
+###    Klipper écrit alors un bloc [input_shaper] avec shaper_type_x/y et shaper_freq_x/y.
+#############################################################################################################
+`;
+}
+
+// ── orcaslicer.cfg (G-code machine à coller dans OrcaSlicer) ─────────────────
+
+function genOrcaSlicer(c: PrinterConfig): string {
+  const half = Math.round(c.printerSize / 2);
+  return `#############################################################################################################
+### ORCASLICER — G-code machine à coller dans le SLICER (pas un vrai .cfg Klipper)
+###
+### Ce fichier est une AIDE : copie les blocs ci-dessous dans OrcaSlicer.
+### Il s'appuie sur START_PRINT / END_PRINT déjà définis dans Macro.cfg
+### (qui acceptent BED_TEMP et EXTRUDER_TEMP).
+###
+### OrcaSlicer → Réglages imprimante → Machine G-code
+#############################################################################################################
+
+### ─────────────── « G-code de démarrage machine » ───────────────
+### (Machine start G-code) — colle EXACTEMENT ceci :
+###
+### START_PRINT EXTRUDER_TEMP=[nozzle_temperature_initial_layer] BED_TEMP=[bed_temperature_initial_layer_single]
+###
+### ⚠️ Laisse OrcaSlicer gérer les températures via START_PRINT.
+###    Dans Orca : Réglages filament → décoche « Émettre les commandes de température »
+###    n'est PAS nécessaire — START_PRINT chauffe déjà. Mais NE mets PAS de M109/M190
+###    en double dans le start gcode.
+
+### ─────────────── « G-code de fin machine » ───────────────
+### (Machine end G-code) — colle ceci :
+###
+### END_PRINT
+
+### ─────────────── Réglages Orca importants pour cette VCore ${c.printerSize}×${c.printerSize} ───────────────
+### • Volume d'impression : ${c.printerSize} × ${c.printerSize} × (ta hauteur Z)
+### • Origine G-code : coin avant-gauche (0,0)
+### • Décalage sonde / palpeur : géré par Klipper (Cartographer), rien à mettre côté Orca
+### • Vitesse de déplacement max : cohérente avec printer.cfg (max_velocity)
+### • « Rétraction lors des déplacements » : selon ton hotend (Rapido : ~0.5-1 mm)
+
+#############################################################################################################
+### Variante avancée (si tu veux passer plus d'infos à START_PRINT depuis Orca) :
+###
+### START_PRINT EXTRUDER_TEMP=[nozzle_temperature_initial_layer] BED_TEMP=[bed_temperature_initial_layer_single] CHAMBER=[chamber_temperature] MATERIAL=[filament_type]
+###
+### … à condition d'étendre START_PRINT dans Macro.cfg pour lire CHAMBER / MATERIAL.
+### Le START_PRINT actuel gère déjà le heat-soak selon BED_TEMP (PLA/PETG/ABS auto).
+###
+### Position de purge : PRIME_LINE trace la ligne à X40 Y45 (bord avant du PEI).
+### Centre plateau (utile pour l'aperçu) : X${half} Y${half}.
+#############################################################################################################
+`;
+}
+
 // ── leds.cfg (macros d'état, sans le plugin led_effect) ──────────────────────
 
 function genLeds(c: PrinterConfig): string {
@@ -722,6 +851,8 @@ restart_threshold: 10
 const FILES: CfgFile[] = [
   { name: 'Macro.cfg', desc: 'Macros d\'impression : START_PRINT, END_PRINT, PARK_HOTEND, PRIME_LINE', generate: genMacros },
   { name: 'macros-utiles.cfg', desc: 'Confort : LOAD/UNLOAD, M600, préchauffe PLA/PETG/ABS, PARK, TEST_SPEED', hint: 'Boutons Mainsail pratiques au quotidien', generate: genUtilityMacros },
+  { name: 'resonance-macros.cfg', desc: 'Accéléromètre + Input Shaper : ACCEL_TEST, RESONANCE_X/Y, CALIBRATE_SHAPER', hint: 'Nécessite [adxl345] + [resonance_tester]', generate: genResonance },
+  { name: 'orcaslicer.cfg', desc: 'G-code machine START_PRINT/END_PRINT à coller dans OrcaSlicer', hint: 'Aide slicer — pas un vrai .cfg Klipper', generate: genOrcaSlicer },
   { name: 'leds.cfg', desc: 'Macros LED par étape — version simple (SET_LED)', generate: genLeds },
   { name: 'leds-effects.cfg', desc: 'LED animées par état — chenillard, respiration…', hint: 'Nécessite le plugin led_effect · à utiliser au lieu de leds.cfg', generate: genLedsEffects },
   { name: 'client-macros.cfg', desc: 'Hooks Mainsail : pause/reprise/annulation → LED', generate: genClientHooks },
