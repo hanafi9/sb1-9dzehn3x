@@ -27,7 +27,7 @@ function buildWorkflow(opts: {
         position: [0, 300],
       },
       {
-        parameters: { url: `${moon}/printer/objects/query?print_stats`, options: {} },
+        parameters: { url: `${moon}/printer/objects/query?print_stats&gcode_macro AI_GUARD`, options: {} },
         id: '22222222-2222-4222-8222-222222222222',
         name: 'Moonraker état',
         type: 'n8n-nodes-base.httpRequest',
@@ -42,6 +42,10 @@ function buildWorkflow(opts: {
               leftValue: '={{ $json.result.status.print_stats.state }}',
               rightValue: 'printing',
               operator: { type: 'string', operation: 'equals' },
+            }, {
+              leftValue: "={{ $json.result.status['gcode_macro AI_GUARD'].enabled }}",
+              rightValue: 1,
+              operator: { type: 'number', operation: 'equals' },
             }],
             combinator: 'and',
           },

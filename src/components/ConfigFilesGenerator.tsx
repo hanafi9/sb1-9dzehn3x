@@ -413,6 +413,52 @@ function genOrcaSlicer(c: PrinterConfig): string {
 `;
 }
 
+// ── ai-detection.cfg (interrupteur de la détection IA n8n) ──────────────────
+
+function genAiDetection(): string {
+  return `#############################################################################################################
+### INTERRUPTEUR DÉTECTION IA — anti-spaghetti (n8n + GPT-4o Vision)
+###
+### La variable AI_GUARD.enabled sert d'interrupteur ON/OFF depuis Mainsail.
+### Le workflow n8n la LIT via Moonraker et n'analyse l'image que si elle vaut 1 :
+###
+###   URL du nœud « Moonraker état » :
+###     http://<IP>:7125/printer/objects/query?print_stats&gcode_macro AI_GUARD
+###   Condition IF (combinateur AND) :
+###     {{ $json.result.status['gcode_macro AI_GUARD'].enabled }} == 1
+###
+### Aucun plugin requis (pas de gcode_shell_command, pas de webhook) : tout est natif.
+#############################################################################################################
+
+[gcode_macro AI_GUARD]
+variable_enabled: 1              # 1 = surveillance active au démarrage · 0 = coupée
+gcode:
+    # macro porteuse de la variable — ne fait rien d'autre
+
+[gcode_macro DETECTION_ON]
+description: 🧠 Active la surveillance IA anti-spaghetti
+gcode:
+    SET_GCODE_VARIABLE MACRO=AI_GUARD VARIABLE=enabled VALUE=1
+    M117 Surveillance IA ACTIVEE
+
+[gcode_macro DETECTION_OFF]
+description: 🧠 Coupe la surveillance IA
+gcode:
+    SET_GCODE_VARIABLE MACRO=AI_GUARD VARIABLE=enabled VALUE=0
+    M117 Surveillance IA coupee
+
+[gcode_macro DETECTION_STATUS]
+description: 🧠 Affiche l'état de la surveillance IA
+gcode:
+    {% set on = printer['gcode_macro AI_GUARD'].enabled %}
+    {% if on %}
+        M117 Surveillance IA : ACTIVE
+    {% else %}
+        M117 Surveillance IA : coupee
+    {% endif %}
+`;
+}
+
 // ── leds.cfg (macros d'état, sans le plugin led_effect) ──────────────────────
 
 function genLeds(c: PrinterConfig): string {
@@ -853,6 +899,7 @@ const FILES: CfgFile[] = [
   { name: 'macros-utiles.cfg', desc: 'Confort : LOAD/UNLOAD, M600, préchauffe PLA/PETG/ABS, PARK, TEST_SPEED', hint: 'Boutons Mainsail pratiques au quotidien', generate: genUtilityMacros },
   { name: 'resonance-macros.cfg', desc: 'Accéléromètre + Input Shaper : ACCEL_TEST, RESONANCE_X/Y, CALIBRATE_SHAPER', hint: 'Nécessite [adxl345] + [resonance_tester]', generate: genResonance },
   { name: 'orcaslicer.cfg', desc: 'G-code machine START_PRINT/END_PRINT à coller dans OrcaSlicer', hint: 'Aide slicer — pas un vrai .cfg Klipper', generate: genOrcaSlicer },
+  { name: 'ai-detection.cfg', desc: 'Interrupteur détection IA : DETECTION_ON/OFF (porte AI_GUARD lue par n8n)', hint: 'Boutons Mainsail pour piloter la surveillance n8n', generate: genAiDetection },
   { name: 'leds.cfg', desc: 'Macros LED par étape — version simple (SET_LED)', generate: genLeds },
   { name: 'leds-effects.cfg', desc: 'LED animées par état — chenillard, respiration…', hint: 'Nécessite le plugin led_effect · à utiliser au lieu de leds.cfg', generate: genLedsEffects },
   { name: 'client-macros.cfg', desc: 'Hooks Mainsail : pause/reprise/annulation → LED', generate: genClientHooks },
