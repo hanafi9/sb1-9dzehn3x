@@ -122,6 +122,16 @@ gcode:
     G1 X${half + 40} Y45 E15 F1200
     G1 Z2 F600
     RESTORE_GCODE_STATE NAME=prime_line
+
+# Appelé à chaque couche par le "G-code avant changement de couche" d'OrcaSlicer
+# (ligne _ON_LAYER_CHANGE LAYER={layer_num + 1}). Sans cette macro, la config
+# autonome renverrait « Unknown command » à chaque couche. Met aussi à jour le
+# compteur de couches affiché dans Mainsail.
+[gcode_macro _ON_LAYER_CHANGE]
+gcode:
+    {% set layer = params.LAYER|default(0)|int %}
+    SET_PRINT_STATS_INFO CURRENT_LAYER={layer}
+    # hook par couche : timelapse ou autres actions peuvent se greffer ici
 `;
 }
 
