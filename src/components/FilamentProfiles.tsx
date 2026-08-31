@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Copy, Check, Download, FileJson, FolderDown, Info } from 'lucide-react';
+import { Copy, Check, Download, FileJson, FolderDown, Info, Pencil } from 'lucide-react';
 import type { PrinterConfig } from '../App';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -213,15 +213,61 @@ const MATERIALS: Mat[] = [
 export function FilamentProfiles({ config }: Props) {
   const [active, setActive] = useState(0);
   const [copied, setCopied] = useState(false);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const mat = MATERIALS[active];
-  const json = JSON.stringify(mat.build(config), null, 2);
+  const built = mat.build(config);
+  const json = JSON.stringify(built, null, 2);
   const fileName = `${mat.label}_VCore3_Rapido.json`;
+
+  // Lecture sûre d'une valeur du preset (tableau de chaînes OrcaSlicer)
+  const fv = (k: string): string => {
+    const arr = built[k] as unknown;
+    return Array.isArray(arr) && arr.length ? String(arr[0]) : '—';
+  };
+
+  // Réglages manuels regroupés comme les onglets d'OrcaSlicer (crayon ✏️)
+  const manualGroups: { tab: string; rows: [string, string][] }[] = [
+    {
+      tab: 'Onglet « Filament »',
+      rows: [
+        ['Type', fv('filament_type')],
+        ['Température buse — couche initiale', `${fv('nozzle_temperature_initial_layer')} °C`],
+        ['Température buse — autres couches', `${fv('nozzle_temperature')} °C`],
+        ['Température plateau — couche initiale', `${fv('hot_plate_temp_initial_layer')} °C`],
+        ['Température plateau — autres couches', `${fv('hot_plate_temp')} °C`],
+        ['Débit (Flow ratio)', fv('filament_flow_ratio')],
+        ['Vitesse volumétrique max', `${fv('filament_max_volumetric_speed')} mm³/s`],
+      ],
+    },
+    {
+      tab: 'Onglet « Refroidissement »',
+      rows: [
+        ['Pas de refroidissement pour (couches)', fv('close_fan_the_first_x_layers')],
+        ['Seuil vitesse mini ventilateur', `${fv('fan_min_speed')} %`],
+        ['Seuil vitesse maxi ventilateur', `${fv('fan_max_speed')} %`],
+        ['Vitesse ventilo surplombs', `${fv('overhang_fan_speed')} %`],
+      ],
+    },
+    {
+      tab: 'Onglet « Forçage des réglages » → Rétraction',
+      rows: [
+        ['Longueur de rétraction', `${fv('filament_retraction_length')} mm`],
+        ['Vitesse de rétraction', `${fv('filament_retraction_speed')} mm/s`],
+      ],
+    },
+  ];
 
   const copy = async () => {
     await navigator.clipboard.writeText(json).catch(() => {});
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
+  };
+
+  const copyVal = async (key: string, value: string) => {
+    await navigator.clipboard.writeText(value).catch(() => {});
+    setCopiedField(key);
+    setTimeout(() => setCopiedField(null), 1800);
   };
 
   const downloadOne = (m: Mat) => {
@@ -317,6 +363,52 @@ export function FilamentProfiles({ config }: Props) {
         <pre className="p-4 overflow-x-auto text-xs leading-relaxed text-gray-300 max-h-[55vh]">
           <code>{json}</code>
         </pre>
+      </div>
+
+      {/* Réglages manuels (méthode crayon ✏️ — la plus fiable) */}
+      <div className="rounded-xl border border-green-900/50 bg-green-950/10 overflow-hidden">
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-green-900/40 bg-green-950/20">
+          <Pencil size={15} className="text-green-400" />
+          <span className="text-sm text-green-200 font-medium">
+            Réglages manuels — {mat.label} (méthode crayon ✏️, la plus fiable)
+          </span>
+        </div>
+        <div className="p-4 space-y-4">
+          <p className="text-xs text-green-200/80">
+            Dans OrcaSlicer : clique sur le <strong>crayon ✏️</strong> à côté du filament → recopie ces valeurs
+            dans les onglets ci-dessous → <strong>💾 Enregistrer</strong>. Aucun import, ça marche à tous les coups.
+          </p>
+          {manualGroups.map((g) => (
+            <div key={g.tab}>
+              <p className="text-xs font-semibold text-gray-300 mb-1.5">{g.tab}</p>
+              <div className="rounded-lg border border-gray-800 overflow-hidden">
+                {g.rows.map(([field, value], idx) => (
+                  <div
+                    key={field}
+                    className={`flex items-center justify-between gap-3 px-3 py-2 ${
+                      idx % 2 === 0 ? 'bg-gray-900/50' : 'bg-gray-900/20'
+                    }`}
+                  >
+                    <span className="text-xs text-gray-300">{field}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-mono text-orange-300 whitespace-nowrap">{value}</span>
+                      <button
+                        onClick={() => copyVal(`${mat.key}-${field}`, value.replace(/ (°C|mm³\/s|mm\/s|mm|%)$/, ''))}
+                        className="text-gray-500 hover:text-gray-200 transition-colors"
+                        title="Copier la valeur"
+                      >
+                        {copiedField === `${mat.key}-${field}` ? <Check size={12} className="text-green-400" /> : <Copy size={12} />}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+          <p className="text-xs text-gray-500">
+            ⚠️ Ne touche pas à la rétraction si ton Orbiter est déjà réglé côté Klipper — ces valeurs sont un point de départ direct drive.
+          </p>
+        </div>
       </div>
 
       <div className="p-4 rounded-lg border border-gray-800 bg-gray-900/40 text-xs text-gray-400 space-y-1">
