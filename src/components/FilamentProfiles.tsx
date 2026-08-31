@@ -32,8 +32,12 @@ function common(name: string, inherits: string, extra: Record<string, unknown>) 
   return {
     type: 'filament',
     name,
+    // OrcaSlicer identifie le preset par ce champ (doit exister et matcher le nom)
+    filament_settings_id: [name],
     from: 'User',
     instantiation: 'true',
+    // inherits DOIT être un nom de preset système OrcaSlicer réel
+    // (Generic PLA/PETG/ABS) — sinon parent introuvable → « 0 importée »
     inherits,
     filament_vendor: ['Generic'],
     filament_diameter: ['1.75'],
@@ -55,7 +59,7 @@ const MATERIALS: Mat[] = [
     color: 'text-green-400',
     desc: 'Facile, pas de warping — refroidissement à fond',
     build: () =>
-      common('Generic PLA — VCore3 Rapido', 'fdm_filament_pla', {
+      common('Generic PLA — VCore3 Rapido', 'Generic PLA', {
         filament_type: ['PLA'],
         nozzle_temperature_initial_layer: ['215'],
         nozzle_temperature: ['210'],
@@ -82,7 +86,7 @@ const MATERIALS: Mat[] = [
     color: 'text-cyan-400',
     desc: 'Solide mais colle — refroidissement modéré, sèche-le !',
     build: () =>
-      common('Generic PETG — VCore3 Rapido', 'fdm_filament_pet', {
+      common('Generic PETG — VCore3 Rapido', 'Generic PETG', {
         filament_type: ['PETG'],
         nozzle_temperature_initial_layer: ['240'],
         nozzle_temperature: ['240'],
@@ -107,7 +111,7 @@ const MATERIALS: Mat[] = [
     color: 'text-orange-400',
     desc: 'Warping — caisson FERMÉ obligatoire, ventilo quasi off',
     build: () =>
-      common('Generic ABS — VCore3 Rapido', 'fdm_filament_abs', {
+      common('Generic ABS — VCore3 Rapido', 'Generic ABS', {
         filament_type: ['ABS'],
         nozzle_temperature_initial_layer: ['250'],
         nozzle_temperature: ['245'],
@@ -132,7 +136,7 @@ const MATERIALS: Mat[] = [
     color: 'text-amber-400',
     desc: 'Comme ABS, un peu plus chaud et souple',
     build: () =>
-      common('Generic ABS+ — VCore3 Rapido', 'fdm_filament_abs', {
+      common('Generic ABS+ — VCore3 Rapido', 'Generic ABS', {
         filament_type: ['ABS'],
         nozzle_temperature_initial_layer: ['255'],
         nozzle_temperature: ['250'],
