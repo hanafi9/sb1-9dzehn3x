@@ -155,6 +155,59 @@ const MATERIALS: Mat[] = [
         filament_notes: ['ABS+ : idem ABS mais buse 250-255, ventilo encore plus bas (0-15%). Caisson ferme et chaud imperatif. Excellente resistance mecanique, moins cassant que lABS standard.'],
       }),
   },
+  {
+    key: 'tpu',
+    label: 'TPU',
+    color: 'text-purple-400',
+    desc: 'Flexible — imprime LENTEMENT, direct drive obligatoire',
+    build: () =>
+      common('Generic TPU 95A — VCore3 Rapido', 'Generic TPU', {
+        filament_type: ['TPU'],
+        nozzle_temperature_initial_layer: ['230'],
+        nozzle_temperature: ['225'],
+        hot_plate_temp_initial_layer: ['45'],
+        hot_plate_temp: ['40'],
+        // TPU : rétraction très courte sinon bouchage (le flexible se comprime)
+        filament_retraction_length: ['0.4'],
+        filament_retraction_speed: ['25'],
+        filament_max_volumetric_speed: ['4'],
+        filament_flow_ratio: ['0.95'],
+        fan_min_speed: ['50'],
+        fan_max_speed: ['80'],
+        overhang_fan_speed: ['100'],
+        overhang_fan_threshold: ['25%'],
+        fan_cooling_layer_time: ['5'],
+        slow_down_layer_time: ['5'],
+        slow_down_min_speed: ['10'],
+        close_fan_the_first_x_layers: ['1'],
+        filament_notes: ['TPU 95A : IMPRIMER LENTEMENT (15-30 mm/s, vol max 4). Direct drive Orbiter indispensable (un bowden est ingerable). Retraction courte (0.4). SECHER le filament. Buse 220-230, lit 40-45. Zero ou tres peu de retraction, sinon bouchage.'],
+      }),
+  },
+  {
+    key: 'carbone',
+    label: 'Carbone (PETG-CF)',
+    color: 'text-slate-300',
+    desc: 'Rigide et abrasif — BUSE ACIER TREMPÉ obligatoire',
+    build: () =>
+      common('PETG-CF (Carbone) — VCore3 Rapido', 'Generic PETG', {
+        filament_type: ['PETG-CF'],
+        nozzle_temperature_initial_layer: ['255'],
+        nozzle_temperature: ['250'],
+        hot_plate_temp_initial_layer: ['80'],
+        hot_plate_temp: ['80'],
+        filament_max_volumetric_speed: ['10'],
+        filament_flow_ratio: ['0.95'],
+        fan_min_speed: ['30'],
+        fan_max_speed: ['40'],
+        overhang_fan_speed: ['50'],
+        overhang_fan_threshold: ['25%'],
+        fan_cooling_layer_time: ['6'],
+        slow_down_layer_time: ['8'],
+        slow_down_min_speed: ['10'],
+        close_fan_the_first_x_layers: ['3'],
+        filament_notes: ['CARBONE (PETG-CF) : BUSE ACIER TREMPE OBLIGATOIRE (le carbone abrasif detruit une buse laiton en 1 bobine). Buse 0.6 recommandee (le 0.4 bouche facilement avec les fibres). SECHER +++ (le CF absorbe lhumidite). Buse 245-260, lit 80. Rendu mat et rigide. Idem pour PLA-CF (buse 215-225) ou PA-CF/Nylon-CF (buse 280-300 + caisson).'],
+      }),
+  },
 ];
 
 export function FilamentProfiles({ config }: Props) {
@@ -271,6 +324,8 @@ export function FilamentProfiles({ config }: Props) {
         <p>🟢 <strong>PLA</strong> : lit 60, buse 210, ventilo 100%. Le plus simple, aucun warping.</p>
         <p>🔵 <strong>PETG</strong> : lit 80, buse 240, ventilo 30-50%. <strong>Sécher le filament</strong> (anti-stringing) + bâton de colle sur PEI.</p>
         <p>🟠 <strong>ABS / ABS+</strong> : lit 100-105, buse 245-255, ventilo 0-20%. <strong>Caisson fermé et chaud obligatoire</strong> + brim.</p>
+        <p>🟣 <strong>TPU</strong> : lit 40-45, buse 225, ventilo 50-80%. <strong>Imprimer lentement</strong> (15-30 mm/s), rétraction courte, direct drive Orbiter obligatoire.</p>
+        <p>⚪ <strong>Carbone (PETG-CF)</strong> : lit 80, buse 250, ventilo 30-40%. <strong>Buse acier trempé obligatoire</strong> (abrasif), buse 0.6 conseillée, sécher +++.</p>
       </div>
     </div>
   );
