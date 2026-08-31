@@ -41,8 +41,8 @@ function common(name: string, inherits: string, extra: Record<string, unknown>) 
     inherits,
     filament_vendor: ['Generic'],
     filament_diameter: ['1.75'],
-    // rétraction direct drive (override filament)
-    filament_retraction_length: ['0.8'],
+    // rétraction direct drive Orbiter 2.0 (chemin filament très court → 0.5 mm)
+    filament_retraction_length: ['0.5'],
     filament_retraction_speed: ['35'],
     // Pressure Advance géré par Klipper → coupé côté Orca
     enable_pressure_advance: ['0'],
