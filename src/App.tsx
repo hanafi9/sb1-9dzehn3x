@@ -13,9 +13,10 @@ import { ConfigAudit } from './components/ConfigAudit';
 import { ConfigFilesGenerator } from './components/ConfigFilesGenerator';
 import { AnomalyDetection } from './components/AnomalyDetection';
 import { FilamentProfiles } from './components/FilamentProfiles';
+import { SupportSettings } from './components/SupportSettings';
 import {
   Cpu, Wifi, Crosshair, Grid3X3, FileCode, Activity,
-  Cable, Layers, Terminal, Rocket, FileSearch, Files, Eye, Thermometer,
+  Cable, Layers, Terminal, Rocket, FileSearch, Files, Eye, Thermometer, Scissors,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -131,6 +132,7 @@ const TABS = [
   { id: 'config',      label: 'printer.cfg',    icon: FileCode, desc: 'Config finale complète' },
   { id: 'files',       label: 'Générateur .cfg', icon: Files,   desc: 'Macro, LED, Shaketune…' },
   { id: 'filaments',   label: 'Profils Filament', icon: Thermometer, desc: 'PLA/PETG/ABS OrcaSlicer' },
+  { id: 'supports',    label: 'Supports',       icon: Scissors, desc: 'Réglages faciles à enlever' },
   { id: 'diagnostic',  label: 'Diagnostic',     icon: Activity, desc: 'Connexion Moonraker live' },
   { id: 'anomaly',     label: 'Détection IA',    icon: Eye,      desc: 'Anti-spaghetti n8n + GPT-4o' },
   { id: 'audit',       label: 'Audit .cfg',     icon: FileSearch, desc: 'Vérifier le printer.cfg réel' },
@@ -245,6 +247,7 @@ export default function App() {
         {activeTab === 'config'     && <ConfigGenerator   config={config} />}
         {activeTab === 'files'      && <ConfigFilesGenerator config={config} />}
         {activeTab === 'filaments'  && <FilamentProfiles  config={config} />}
+        {activeTab === 'supports'   && <SupportSettings />}
         {activeTab === 'diagnostic' && <PrinterDiagnostic config={config} onChange={update} />}
         {activeTab === 'anomaly'    && <AnomalyDetection />}
         {activeTab === 'audit'      && <ConfigAudit       config={config} />}
