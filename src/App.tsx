@@ -12,9 +12,10 @@ import { RatOSMigration } from './components/RatOSMigration';
 import { ConfigAudit } from './components/ConfigAudit';
 import { ConfigFilesGenerator } from './components/ConfigFilesGenerator';
 import { AnomalyDetection } from './components/AnomalyDetection';
+import { FilamentProfiles } from './components/FilamentProfiles';
 import {
   Cpu, Wifi, Crosshair, Grid3X3, FileCode, Activity,
-  Cable, Layers, Terminal, Rocket, FileSearch, Files, Eye,
+  Cable, Layers, Terminal, Rocket, FileSearch, Files, Eye, Thermometer,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -129,6 +130,7 @@ const TABS = [
   { id: 'mesh',        label: 'Bed Mesh',       icon: Grid3X3,  desc: 'Cartographie plateau' },
   { id: 'config',      label: 'printer.cfg',    icon: FileCode, desc: 'Config finale complète' },
   { id: 'files',       label: 'Générateur .cfg', icon: Files,   desc: 'Macro, LED, Shaketune…' },
+  { id: 'filaments',   label: 'Profils Filament', icon: Thermometer, desc: 'PLA/PETG/ABS OrcaSlicer' },
   { id: 'diagnostic',  label: 'Diagnostic',     icon: Activity, desc: 'Connexion Moonraker live' },
   { id: 'anomaly',     label: 'Détection IA',    icon: Eye,      desc: 'Anti-spaghetti n8n + GPT-4o' },
   { id: 'audit',       label: 'Audit .cfg',     icon: FileSearch, desc: 'Vérifier le printer.cfg réel' },
@@ -242,6 +244,7 @@ export default function App() {
         {activeTab === 'mesh'       && <BedMeshMap        config={config} onChange={update} onNext={() => setActiveTab('config')} />}
         {activeTab === 'config'     && <ConfigGenerator   config={config} />}
         {activeTab === 'files'      && <ConfigFilesGenerator config={config} />}
+        {activeTab === 'filaments'  && <FilamentProfiles  config={config} />}
         {activeTab === 'diagnostic' && <PrinterDiagnostic config={config} onChange={update} />}
         {activeTab === 'anomaly'    && <AnomalyDetection />}
         {activeTab === 'audit'      && <ConfigAudit       config={config} />}
