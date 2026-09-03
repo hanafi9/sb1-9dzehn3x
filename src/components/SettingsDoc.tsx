@@ -1,4 +1,4 @@
-import { Printer, Cpu, Gauge, Thermometer, Sparkles, Scissors, Wrench, AlertTriangle } from 'lucide-react';
+import { Printer, Cpu, Gauge, Thermometer, Sparkles, Scissors, Wrench } from 'lucide-react';
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  Fiche de réglages VCore 3.1 hybride (VzBot + Rapido standard + Orbiter 2.0

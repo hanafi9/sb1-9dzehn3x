@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { PrinterConfig } from '../App';
 import { Grid3X3, RefreshCw, ChevronRight, Info } from 'lucide-react';
 

@@ -56,7 +56,7 @@ function Step({ n, title, status, children }: {
   );
 }
 
-export function CANGuide({ config, onChange, onNext }: Props) {
+export function CANGuide({ config, onNext }: Props) {
   const speed = config.canSpeed;
   const speedK = speed === 500000 ? '500K' : '1M';
 

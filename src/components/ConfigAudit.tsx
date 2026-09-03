@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   FileSearch, RefreshCw, CheckCircle2, XCircle, AlertTriangle, Info,
   Wifi, ClipboardPaste, ShieldCheck, ShieldAlert, ShieldX,

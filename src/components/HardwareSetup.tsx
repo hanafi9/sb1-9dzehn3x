@@ -127,9 +127,6 @@ function TextInput({
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function HardwareSetup({ config, onChange, onNext }: Props) {
-  const board = BOARDS.find(b => b.value === config.mainBoard)!;
-  const extruder = EXTRUDERS.find(e => e.value === config.extruder)!;
-  const hotend = HOTENDS.find(h => h.value === config.hotend)!;
 
   const serialFromBoard = (b: MainBoard) => {
     const m = BOARDS.find(x => x.value === b)!;

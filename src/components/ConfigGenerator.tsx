@@ -1,17 +1,10 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { PrinterConfig } from '../App';
 import { FileCode, Copy, Check, Download, AlertTriangle } from 'lucide-react';
 
 interface Props { config: PrinterConfig; }
 
 // ─── Board data ───────────────────────────────────────────────────────────────
-
-const BOARD_RATOS_PATH: Record<string, string> = {
-  octopus_pro_446: 'RatOS/boards/btt-octopus-pro-446',
-  octopus_pro_429: 'RatOS/boards/btt-octopus-pro-429',
-  octopus_11:      'RatOS/boards/btt-octopus-11',
-  manta_m8p:       'RatOS/boards/btt-manta-m8p-v2',
-};
 
 const EXTRUDER_DATA: Record<string, { rotDist: number; current: number; microsteps: number }> = {
   orbiter2:      { rotDist: 4.637,       current: 0.850, microsteps: 16 },
@@ -34,7 +27,6 @@ const HOTEND_DATA: Record<string, { sensor: string; maxTemp: number }> = {
 
 export function generateConfig(c: PrinterConfig): string {
   const half = c.printerSize / 2;
-  const boardPath = BOARD_RATOS_PATH[c.mainBoard];
   const ext = EXTRUDER_DATA[c.extruder];
   const hotend = HOTEND_DATA[c.hotend];
   const ebb42Uuid = c.ebb42Uuid || 'REPLACE_EBB42_UUID';

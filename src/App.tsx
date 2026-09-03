@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { HardwareSetup } from './components/HardwareSetup';
 import { CANGuide } from './components/CANGuide';
 import { CartographerSetup } from './components/CartographerSetup';

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Cable, Zap, AlertTriangle, ExternalLink, ChevronDown, ChevronUp, Info, RefreshCw,
 } from 'lucide-react';

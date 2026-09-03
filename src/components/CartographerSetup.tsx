@@ -97,7 +97,6 @@ const CALIBRATION_STEPS = [
 ];
 
 export function CartographerSetup({ config, onChange, onNext }: Props) {
-  const half = config.printerSize / 2;
   const scale = 80 / (config.printerSize / 2);
   const probeX = config.cartographerXOffset * scale;
   const probeY = config.cartographerYOffset * scale;
