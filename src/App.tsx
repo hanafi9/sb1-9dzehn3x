@@ -15,9 +15,10 @@ import { AnomalyDetection } from './components/AnomalyDetection';
 import { FilamentProfiles } from './components/FilamentProfiles';
 import { SupportSettings } from './components/SupportSettings';
 import { QualityCalibration } from './components/QualityCalibration';
+import { SettingsDoc } from './components/SettingsDoc';
 import {
   Cpu, Wifi, Crosshair, Grid3X3, FileCode, Activity,
-  Cable, Layers, Terminal, Rocket, FileSearch, Files, Eye, Thermometer, Scissors, Sparkles,
+  Cable, Layers, Terminal, Rocket, FileSearch, Files, Eye, Thermometer, Scissors, Sparkles, BookOpen,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -135,6 +136,7 @@ const TABS = [
   { id: 'filaments',   label: 'Profils Filament', icon: Thermometer, desc: 'PLA/PETG/ABS OrcaSlicer' },
   { id: 'supports',    label: 'Supports',       icon: Scissors, desc: 'Réglages faciles à enlever' },
   { id: 'quality',     label: 'Qualité',        icon: Sparkles, desc: 'Calibration, anti-chevelure' },
+  { id: 'fiche',       label: 'Fiche Réglages', icon: BookOpen, desc: 'Document complet + PDF' },
   { id: 'diagnostic',  label: 'Diagnostic',     icon: Activity, desc: 'Connexion Moonraker live' },
   { id: 'anomaly',     label: 'Détection IA',    icon: Eye,      desc: 'Anti-spaghetti n8n + GPT-4o' },
   { id: 'audit',       label: 'Audit .cfg',     icon: FileSearch, desc: 'Vérifier le printer.cfg réel' },
@@ -251,6 +253,7 @@ export default function App() {
         {activeTab === 'filaments'  && <FilamentProfiles  config={config} />}
         {activeTab === 'supports'   && <SupportSettings />}
         {activeTab === 'quality'    && <QualityCalibration />}
+        {activeTab === 'fiche'      && <SettingsDoc />}
         {activeTab === 'diagnostic' && <PrinterDiagnostic config={config} onChange={update} />}
         {activeTab === 'anomaly'    && <AnomalyDetection />}
         {activeTab === 'audit'      && <ConfigAudit       config={config} />}
