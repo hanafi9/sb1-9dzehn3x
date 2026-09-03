@@ -770,6 +770,24 @@ function genFilamentSensor(c: PrinterConfig): string {
 ###
 ###   Si Klipper signale « runout » en permanence, inverse la logique du pin :
 ###     ^PB7  <->  ^!PB7
+###
+### LIRE « QUERY_FILAMENT_SENSOR SENSOR=SFS » :
+###   À l'arrêt, la réponse ne veut rien dire. Un capteur de MOUVEMENT est une
+###   roue codeuse : son contact bascule pendant que le filament défile et se
+###   fige au hasard sur l'un des deux états dès que ça s'arrête. « filament
+###   not detected » moteur à l'arrêt n'est donc PAS une panne, et ne déclenche
+###   aucune pause — un motion sensor n'alarme que pendant une extrusion.
+###
+###   Le vrai test, à froid, filament engagé :
+###     SET_FILAMENT_SENSOR SENSOR=SFS ENABLE=0   ← évite une pause parasite
+###     QUERY_FILAMENT_SENSOR SENSOR=SFS
+###     (pousser le filament de 2-3 cm à la main)
+###     QUERY_FILAMENT_SENSOR SENSOR=SFS          ← l'état DOIT avoir changé
+###     SFS_ENABLE
+###
+###   État figé quel que soit le mouvement → dans l'ordre : câble sur le port
+###   SENSOR (VS/GND/PB7) et pas Z-STOP, ordre des 3 fils du câble BTT, puis
+###   inversion du pin ci-dessus, puis alimentation 5V du capteur.
 #############################################################################################################
 
 [filament_motion_sensor SFS]

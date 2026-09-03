@@ -1,6 +1,7 @@
 # Dépannage — VCore 3.1 · RatOS v2.1.0-RC2 · EBB42 + U2C + Cartographer
 
 Journal des pannes résolues sur cette machine, avec la cause exacte et le correctif.
+Les actions physiques encore en attente sont réunies dans « À faire sur la machine ».
 À relire après toute mise à jour de Klipper ou du plugin Cartographer : les patchs
 appliqués à des dépôts tiers sont écrasés par `git pull`.
 
@@ -14,6 +15,71 @@ appliqués à des dépôts tiers sont écrasés par `git pull`.
 | Sonde Z | Cartographer | STM32F042 | CAN | `4973681e12df` |
 
 Bus CAN à 1 000 000 bps sur `can0`.
+
+---
+
+## À faire sur la machine
+
+Actions physiques restantes, dans l'ordre où elles se tiennent. L'analyse de
+chacune est plus bas — ici, seulement le geste et la commande.
+
+### 1. Appliquer le Z-offset du Cartographer — bloquant pour la 1ʳᵉ couche
+
+`machine/SAVE_CONFIG-backup-2026-09-03.cfg` porte `model_offset = 0.00000` :
+le modèle de la sonde est calibré, son décalage à la buse ne l'est pas. Tant
+qu'il vaut 0, la hauteur de première couche dépend entièrement du babystep,
+et repart de zéro à chaque impression.
+
+Sur une première couche, plateau et buse à température, ajuster au babystep
+jusqu'à l'écrasement voulu, puis figer la valeur :
+
+```
+Z_OFFSET_APPLY_PROBE
+SAVE_CONFIG
+```
+
+Klipper redémarre et `model_offset` prend sa valeur réelle (de l'ordre de
+-0,05). Vérifier qu'elle n'est plus à 0 dans le bloc SAVE_CONFIG, et
+resauvegarder ce bloc dans `machine/`.
+
+### 2. Piloter le ventilateur de carte — avant toute impression longue
+
+Déjà écrit dans `machine/printer.cfg` (`[controller_fan board_fan]` sur
+`PD12`), mais à confirmer sur la machine : le ventilateur CNC FAN2 doit
+démarrer dès qu'un moteur est sous tension. Avec `run_current: 1.2` sur X et
+Y — le plafond continu d'un TMC2209 — un ventilateur muet est une panne
+thermique en attente. Voir « Bruit sur les cinq moteurs ».
+
+### 3. Vérifier le capteur de filament SFS
+
+`QUERY_FILAMENT_SENSOR SENSOR=SFS` à l'arrêt ne prouve rien : `SFS` est un
+`[filament_motion_sensor]`, une roue codeuse dont le contact bascule pendant
+le mouvement et se fige au hasard à l'arrêt. Le test est la bascule, à froid,
+filament engagé :
+
+```
+SET_FILAMENT_SENSOR SENSOR=SFS ENABLE=0
+QUERY_FILAMENT_SENSOR SENSOR=SFS
+```
+
+pousser le filament de 2-3 cm à la main, puis reposer la question. L'état doit
+changer. S'il reste figé : capteur sur le port `SENSOR` de l'Octopus
+(VS/GND/PB7) et non Z-STOP, puis inverser la logique du pin `^PB7` → `^!PB7`
+et `FIRMWARE_RESTART`. Rallumer ensuite avec `SFS_ENABLE`.
+
+### 4. Reflasher les microcontrôleurs
+
+Hôte en `v0.13.0-733`, Octopus en `v0.12.0-268`, EBB42 en `v0.12.0-208`. La
+machine tourne, mais l'écart produira un `MCU Protocol error` dès qu'une
+commande absente de la v0.12 sera émise. Octopus en USB, EBB42 via Katapult
+sur CAN. Voir « Firmware des MCU en retard d'une version majeure ».
+
+### 5. Trancher Cartographer / Beacon
+
+Les deux plugins sont installés en parallèle et les correctifs 1 et 2 sont
+écrasés à chaque mise à jour de `~/cartographer-klipper/`. Trois issues
+durables, détaillées dans « Patchs du plugin Cartographer non pérennes » —
+la décision n'a pas été prise.
 
 ---
 
