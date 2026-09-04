@@ -23,24 +23,11 @@ Bus CAN à 1 000 000 bps sur `can0`.
 Actions physiques restantes, dans l'ordre où elles se tiennent. L'analyse de
 chacune est plus bas — ici, seulement le geste et la commande.
 
-### 1. Appliquer le Z-offset du Cartographer — bloquant pour la 1ʳᵉ couche
+### 1. ~~Appliquer le Z-offset du Cartographer~~ — FAIT (2026-09-04)
 
-`machine/SAVE_CONFIG-backup-2026-09-03.cfg` porte `model_offset = 0.00000` :
-le modèle de la sonde est calibré, son décalage à la buse ne l'est pas. Tant
-qu'il vaut 0, la hauteur de première couche dépend entièrement du babystep,
-et repart de zéro à chaque impression.
-
-Sur une première couche, plateau et buse à température, ajuster au babystep
-jusqu'à l'écrasement voulu, puis figer la valeur :
-
-```
-Z_OFFSET_APPLY_PROBE
-SAVE_CONFIG
-```
-
-Klipper redémarre et `model_offset` prend sa valeur réelle (de l'ordre de
--0,05). Vérifier qu'elle n'est plus à 0 dans le bloc SAVE_CONFIG, et
-resauvegarder ce bloc dans `machine/`.
+`model_offset` est passé de `0.00000` à `0.17000` : première couche enfin
+calée sans babystep manuel. Détail complet en panne 9 ci-dessous. Valeurs à
+jour dans `machine/SAVE_CONFIG-backup-2026-09-04.cfg`.
 
 ### 2. Vérifier À L'ŒIL que les ventilateurs tournent — avant toute impression
 
@@ -86,6 +73,44 @@ Les deux plugins sont installés en parallèle et les correctifs 1 et 2 sont
 écrasés à chaque mise à jour de `~/cartographer-klipper/`. Trois issues
 durables, détaillées dans « Patchs du plugin Cartographer non pérennes » —
 la décision n'a pas été prise.
+
+---
+
+## Panne 9 — première couche écrasée sur les vraies pièces, pas sur les tests (RÉSOLUE)
+
+**Symptôme.** Un STL de test « first layer » sort parfait, mais toute vraie
+impression écrase la première couche — uniformément, partout, même macro
+`START_PRINT`, même profil OrcaSlicer.
+
+**Ce que ça élimine.** Écrasé *partout* et non par zones → pas la planéité du
+plateau ni le maillage (`zero_reference_position: 205,200` est réglé, donc le
+maillage adaptatif rezérote au même point quel que soit la taille de la pièce).
+Même macro et même instant après le heat-soak → pas la dérive thermique du
+scanner. Il ne reste qu'un décalage Z **global**.
+
+**Cause. `model_offset = 0.00000`.** Le décalage de la sonde à la buse n'avait
+jamais été figé. La hauteur de première couche dépendait donc entièrement du
+babystep — rattrapé à la main sur chaque test réussi, mais absent des vraies
+impressions, qui démarraient sur la référence brute (buse trop basse).
+
+**Correctif. En console, buse et plateau à température :**
+
+```
+(babystep jusqu'à l'écrasement voulu)
+Z_OFFSET_APPLY_PROBE      # transfère la correction live dans model_offset
+SAVE_CONFIG               # écrit + redémarre
+```
+
+Résultat : `Scanner model offset has been updated to 0.170`. `model_offset`
+passe de 0 à `0.17000`, le Z-offset live revient à 0, et toutes les
+impressions démarrent sur la bonne référence.
+
+**Piège à retenir.** Le bouton **« Sauvegarder »** du widget de babystep dans
+Mainsail ne persiste RIEN ici : il déclenche `Z_OFFSET_APPLY_ENDSTOP`, or cette
+machine n'a pas d'endstop Z physique (`endstop_pin: probe:z_virtual_endstop`).
+Toujours passer par la console avec `Z_OFFSET_APPLY_PROBE`, jamais par le bouton.
+Un `SAVE_CONFIG` seul après un babystep n'écrit pas l'offset non plus : le
+décalage live est volatile, seul `Z_OFFSET_APPLY_PROBE` le grave.
 
 ---
 
