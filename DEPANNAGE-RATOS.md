@@ -42,13 +42,19 @@ Klipper redémarre et `model_offset` prend sa valeur réelle (de l'ordre de
 -0,05). Vérifier qu'elle n'est plus à 0 dans le bloc SAVE_CONFIG, et
 resauvegarder ce bloc dans `machine/`.
 
-### 2. Piloter le ventilateur de carte — avant toute impression longue
+### 2. Vérifier À L'ŒIL que les ventilateurs tournent — avant toute impression
 
-Déjà écrit dans `machine/printer.cfg` (`[controller_fan board_fan]` sur
-`PD12`), mais à confirmer sur la machine : le ventilateur CNC FAN2 doit
-démarrer dès qu'un moteur est sous tension. Avec `run_current: 1.2` sur X et
-Y — le plafond continu d'un TMC2209 — un ventilateur muet est une panne
-thermique en attente. Voir « Bruit sur les cinq moteurs ».
+Un ventilateur déclaré dans `printer.cfg` mais mort, débranché ou mal câblé ne
+lève AUCUNE alarme dans Klipper. Deux l'ont déjà prouvé sur cette machine :
+
+- **Ventilateur de heatbreak (avant de la Rapido).** Doit tourner dès que la
+  buse dépasse 50 °C. Muet = heat creep, l'extrudeur grignote au bout d'une
+  minute (panne 8, résolue).
+- **Ventilateur de carte (CNC FAN2 / `PD12`).** Doit tourner dès qu'un moteur
+  est sous tension. `[controller_fan board_fan]` est écrit dans `printer.cfg`,
+  mais avec `run_current: 1.2` sur X et Y — le plafond continu d'un TMC2209 —
+  un ventilateur muet est une panne thermique en attente (voir « Bruit sur les
+  cinq moteurs »).
 
 ### 3. Vérifier le capteur de filament SFS
 
@@ -80,6 +86,42 @@ Les deux plugins sont installés en parallèle et les correctifs 1 et 2 sont
 écrasés à chaque mise à jour de `~/cartographer-klipper/`. Trois issues
 durables, détaillées dans « Patchs du plugin Cartographer non pérennes » —
 la décision n'a pas été prise.
+
+---
+
+## Panne 8 — l'extrudeur grignote après ~1 min d'impression (RÉSOLUE)
+
+**Symptôme.** L'extrusion démarre bien, puis au bout d'une minute environ
+l'Orbiter 2.0 se met à claquer / sauter et plus rien ne sort. Uniquement en
+cours d'impression ; l'extrusion à vide sur une courte purge passait.
+
+**Fausses pistes écartées.** Le moteur claque, donc il pousse contre une
+résistance et garde son couple — ce n'est pas une coupure thermique du driver
+(qui rendrait le moteur mou et silencieux). Le `model_offset` du Cartographer à
+0 (première couche trop basse, cf. « À faire sur la machine ») était un suspect
+plausible mais faux : le problème apparaissait aussi loin de la première couche.
+
+**Cause. Heat creep.** Le ventilateur avant de la Rapido — le ventilateur de
+*heatbreak*, qui refroidit la gorge, à ne pas confondre avec le ventilateur de
+pièce — ne tournait pas. La chaleur remonte alors dans la gorge, le filament y
+ramollit, gonfle et se coince. Le délai d'une minute est le temps que met la
+chaleur à remonter ; l'extrusion à vide passait parce que le heat creep n'a pas
+le temps de s'installer sur une courte purge.
+
+**Correctif.** Rétablir le ventilateur de heatbreak. Dans `printer.cfg` il est
+déclaré et démarre dès 50 °C :
+
+```
+[heater_fan hotend_fan]
+pin: toolhead:PA1
+heater: extruder
+heater_temp: 50.0
+```
+
+La section était donc correcte : la panne était matérielle (ventilateur mort,
+débranché, ou branché sur le mauvais connecteur de l'EBB42). Vérifier à l'œil
+que ce ventilateur tourne dès que la buse dépasse 50 °C avant toute impression
+longue — un `[heater_fan]` qui ne tourne pas ne lève aucune alarme dans Klipper.
 
 ---
 
