@@ -10,7 +10,7 @@ import type { PrinterConfig } from '../App';
 //   - TOUTES les valeurs sont des TABLEAUX de CHAÎNES : ["240"], pas 240
 //   - "inherits" pointe vers un profil de base système (fdm_filament_pla…)
 //   - "compatible_printers": []  → compatible avec TOUTES les imprimantes
-//  Réglés pour VCore 3.1 + Rapido HF + Orbiter (direct drive), buse 0.4.
+//  Réglés pour VCore 3.1 + Rapido HF + HGX Lite (direct drive), buse 0.4.
 // ═══════════════════════════════════════════════════════════════════════════
 
 interface Props {
@@ -25,7 +25,7 @@ interface Mat {
   build: (c: PrinterConfig) => Record<string, unknown>;
 }
 
-// Base commune à tous les profils (direct drive Orbiter + Rapido).
+// Base commune à tous les profils (direct drive HGX Lite + Rapido).
 // La rétraction est volontairement courte (direct drive). Le Pressure Advance
 // est DÉSACTIVÉ côté Orca car c'est Klipper qui le gère (sinon double effet).
 function common(name: string, inherits: string, extra: Record<string, unknown>) {
@@ -41,7 +41,7 @@ function common(name: string, inherits: string, extra: Record<string, unknown>) 
     inherits,
     filament_vendor: ['Generic'],
     filament_diameter: ['1.75'],
-    // rétraction direct drive Orbiter 2.0 (chemin filament très court → 0.5 mm)
+    // rétraction direct drive HGX Lite (chemin filament très court → 0.5 mm)
     filament_retraction_length: ['0.5'],
     filament_retraction_speed: ['35'],
     // Pressure Advance géré par Klipper → coupé côté Orca
@@ -77,7 +77,7 @@ const MATERIALS: Mat[] = [
         slow_down_layer_time: ['4'],
         slow_down_min_speed: ['15'],
         close_fan_the_first_x_layers: ['1'],
-        filament_notes: ['PLA generique VCore3.1 + Rapido HF + Orbiter direct drive. Refroidissement maximal des la couche 2.'],
+        filament_notes: ['PLA generique VCore3.1 + Rapido HF + HGX Lite direct drive. Refroidissement maximal des la couche 2.'],
       }),
   },
   {
@@ -180,7 +180,7 @@ const MATERIALS: Mat[] = [
         slow_down_layer_time: ['5'],
         slow_down_min_speed: ['10'],
         close_fan_the_first_x_layers: ['1'],
-        filament_notes: ['TPU 95A : IMPRIMER LENTEMENT (15-30 mm/s, vol max 4). Direct drive Orbiter indispensable (un bowden est ingerable). Retraction courte (0.4). SECHER le filament. Buse 220-230, lit 40-45. Zero ou tres peu de retraction, sinon bouchage.'],
+        filament_notes: ['TPU 95A : IMPRIMER LENTEMENT (15-30 mm/s, vol max 4). Direct drive HGX Lite indispensable (un bowden est ingerable). Retraction courte (0.4). SECHER le filament. Buse 220-230, lit 40-45. Zero ou tres peu de retraction, sinon bouchage.'],
       }),
   },
   {
@@ -289,7 +289,7 @@ export function FilamentProfiles({ config }: Props) {
           <h2 className="text-xl font-bold text-white mb-1">Profils Filament OrcaSlicer</h2>
           <p className="text-sm text-gray-400">
             Fichiers <code className="bg-gray-800 px-1 rounded">.json</code> au <strong>vrai format OrcaSlicer</strong>,
-            réglés pour ta VCore 3.1 + Rapido + Orbiter direct drive.
+            réglés pour ta VCore 3.1 + Rapido + HGX Lite direct drive.
           </p>
         </div>
         <button
@@ -406,7 +406,7 @@ export function FilamentProfiles({ config }: Props) {
             </div>
           ))}
           <p className="text-xs text-gray-500">
-            ⚠️ Ne touche pas à la rétraction si ton Orbiter est déjà réglé côté Klipper — ces valeurs sont un point de départ direct drive.
+            ⚠️ Ne touche pas à la rétraction si ton HGX Lite est déjà réglé côté Klipper — ces valeurs sont un point de départ direct drive.
           </p>
         </div>
       </div>
@@ -416,7 +416,7 @@ export function FilamentProfiles({ config }: Props) {
         <p>🟢 <strong>PLA</strong> : lit 60, buse 210, ventilo 100%. Le plus simple, aucun warping.</p>
         <p>🔵 <strong>PETG</strong> : lit 80, buse 240, ventilo 30-50%. <strong>Sécher le filament</strong> (anti-stringing) + bâton de colle sur PEI.</p>
         <p>🟠 <strong>ABS / ABS+</strong> : lit 100-105, buse 245-255, ventilo 0-20%. <strong>Caisson fermé et chaud obligatoire</strong> + brim.</p>
-        <p>🟣 <strong>TPU</strong> : lit 40-45, buse 225, ventilo 50-80%. <strong>Imprimer lentement</strong> (15-30 mm/s), rétraction courte, direct drive Orbiter obligatoire.</p>
+        <p>🟣 <strong>TPU</strong> : lit 40-45, buse 225, ventilo 50-80%. <strong>Imprimer lentement</strong> (15-30 mm/s), rétraction courte, direct drive HGX Lite obligatoire.</p>
         <p>⚪ <strong>Carbone (PETG-CF)</strong> : lit 80, buse 250, ventilo 30-40%. <strong>Buse acier trempé obligatoire</strong> (abrasif), buse 0.6 conseillée, sécher +++.</p>
       </div>
     </div>

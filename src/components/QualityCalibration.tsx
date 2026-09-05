@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  Guide QUALITÉ / CALIBRATION — VCore 3.1 + Rapido + Orbiter 2.0.
+//  Guide QUALITÉ / CALIBRATION — VCore 3.1 + Rapido + HGX Lite.
 //  « Impeccable » = 70% calibration (une fois) + 30% réglages slicer.
 //  Ordre d'impact : Input Shaper > calibration filament (Orca) > réglages visuels.
 // ═══════════════════════════════════════════════════════════════════════════
@@ -110,7 +110,7 @@ export function QualityCalibration() {
               <div className="hidden sm:block bg-gray-900 px-3 py-2 text-xs font-medium text-gray-400">Pourquoi</div>
               <Row k="1. Sécher le filament" v="65°C · 4-6h" n="LE point clé. Sécheuse ou four." />
               <Row k="2. Température buse" v="235-240°C" n="Trop chaud = coule. Baisse par 5° (temp tower)." />
-              <Row k="3. Rétraction (Orbiter 2.0)" v="0.5-0.8 mm" n="Monte à 0.7 si ça file encore" />
+              <Row k="3. Rétraction (HGX Lite)" v="0.5-0.8 mm" n="Monte à 0.7 si ça file encore" />
               <Row k="4. Vitesse de déplacement" v="250-350 mm/s" n="Déplacement rapide = moins le temps de couler" />
               <Row k="5. Essuyer lors des rétractions" v="Activé" n="OrcaSlicer → Forçage → Wipe" />
               <Row k="6. Saut en Z (Z-hop)" v="0.2 mm" n="Évite d’accrocher les fils déjà posés" />
@@ -178,7 +178,7 @@ SHAPER_CALIBRATE`}</Code>
               { n: '1', t: 'Temperature tower', d: 'Trouve LA bonne température : moins de chevelure, meilleure adhésion des couches. Imprime la tour, choisis le palier le plus net.', badge: 'PETG 230→250' },
               { n: '2', t: 'Flow rate (Pass 1 puis Pass 2)', d: 'Le plus gros impact sur les parois lisses. Corrige la sur/sous-extrusion. Reporte le facteur trouvé dans le filament.', badge: 'Essentiel' },
               { n: '3', t: 'Pressure Advance', d: 'Coins nets. À faire si pas déjà calibré côté Klipper. Choisis Line method pour commencer.', badge: 'Coins' },
-              { n: '4', t: 'Retraction test', d: 'Confirme la longueur de rétraction anti-chevelure (Orbiter 2.0 : autour de 0.5-0.8 mm).', badge: 'Anti-fils' },
+              { n: '4', t: 'Retraction test', d: 'Confirme la longueur de rétraction anti-chevelure (HGX Lite : autour de 0.5-0.8 mm).', badge: 'Anti-fils' },
               { n: '5', t: 'Max volumetric speed', d: 'La vitesse max réelle sans sous-extrusion. Évite les parois qui manquent de matière à grande vitesse.', badge: 'Vitesse' },
             ].map((c) => (
               <div key={c.n} className="flex gap-3 p-3 rounded-lg border border-gray-800 bg-gray-900/40">

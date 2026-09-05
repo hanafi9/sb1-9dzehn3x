@@ -21,6 +21,7 @@ const EXTRUDERS: { value: ExtruderType; label: string; rotDist: number; current:
   { value: 'orbiter2',      label: 'Orbiter 2.0',        rotDist: 4.637,       current: 0.850, desc: 'LDO 36STH20-1004AHG — Recommandé RatOS' },
   { value: 'orbiter15',     label: 'Orbiter 1.5',        rotDist: 4.637,       current: 0.850, desc: 'Version précédente Orbiter' },
   { value: 'lgx_lite',      label: 'Bondtech LGX Lite',  rotDist: 5.7,         current: 0.700, desc: 'Léger, double engrenage' },
+  { value: 'hgx_lite',      label: 'HGX Lite',           rotDist: 5.56,        current: 0.650, desc: 'Réducteur 9.5:1 — À CALIBRER (5.5-5.7)' },
   { value: 'bmg',           label: 'Bondtech BMG',       rotDist: 22.6789511,  current: 0.650, desc: 'Classique fiable' },
   { value: 'sherpa_mini',   label: 'Annex Sherpa Mini',  rotDist: 22.6789511,  current: 0.650, desc: 'Léger et compact' },
   { value: 'vz_hextrudort', label: 'VzBot HextrudORT',  rotDist: 20.0,        current: 0.800, desc: 'Haute vitesse' },

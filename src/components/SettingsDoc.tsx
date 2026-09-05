@@ -1,7 +1,7 @@
 import { Printer, Cpu, Gauge, Thermometer, Sparkles, Scissors, Wrench } from 'lucide-react';
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  Fiche de réglages VCore 3.1 hybride (VzBot + Rapido standard + Orbiter 2.0
+//  Fiche de réglages VCore 3.1 hybride (VzBot + Rapido standard + HGX Lite
 //  + Cartographer + CPAP). Version imprimable : bouton « Imprimer / PDF »
 //  qui déclenche window.print() avec un style @media print dédié (fond blanc,
 //  texte noir, uniquement la fiche — le reste de l'app est masqué).
@@ -30,7 +30,7 @@ const BLOCKS: Block[] = [
       ['3. Z-offset', '1ʳᵉ couche ni écrasée ni décollée', '50 % du rendu et de l’adhérence'],
       ['4. Input Shaper', 'G28 → SHAPER_CALIBRATE → SAVE_CONFIG', 'Supprime le ghosting'],
       ['5. Pressure Advance', '≈ 0.03 (côté Klipper)', 'Coins nets — désactivé côté Orca'],
-      ['6. Flow / rotation_distance', 'Orbiter 2.0 ≈ 4.637', 'Parois lisses (Flow Pass 1+2)'],
+      ['6. Flow / rotation_distance', 'HGX Lite ≈ 5.56 (À CALIBRER)', 'Parois lisses (Flow Pass 1+2)'],
     ],
   },
   {
@@ -47,7 +47,7 @@ const BLOCKS: Block[] = [
   },
   {
     id: 'fil', icon: Thermometer, num: '03', title: 'Profils filament (OrcaSlicer)',
-    note: 'Rapido + Orbiter 2.0 direct drive, buse 0.4. Rétraction 0.5 mm, PA géré par Klipper. CPAP = ventilo bas.',
+    note: 'Rapido + HGX Lite direct drive, buse 0.4. Rétraction 0.5 mm, PA géré par Klipper. CPAP = ventilo bas.',
     head: ['Matériau', 'Buse', 'Plateau', 'Ventilo', 'Vol. max'],
     rows: [
       ['PLA', '210 / 215', '60', '100 %', '15'],
@@ -97,7 +97,9 @@ const BLOCKS: Block[] = [
       ['Bed mesh aberrant', 'Bobine Cartographer hors plage', 'horizontal_move_z: 2'],
       ['Scanner CAN décroche', 'Terminaison CAN manquante', '120 Ω (can0.service)'],
       ['Ghosting', 'Résonances', 'SHAPER_CALIBRATE + SAVE_CONFIG'],
-      ['Lignes désalignées en hauteur', 'Courroies / Z_TILT / portique', 'Retendre courroies, Z_TILT, châssis équerre'],
+      ['Lignes désalignées en hauteur', 'SUR-EXTRUSION (rotation_distance faux) en 1er', 'Calibrer rotation_distance (test 100 mm)'],
+      ['… si rotation_distance est bon', 'Courroies / Z_TILT / portique', 'Retendre courroies, Z_TILT, châssis équerre'],
+      ['Parois bombées, buse qui racle', 'rotation_distance trop PETIT = trop de matière', 'HGX Lite ≈ 5.56, PAS 4.637 (Orbiter)'],
     ],
   },
 ];
@@ -111,7 +113,7 @@ export function SettingsDoc() {
           <h2 className="text-xl font-bold text-white mb-1">Fiche de réglages — VCore 3.1 hybride</h2>
           <p className="text-sm text-gray-400 max-w-2xl">
             Tous les réglages optimaux (calibration, filaments, qualité, supports, dépannage) pour ton montage
-            VzBot + Rapido + Orbiter 2.0 + Cartographer. Bouton ci-contre pour imprimer ou générer un PDF.
+            VzBot + Rapido + HGX Lite + Cartographer. Bouton ci-contre pour imprimer ou générer un PDF.
           </p>
         </div>
         <button
@@ -127,7 +129,7 @@ export function SettingsDoc() {
       <div id="fiche-print" className="space-y-8">
         <div className="print-only hidden">
           <h1 className="text-2xl font-bold">VCore 3.1 Hybride — Fiche de réglages</h1>
-          <p>VzBot · Rapido (standard) · Orbiter 2.0 · Cartographer · CPAP · RatOS v2.1</p>
+          <p>VzBot · Rapido (standard) · HGX Lite · Cartographer · CPAP · RatOS v2.1</p>
         </div>
 
         {BLOCKS.map((b) => {

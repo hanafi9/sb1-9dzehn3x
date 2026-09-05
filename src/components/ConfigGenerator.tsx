@@ -10,6 +10,7 @@ const EXTRUDER_DATA: Record<string, { rotDist: number; current: number; microste
   orbiter2:      { rotDist: 4.637,       current: 0.850, microsteps: 16 },
   orbiter15:     { rotDist: 4.637,       current: 0.850, microsteps: 16 },
   lgx_lite:      { rotDist: 5.7,         current: 0.700, microsteps: 16 },
+  hgx_lite:      { rotDist: 5.56,        current: 0.650, microsteps: 16 },
   bmg:           { rotDist: 22.6789511,  current: 0.650, microsteps: 16 },
   sherpa_mini:   { rotDist: 22.6789511,  current: 0.650, microsteps: 16 },
   vz_hextrudort: { rotDist: 20.0,        current: 0.800, microsteps: 16 },

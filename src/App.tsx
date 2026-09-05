@@ -24,7 +24,7 @@ import {
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type MainBoard = 'octopus_pro_446' | 'octopus_pro_429' | 'octopus_11' | 'manta_m8p';
-export type ExtruderType = 'orbiter2' | 'orbiter15' | 'lgx_lite' | 'bmg' | 'sherpa_mini' | 'vz_hextrudort';
+export type ExtruderType = 'orbiter2' | 'orbiter15' | 'lgx_lite' | 'hgx_lite' | 'bmg' | 'sherpa_mini' | 'vz_hextrudort';
 export type HotendType = 'dragon_uhf' | 'dragon_std' | 'revo_voron' | 'rapido_uhf' | 'bambu_hotend';
 export type CANSpeed = 500000 | 1000000;
 export type CartographerAPI = 'scanner' | 'classic';
@@ -91,7 +91,7 @@ export function defaultConfig(size: PrinterConfig['printerSize'] = 400): Printer
     ebb42Uuid: '',
     cartographerUuid: '',
     hasU2C: true,
-    extruder: 'orbiter2',
+    extruder: 'hgx_lite',
     hotend: 'dragon_uhf',
     nozzleDiameter: 0.4,
     cartographerAPI: 'scanner',
