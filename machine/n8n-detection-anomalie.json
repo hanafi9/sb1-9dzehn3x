@@ -1,134 +1,141 @@
 {
-  "name": "Détection anomalie impression (GPT-4o)",
+  "name": "Detection anomalie impression 3D",
   "nodes": [
     {
       "parameters": {
-        "rule": { "interval": [ { "field": "seconds", "secondsInterval": 45 } ] }
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
       },
-      "id": "11111111-1111-4111-8111-111111111111",
-      "name": "Toutes les 45s",
+      "id": "trigger-1",
+      "name": "Toutes les 5 min",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [0, 300]
+      "position": [400, 300]
     },
     {
       "parameters": {
-        "url": "http://192.168.1.41:7125/printer/objects/query?print_stats&gcode_macro AI_GUARD",
+        "url": "http://192.168.1.41:7125/printer/objects/query?print_stats",
         "options": {}
       },
-      "id": "22222222-2222-4222-8222-222222222222",
-      "name": "Moonraker état",
+      "id": "state-1",
+      "name": "Etat impression",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [220, 300]
+      "position": [600, 300]
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "version": 2 },
+          "options": {
+            "caseSensitive": true,
+            "version": 2
+          },
           "conditions": [
             {
               "leftValue": "={{ $json.result.status.print_stats.state }}",
               "rightValue": "printing",
-              "operator": { "type": "string", "operation": "equals" }
-            },
-            {
-              "leftValue": "={{ $json.result.status['gcode_macro AI_GUARD'].enabled }}",
-              "rightValue": 1,
-              "operator": { "type": "number", "operation": "equals" }
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
             }
           ],
           "combinator": "and"
         },
         "options": {}
       },
-      "id": "33333333-3333-4333-8333-333333333333",
-      "name": "En impression ?",
+      "id": "if-printing",
+      "name": "Impression en cours ?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [440, 300]
+      "position": [800, 300]
     },
     {
       "parameters": {
         "url": "http://192.168.1.41/webcam/?action=snapshot",
         "options": {
-          "response": { "response": { "responseFormat": "file", "outputPropertyName": "data" } }
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data"
+            }
+          }
         }
       },
-      "id": "44444444-4444-4444-8444-444444444444",
-      "name": "Snapshot webcam",
+      "id": "snap-1",
+      "name": "Snapshot camera",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [660, 200]
-    },
-    {
-      "parameters": {
-        "mode": "runOnceForEachItem",
-        "jsCode": "// La donnée binaire de n8n est déjà en base64 dans .data\nconst b64 = $input.item.binary.data.data;\nreturn { json: { imageB64: b64 } };"
-      },
-      "id": "55555555-5555-4555-8555-555555555555",
-      "name": "Image → base64",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [880, 200]
+      "position": [1020, 240]
     },
     {
       "parameters": {
         "method": "POST",
         "url": "https://api.openai.com/v1/chat/completions",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            { "name": "Authorization", "value": "Bearer VOTRE_CLE_OPENAI" }
-          ]
-        },
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"model\": \"gpt-4o\",\n  \"max_tokens\": 200,\n  \"response_format\": { \"type\": \"json_object\" },\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": [\n        { \"type\": \"text\", \"text\": \"Tu es un détecteur d'échec d'impression 3D FDM. Analyse l'image de la webcam. Réponds STRICTEMENT en JSON: {\\\"echec\\\": true ou false, \\\"confiance\\\": nombre 0.0 à 1.0, \\\"raison\\\": texte court}. Mets echec=true UNIQUEMENT si tu vois clairement des spaghettis de filament, un amas/paquet de filament, un décollement net de la pièce, ou une pièce arrachée du plateau. En cas de doute ou de vue normale, echec=false.\" },\n        { \"type\": \"image_url\", \"image_url\": { \"url\": \"data:image/jpeg;base64,{{ $json.imageB64 }}\" } }\n      ]\n    }\n  ]\n}",
+        "jsonBody": "={{ JSON.stringify({\n  model: 'gpt-4o-mini',\n  max_tokens: 300,\n  response_format: { type: 'json_object' },\n  messages: [\n    {\n      role: 'system',\n      content: \"Tu inspectes des photos d'impression 3D FDM en cours. Tu reponds UNIQUEMENT en JSON strict, sans texte autour, au format : {\\\"anomalie\\\": true|false, \\\"confiance\\\": 0.0-1.0, \\\"type\\\": \\\"spaghetti|decollement|sous_extrusion|blob|aucune\\\", \\\"description\\\": \\\"une phrase\\\"}. Mets anomalie=true SEULEMENT si le defaut est net et certain.\"\n    },\n    {\n      role: 'user',\n      content: [\n        { type: 'text', text: \"Cette impression 3D presente-t-elle une anomalie ?\" },\n        { type: 'image_url', image_url: { url: 'data:image/jpeg;base64,' + $('Snapshot camera').item.binary.data.data, detail: 'low' } }\n      ]\n    }\n  ]\n}) }}",
         "options": {}
       },
-      "id": "66666666-6666-4666-8666-666666666666",
-      "name": "GPT-4o Vision",
+      "id": "gpt-1",
+      "name": "Analyse GPT-4o Vision",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1100, 200]
+      "position": [1240, 240]
     },
     {
       "parameters": {
-        "mode": "runOnceForEachItem",
-        "jsCode": "// Le modèle renvoie une chaîne JSON dans message.content\nconst txt = $input.item.json.choices[0].message.content;\nlet v;\ntry { v = JSON.parse(txt); }\ncatch (e) { v = { echec: false, confiance: 0, raison: 'reponse illisible' }; }\nreturn { json: v };"
+        "jsCode": "// La reponse du modele est une chaine JSON : on la parse proprement.\nconst brut = $input.first().json.choices?.[0]?.message?.content ?? '{}';\nlet verdict;\ntry {\n  verdict = JSON.parse(brut);\n} catch (e) {\n  // Si le modele derape, on considere qu'il n'y a PAS d'anomalie :\n  // mieux vaut rater une detection que mettre en pause a tort.\n  verdict = { anomalie: false, confiance: 0, type: 'aucune', description: 'reponse illisible: ' + brut.slice(0, 120) };\n}\n\nreturn [{\n  json: {\n    anomalie: verdict.anomalie === true,\n    confiance: Number(verdict.confiance ?? 0),\n    type: verdict.type ?? 'aucune',\n    description: verdict.description ?? ''\n  },\n  binary: $('Snapshot camera').first().binary\n}];"
       },
-      "id": "77777777-7777-4777-8777-777777777777",
-      "name": "Lecture verdict",
+      "id": "parse-1",
+      "name": "Lire le verdict",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1320, 200]
+      "position": [1460, 240]
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "version": 2 },
+          "options": {
+            "caseSensitive": true,
+            "version": 2
+          },
           "conditions": [
             {
-              "leftValue": "={{ $json.echec }}",
+              "leftValue": "={{ $json.anomalie }}",
               "rightValue": true,
-              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
             },
             {
               "leftValue": "={{ $json.confiance }}",
-              "rightValue": 0.7,
-              "operator": { "type": "number", "operation": "gte" }
+              "rightValue": 0.8,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
             }
           ],
           "combinator": "and"
         },
         "options": {}
       },
-      "id": "88888888-8888-4888-8888-888888888888",
-      "name": "Échec confirmé ?",
+      "id": "if-anomalie",
+      "name": "Anomalie confirmee ?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [1540, 200]
+      "position": [1680, 240]
     },
     {
       "parameters": {
@@ -136,35 +143,63 @@
         "url": "http://192.168.1.41:7125/printer/print/pause",
         "options": {}
       },
-      "id": "99999999-9999-4999-8999-999999999999",
-      "name": "PAUSE impression",
+      "id": "pause-1",
+      "name": "Pause Klipper",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1760, 120]
+      "position": [1900, 160]
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "=http://192.168.1.41:7125/printer/gcode/script?script=M117 ANOMALIE: {{ $json.raison }}",
-        "options": {}
+        "chatId": "894962403",
+        "operation": "sendPhoto",
+        "binaryData": true,
+        "binaryPropertyName": "data",
+        "additionalFields": {
+          "caption": "=⚠️ Anomalie detectee ({{ $('Lire le verdict').item.json.type }}, confiance {{ Math.round($('Lire le verdict').item.json.confiance * 100) }}%)\n{{ $('Lire le verdict').item.json.description }}\n\n⏸️ Impression mise en pause."
+        }
       },
-      "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-      "name": "Message imprimante",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [1760, 300]
+      "id": "tg-1",
+      "name": "Notification Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [2120, 160]
     }
   ],
   "connections": {
-    "Toutes les 45s": { "main": [ [ { "node": "Moonraker état", "type": "main", "index": 0 } ] ] },
-    "Moonraker état": { "main": [ [ { "node": "En impression ?", "type": "main", "index": 0 } ] ] },
-    "En impression ?": { "main": [ [ { "node": "Snapshot webcam", "type": "main", "index": 0 } ], [] ] },
-    "Snapshot webcam": { "main": [ [ { "node": "Image → base64", "type": "main", "index": 0 } ] ] },
-    "Image → base64": { "main": [ [ { "node": "GPT-4o Vision", "type": "main", "index": 0 } ] ] },
-    "GPT-4o Vision": { "main": [ [ { "node": "Lecture verdict", "type": "main", "index": 0 } ] ] },
-    "Lecture verdict": { "main": [ [ { "node": "Échec confirmé ?", "type": "main", "index": 0 } ] ] },
-    "Échec confirmé ?": { "main": [ [ { "node": "PAUSE impression", "type": "main", "index": 0 }, { "node": "Message imprimante", "type": "main", "index": 0 } ], [] ] }
+    "Toutes les 5 min": {
+      "main": [[{ "node": "Etat impression", "type": "main", "index": 0 }]]
+    },
+    "Etat impression": {
+      "main": [[{ "node": "Impression en cours ?", "type": "main", "index": 0 }]]
+    },
+    "Impression en cours ?": {
+      "main": [
+        [{ "node": "Snapshot camera", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Snapshot camera": {
+      "main": [[{ "node": "Analyse GPT-4o Vision", "type": "main", "index": 0 }]]
+    },
+    "Analyse GPT-4o Vision": {
+      "main": [[{ "node": "Lire le verdict", "type": "main", "index": 0 }]]
+    },
+    "Lire le verdict": {
+      "main": [[{ "node": "Anomalie confirmee ?", "type": "main", "index": 0 }]]
+    },
+    "Anomalie confirmee ?": {
+      "main": [
+        [{ "node": "Pause Klipper", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Pause Klipper": {
+      "main": [[{ "node": "Notification Telegram", "type": "main", "index": 0 }]]
+    }
   },
-  "active": false,
-  "settings": { "executionOrder": "v1" }
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
 }
