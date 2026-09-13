@@ -83,8 +83,10 @@ cards:
         color: purple
 
   # ── Commandes d'impression ─────────────────────────────────────────────
+  #    4 colonnes : les boutons tiennent sur une seule ligne, ce qui ramène
+  #    la carte à la hauteur des autres appareils de la section.
   - type: grid
-    columns: 2
+    columns: 4
     square: false
     cards:
       - type: button
