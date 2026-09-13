@@ -137,7 +137,7 @@ cards:
 #
 #      [power imprimante]
 #      type: homeassistant
-#      address: 192.168.1.XX            # IP de Home Assistant
+#      address: 192.168.1.252           # IP de Home Assistant
 #      port: 8123
 #      device: switch.ratrig_bureau
 #      token: <JETON_LONGUE_DUREE>      # Profil HA → Jetons d'accès longue durée
