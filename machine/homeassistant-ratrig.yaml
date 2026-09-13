@@ -1,0 +1,240 @@
+# ═══════════════════════════════════════════════════════════════════════════
+#  RATRIG VCORE 3.1 400×400 DANS HOME ASSISTANT
+#
+#  1. Carte « picture-elements » : photo de l'imprimante avec toutes les infos
+#     superposées + boutons de contrôle. À coller dans autant de dashboards
+#     que tu veux (elle est autonome).
+#  2. Pilotage de l'alimentation via Moonraker (et non directement par HA) :
+#     c'est ce qui apporte les sécurités anti-coupure en pleine impression.
+#
+#  ⚠️ AVANT DE COLLER : remplace partout le préfixe « ratos » par le nom réel
+#     de tes entités. Pour le trouver : Outils de développement → États →
+#     tape « moonraker » ou le nom que tu as donné à l'intégration.
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+# ───────────────────────────────────────────────────────────────────────────
+#  ÉTAPE 1 — L'IMAGE
+#
+#  Dépose une photo de ta VCore dans le dossier  /config/www/
+#  (crée-le s'il n'existe pas). Elle devient alors accessible en /local/
+#
+#      /config/www/vcore.jpg   →   /local/vcore.jpg
+#
+#  Le mieux : une photo de TA machine, prise de face, bien cadrée. Une image
+#  générique de VCore 3 fait l'affaire, mais reconnaître sa propre imprimante
+#  sur le dashboard est nettement plus agréable.
+#
+#  Format conseillé : paysage, ~1200 px de large.
+# ───────────────────────────────────────────────────────────────────────────
+
+
+# ───────────────────────────────────────────────────────────────────────────
+#  ÉTAPE 2 — LA CARTE
+#
+#  Dashboard → Modifier → Ajouter une carte → Manuel → coller ceci.
+#  Les couples (top / left) sont des POURCENTAGES de l'image : ajuste-les
+#  pour poser chaque info à l'endroit qui correspond sur ta photo.
+# ───────────────────────────────────────────────────────────────────────────
+
+type: picture-elements
+image: /local/vcore.jpg
+elements:
+
+  # ── Bandeau d'état, en haut ────────────────────────────────────────────
+  - type: state-label
+    entity: sensor.ratos_current_print_state
+    style:
+      top: 6%
+      left: 50%
+      transform: translate(-50%, -50%)
+      font-size: 20px
+      font-weight: bold
+      color: white
+      background: rgba(0,0,0,0.55)
+      padding: 4px 14px
+      border-radius: 8px
+
+  # ── Progression ────────────────────────────────────────────────────────
+  - type: state-label
+    entity: sensor.ratos_progress
+    suffix: " %"
+    style:
+      top: 16%
+      left: 50%
+      transform: translate(-50%, -50%)
+      font-size: 28px
+      font-weight: bold
+      color: "#ff9800"
+      text-shadow: 0 0 6px rgba(0,0,0,0.9)
+
+  # ── Températures — à poser sur la buse et le plateau de la photo ───────
+  - type: state-label
+    entity: sensor.ratos_extruder_temperature
+    prefix: "🔥 "
+    style:
+      top: 40%
+      left: 72%
+      font-size: 16px
+      color: white
+      background: rgba(0,0,0,0.5)
+      padding: 3px 8px
+      border-radius: 6px
+
+  - type: state-label
+    entity: sensor.ratos_bed_temperature
+    prefix: "🛏️ "
+    style:
+      top: 72%
+      left: 50%
+      transform: translate(-50%, -50%)
+      font-size: 16px
+      color: white
+      background: rgba(0,0,0,0.5)
+      padding: 3px 8px
+      border-radius: 6px
+
+  # ── Couche en cours et temps restant ───────────────────────────────────
+  - type: state-label
+    entity: sensor.ratos_current_layer
+    prefix: "Couche "
+    style:
+      top: 88%
+      left: 22%
+      font-size: 14px
+      color: "#dddddd"
+      background: rgba(0,0,0,0.5)
+      padding: 3px 8px
+      border-radius: 6px
+
+  - type: state-label
+    entity: sensor.ratos_print_eta
+    prefix: "⏳ "
+    style:
+      top: 88%
+      left: 74%
+      font-size: 14px
+      color: "#dddddd"
+      background: rgba(0,0,0,0.5)
+      padding: 3px 8px
+      border-radius: 6px
+
+  # ── Boutons de contrôle, en bas ────────────────────────────────────────
+  - type: icon
+    icon: mdi:pause
+    entity: button.ratos_pause_print
+    tap_action:
+      action: toggle
+    style:
+      top: 96%
+      left: 38%
+      color: white
+      "--mdc-icon-size": 28px
+
+  - type: icon
+    icon: mdi:play
+    entity: button.ratos_resume_print
+    tap_action:
+      action: toggle
+    style:
+      top: 96%
+      left: 50%
+      color: white
+      "--mdc-icon-size": 28px
+
+  - type: icon
+    icon: mdi:stop
+    entity: button.ratos_cancel_print
+    tap_action:
+      action: toggle
+      confirmation:
+        text: Annuler l'impression en cours ?
+    style:
+      top: 96%
+      left: 62%
+      color: "#ff5252"
+      "--mdc-icon-size": 28px
+
+  # ── Voyant d'alimentation : vert allumé, gris éteint ───────────────────
+  - type: icon
+    icon: mdi:power-plug
+    entity: switch.prise_ratrig
+    tap_action:
+      action: more-info
+    state_color: true
+    style:
+      top: 6%
+      left: 8%
+      "--mdc-icon-size": 26px
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  ÉTAPE 3 — LA PRISE D'ALIMENTATION
+#
+#  ⚠️ NE PILOTE PAS LA PRISE DIRECTEMENT DEPUIS HOME ASSISTANT.
+#
+#  Un simple interrupteur HA n'a aucune notion de ce que fait l'imprimante :
+#  un appui malheureux (ou une automatisation) coupe le courant en pleine
+#  impression, et surtout coupe le Raspberry Pi à chaud → corruption de la
+#  carte SD.
+#
+#  La bonne méthode : déclarer la prise dans MOONRAKER, qui sait ce qui se
+#  passe et refuse de couper pendant une impression. Le bouton apparaît alors
+#  dans Mainsail ET reste pilotable depuis Home Assistant.
+#
+#  Dans moonraker.conf, ajouter :
+#
+#      [power imprimante]
+#      type: homeassistant
+#      address: 192.168.1.XX          # IP de ton Home Assistant
+#      port: 8123
+#      device: switch.prise_ratrig    # l'entité de ta prise dans HA
+#      token: <TOKEN_LONGUE_DUREE>    # Profil HA → Jetons d'accès longue durée
+#      domain: switch
+#      locked_while_printing: True    # ⭐ refuse de couper pendant une impression
+#      off_when_shutdown: True        # coupe si Klipper part en erreur
+#      initial_state: off
+#      restart_klipper_when_powered: True
+#
+#  (Si ta prise est une Tasmota / Shelly / TP-Link, Moonraker sait aussi la
+#   piloter en direct : type: tasmota / shelly / tplink_smartplug — pas besoin
+#   de passer par HA.)
+#
+#  ⚠️ LE RASPBERRY PI NE DOIT PAS ÊTRE SUR LA PRISE COMMUTÉE.
+#     Alimente-le séparément. Sinon chaque coupure l'éteint brutalement et
+#     finira par corrompre sa carte SD. Sur la prise : l'alim 24 V et le
+#     plateau chauffant, pas le Pi.
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  ÉTAPE 4 — L'AUTOMATISATION QUI SERT VRAIMENT
+#
+#  Alerte immédiate si Klipper part en erreur. C'est celle qui t'aurait
+#  prévenu tout de suite lors du « ADC out of range » au lieu de le decouvrir
+#  en allant voir la machine.
+#
+#  Paramètres → Automatisations → Créer → Éditer en YAML → coller :
+# ═══════════════════════════════════════════════════════════════════════════
+
+alias: RatRig — alerte erreur Klipper
+description: Notifie dès que l'imprimante passe en erreur ou en shutdown
+triggers:
+  - trigger: state
+    entity_id: sensor.ratos_current_print_state
+    to:
+      - error
+      - shutdown
+conditions: []
+actions:
+  - action: notify.mobile_app_TON_TELEPHONE
+    data:
+      title: 🚨 RatRig en erreur
+      message: >-
+        État : {{ states('sensor.ratos_current_print_state') }} —
+        buse {{ states('sensor.ratos_extruder_temperature') }} °C,
+        plateau {{ states('sensor.ratos_bed_temperature') }} °C
+      data:
+        image: /api/camera_proxy/camera.ratos_webcam
+        color: red
+mode: single
