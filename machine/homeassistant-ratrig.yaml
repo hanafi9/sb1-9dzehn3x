@@ -1,8 +1,10 @@
 # ═══════════════════════════════════════════════════════════════════════════
 #  RATRIG VCORE 3.1 400×400 — HOME ASSISTANT
 #
-#  Carte au format des autres cartes du dashboard (image en grand avec nom et
-#  état en surimpression, puis tuiles et grille de boutons).
+#  Carte calquée sur les autres cartes de la section « Appareils » des
+#  dashboards TABLET et Maison (Climatiseur Condor, Redkey R11, Purificateur) :
+#  un titre avec emoji, une grande image, puis le nom à gauche et l'état à
+#  droite en bas de l'image. Suivent les tuiles et la grille de boutons.
 #  Cartes natives uniquement : aucune dépendance HACS supplémentaire.
 #
 #  ⚠️ VÉRIFIER LE PRÉFIXE DES ENTITÉS
@@ -15,15 +17,24 @@
 type: vertical-stack
 cards:
 
-  # ── Vue caméra en direct, avec le nom et l'état en surimpression ────────
-  #    Plus utile qu'une photo figée : on voit l'impression réelle.
-  #    Pour une image fixe à la place : remplacer camera_image par
-  #      image: /local/vcore.jpg     (photo déposée dans /config/www/)
+  # ── Titre, au même format que les autres appareils ──────────────────────
+  - type: heading
+    heading: 🖨️ Imprimante 3D RatRig V-Core 3.1 — 400×400
+    heading_style: title
+
+  # ── Grande image, nom à gauche et état à droite en surimpression ────────
+  #    Les autres appareils ont une photo figée ; la RatRig a une vraie
+  #    caméra, donc autant afficher le flux en direct au même emplacement :
+  #    on voit l'impression réelle au lieu d'une photo de catalogue.
+  #
+  #    Pour une photo figée à la place (image de la V-Core déposée dans
+  #    /config/www/vcore.jpg), remplacer les deux lignes camera_* par :
+  #      image: /local/vcore.jpg
   - type: picture-entity
     entity: sensor.ratrig_current_print_state
     camera_image: camera.ratrig_webcam
     camera_view: live
-    name: RatRig V-Core 3.1 — 400×400
+    name: RatRig V-Core 3.1
     show_name: true
     show_state: true
     tap_action:
