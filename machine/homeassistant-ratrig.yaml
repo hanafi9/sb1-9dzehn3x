@@ -7,11 +7,13 @@
 #  droite en bas de l'image. Suivent les tuiles et la grille de boutons.
 #  Cartes natives uniquement : aucune dépendance HACS supplémentaire.
 #
-#  ⚠️ VÉRIFIER LE PRÉFIXE DES ENTITÉS
-#     J'ai utilisé « ratrig » (déduit de switch.ratrig_bureau). Si l'intégration
-#     Moonraker a nommé autrement, faire un rechercher-remplacer.
-#     Pour lister : Outils de développement → États → filtrer sur « print » ou
-#     « moonraker ».
+#  PRÉFIXE DES ENTITÉS : « ratrig » — vérifié dans Outils de développement →
+#  États (button.ratrig_pause_print, button.ratrig_cancel_print,
+#  sensor.ratrig_longest_print, appareil « Atelier ▸ Ratrig »).
+#
+#  ⚠️ LA CAMÉRA N'EST PAS FOURNIE PAR L'INTÉGRATION MOONRAKER.
+#     Aucune entité du domaine camera. n'est créée. Il faut la déclarer à la
+#     main dans configuration.yaml — voir le bloc CAMÉRA plus bas.
 # ═══════════════════════════════════════════════════════════════════════════
 
 type: vertical-stack
@@ -26,6 +28,7 @@ cards:
   #    Les autres appareils ont une photo figée ; la RatRig a une vraie
   #    caméra, donc autant afficher le flux en direct au même emplacement :
   #    on voit l'impression réelle au lieu d'une photo de catalogue.
+  #    Nécessite le bloc CAMÉRA de configuration.yaml (voir plus bas).
   #
   #    Pour une photo figée à la place (image de la V-Core déposée dans
   #    /config/www/vcore.jpg), remplacer les deux lignes camera_* par :
@@ -131,6 +134,42 @@ cards:
     name: Alimentation RatRig
     icon: mdi:power-plug
     color: green
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  CAMÉRA — à déclarer à la main dans configuration.yaml
+#
+#  L'intégration Moonraker ne crée aucune entité camera. On la déclare donc
+#  directement, en MJPEG.
+#
+#      camera:
+#        - platform: mjpeg
+#          name: RatRig Webcam
+#          mjpeg_url: http://192.168.1.41/webcam/?action=stream
+#          still_image_url: http://192.168.1.41/webcam/?action=snapshot
+#
+#  Le nom « RatRig Webcam » produit l'entité camera.ratrig_webcam, celle que
+#  la carte ci-dessus attend. Puis Outils de développement → YAML →
+#  Vérifier la configuration → Redémarrer.
+#
+#  ⚠️ Si `camera:` existe déjà dans configuration.yaml, n'ajouter que les
+#     quatre lignes « - platform: mjpeg ... » sous le bloc existant : une clé
+#     en double fait rejeter tout le fichier.
+#
+#  ── POURQUOI MJPEG ET PAS WEBRTC ────────────────────────────────────────
+#  Le passage de crowsnest en camera-streamer (WebRTC) n'a pas tenu : le flux
+#  s'arrêtait, retour en MJPEG (ustreamer).
+#
+#  Pour Home Assistant c'est de toute façon le bon choix : HA ne sait pas
+#  consommer du WebRTC dans une carte picture-entity sans go2rtc et une carte
+#  custom HACS, alors que la plateforme mjpeg native lit le flux telle quelle.
+#  Le MJPEG consomme plus de bande passante et a plus de latence — sans
+#  conséquence en réseau local pour surveiller une impression.
+#
+#  Si le flux reste noir, l'URL est à ajuster : tester dans un navigateur
+#  http://192.168.1.41/webcam/?action=stream puis, à défaut,
+#  http://192.168.1.41:8080/?action=stream
+# ═══════════════════════════════════════════════════════════════════════════
 
 
 # ═══════════════════════════════════════════════════════════════════════════
