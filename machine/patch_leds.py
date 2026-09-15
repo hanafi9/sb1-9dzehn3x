@@ -113,12 +113,14 @@ if b:
 
 # 3. Sans [include], leds.cfg est present mais jamais lu : aucune de ses
 #    macros n'existe et Klipper repond « Unknown command ».
-if "[include leds.cfg]" not in tete:
+for f in ("leds.cfg", "led-effects.cfg"):
+    if "[include %s]" % f in tete:
+        continue
     lignes = tete.split("\n")
     pos = max((i for i, l in enumerate(lignes) if l.startswith("[include ")), default=-1)
-    lignes.insert(pos + 1, "[include leds.cfg]")
+    lignes.insert(pos + 1, "[include %s]" % f)
     tete = "\n".join(lignes)
-    fait.append("[include leds.cfg] ajoute (il manquait : macros non chargees)")
+    fait.append("[include %s] ajoute (il manquait : macros non chargees)" % f)
 
 # 4. LED_ON / LED_OFF / LED_DIM nommaient le ruban en dur. Comme
 #    _USER_START_PRINT_BEFORE_HOMING appelle LED_ON, un nom perime
