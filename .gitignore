@@ -29,3 +29,6 @@ dist-ssr
 
 # Cache de build TypeScript
 *.tsbuildinfo
+
+# Sauvegardes horodatees creees par machine/patch_leds.py
+*.cfg.bak-*
