@@ -82,6 +82,17 @@ if b:
         + mis + "\n") + tete[b[1]:]
     fait.append("[neopixel chamber_leds] commente (conflit de broche PB0)")
 
+# 3. leds.cfg doit etre inclus, sinon tout son contenu est ignore : les macros
+#    STATUS_*, COB_TEST et LUMIERE n'existent tout simplement pas, et Klipper
+#    repond « Unknown command ». Le fichier peut etre present sans etre lu.
+if "[include leds.cfg]" not in tete:
+    lignes = tete.split("\n")
+    pos = max((i for i, l in enumerate(lignes) if l.startswith("[include ")),
+              default=-1)
+    lignes.insert(pos + 1, "[include leds.cfg]")
+    tete = "\n".join(lignes)
+    fait.append("[include leds.cfg] ajoute (il manquait : macros non chargees)")
+
 txt = tete + queue
 
 if txt == avant:
