@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Bascule le COB sur PB0 en [neopixel] WS2811, sans toucher au reste.
+"""Cable le ruban FCOB WS2811 et l'eclairage d'etat dans printer.cfg.
 
 Ne reecrit PAS printer.cfg en entier : le bloc SAVE_CONFIG (PID, modele
 Cartographer, Z offset, bed mesh) est preserve tel quel.
 
-Relancable pour ajuster le reglage une fois le ruban teste :
+Relancable sans risque — il n'applique que ce qui manque, et affiche ce qu'il
+a fait. Pour ajuster le ruban apres COB_TEST :
+
     patch_leds.py --chain 47 --order GRB
-Si [neopixel cob_led] existe deja, pin / chain_count / color_order sont
-mis a jour sur place.
 """
 import re, shutil, sys, time
 from pathlib import Path
@@ -32,6 +32,18 @@ initial_GREEN: 0
 initial_BLUE: 0
 """ % (PIN, CHAIN, ORDER)
 
+# Couleur de chaque etape de START_PRINT. L'ancre est la ligne AVANT laquelle
+# la macro est inseree : on annonce l'etape juste avant de la lancer.
+ETAPES = [
+    ("M190 S{BED}",                   "STATUS_HEATING_BED"),
+    ("G28",                           "STATUS_HOMING"),
+    ("Z_TILT_ADJUST",                 "STATUS_LEVELING"),
+    ("BED_MESH_CALIBRATE ADAPTIVE=1", "STATUS_MESHING"),
+    ("M109 S{HOTEND}",                "STATUS_HEATING_NOZZLE"),
+    ("M117 Impression...",            "STATUS_PRINTING"),
+]
+
+
 def bloc(txt, entete):
     """Etendue d'une section, de son entete jusqu'a la section suivante."""
     m = re.search(r"^\[%s\]\s*$" % re.escape(entete), txt, re.M)
@@ -40,8 +52,27 @@ def bloc(txt, entete):
     suite = re.search(r"^\[", txt[m.end():], re.M)
     return m.start(), m.end() + (suite.start() if suite else len(txt) - m.end())
 
+
+def inserer(txt, section, ancre, ligne, avant=True):
+    """Insere `ligne` avant (ou apres) `ancre` dans `section`, a la meme
+    indentation. Sans effet si `ligne` y figure deja."""
+    b = bloc(txt, section)
+    if not b:
+        return txt, None
+    corps = txt[b[0]:b[1]]
+    if re.search(r"^[ \t]*%s[ \t]*$" % re.escape(ligne), corps, re.M):
+        return txt, None
+    m = re.search(r"^([ \t]*)%s[ \t]*$" % re.escape(ancre), corps, re.M)
+    if not m:
+        return txt, "ancre '%s' absente de %s — ignore" % (ancre, section)
+    pos, ins = (m.start(), m.group(1) + ligne + "\n") if avant \
+               else (m.end(), "\n" + m.group(1) + ligne)
+    corps = corps[:pos] + ins + corps[pos:]
+    return txt[:b[0]] + corps + txt[b[1]:], "%s : %s" % (section, ligne)
+
+
 txt = CFG.read_text(encoding="utf-8")
-avant = txt
+avant_tout = txt
 
 # Garde-fou : ne jamais avaler le bloc SAVE_CONFIG
 coupe = txt.find("#*# <---------------------- SAVE_CONFIG")
@@ -49,24 +80,22 @@ tete, queue = (txt[:coupe], txt[coupe:]) if coupe != -1 else (txt, "")
 
 fait = []
 
-# 1. L'ancienne sortie PWM disparait, remplacee par la section neopixel
+# 1. Le COB est adressable : [neopixel], pas une sortie PWM
 b = bloc(tete, "output_pin cob_led")
 if b:
     tete = tete[:b[0]] + NOUVEAU + "\n" + tete[b[1]:]
     fait.append("[output_pin cob_led] (PWM, PB10) -> [neopixel cob_led] (PB0)")
 elif "[neopixel cob_led]" in tete:
-    # Deja bascule : on ajuste les trois valeurs reglables sur place, pour que
-    # le script reste utile apres COB_TEST (chain_count, color_order).
     d = bloc(tete, "neopixel cob_led")
-    corps, avant_corps = tete[d[0]:d[1]], tete[d[0]:d[1]]
+    corps = origine = tete[d[0]:d[1]]
     for cle, val in (("pin", PIN), ("chain_count", CHAIN), ("color_order", ORDER)):
         corps = re.sub(r"^(%s:\s*)\S+" % cle, r"\g<1>%s" % val, corps, count=1, flags=re.M)
     tete = tete[:d[0]] + corps + tete[d[1]:]
-    fait.append("[neopixel cob_led] ajuste : pin=%s chain_count=%s color_order=%s"
-                % (PIN, CHAIN, ORDER) if corps != avant_corps
-                else "[neopixel cob_led] deja conforme")
+    if corps != origine:
+        fait.append("[neopixel cob_led] ajuste : chain_count=%s color_order=%s"
+                    % (CHAIN, ORDER))
 
-# 2. chamber_leds passe en commentaire : il ne peut pas partager PB0
+# 2. chamber_leds ne peut pas partager PB0 avec le COB
 b = bloc(tete, "neopixel chamber_leds")
 if b:
     corps = tete[b[0]:b[1]].rstrip("\n")
@@ -82,74 +111,61 @@ if b:
         + mis + "\n") + tete[b[1]:]
     fait.append("[neopixel chamber_leds] commente (conflit de broche PB0)")
 
-# 3. leds.cfg doit etre inclus, sinon tout son contenu est ignore : les macros
-#    STATUS_*, COB_TEST et LUMIERE n'existent tout simplement pas, et Klipper
-#    repond « Unknown command ». Le fichier peut etre present sans etre lu.
+# 3. Sans [include], leds.cfg est present mais jamais lu : aucune de ses
+#    macros n'existe et Klipper repond « Unknown command ».
 if "[include leds.cfg]" not in tete:
     lignes = tete.split("\n")
-    pos = max((i for i, l in enumerate(lignes) if l.startswith("[include ")),
-              default=-1)
+    pos = max((i for i, l in enumerate(lignes) if l.startswith("[include ")), default=-1)
     lignes.insert(pos + 1, "[include leds.cfg]")
     tete = "\n".join(lignes)
     fait.append("[include leds.cfg] ajoute (il manquait : macros non chargees)")
 
-# 4. Allumage automatique. La camera a besoin de lumiere, et le workflow n8n
-#    de detection d'anomalie analyse ses images : dans le noir, il ne voit
-#    rien non plus. On allume donc des le debut de START_PRINT — soit pendant
-#    la chauffe, la trempe et le palpage, bien avant la premiere couche.
-def inserer_apres(txt, section, ancre, ligne):
-    """Insere `ligne` juste apres la premiere occurrence de `ancre` dans
-    `section`, en reprenant son indentation. Ne fait rien si deja presente."""
-    b = bloc(txt, section)
-    if not b:
-        return txt, "%s introuvable — ignore" % section
-    corps = txt[b[0]:b[1]]
-    if re.search(r"^[ \t]*%s[ \t]*$" % re.escape(ligne), corps, re.M):
-        return txt, None
-    m = re.search(r"^([ \t]*)%s[ \t]*$" % re.escape(ancre), corps, re.M)
-    if not m:
-        return txt, "ancre '%s' absente de %s — ignore" % (ancre, section)
-    corps = corps[:m.end()] + "\n" + m.group(1) + ligne + corps[m.end():]
-    return txt[:b[0]] + corps + txt[b[1]:], "%s : %s ajoute" % (section, ligne)
-
-for section, ancre, ligne in (
-        ("gcode_macro START_PRINT", "CLEAR_PAUSE", "STATUS_PRINTING"),
-        ("gcode_macro END_PRINT",   "M84",         "STATUS_DONE")):
-    tete, note = inserer_apres(tete, section, ancre, ligne)
-    if note:
-        fait.append(note)
-
-# 5. Les macros LED_ON / LED_OFF / LED_DIM nommaient chamber_leds en dur.
-#    _USER_START_PRINT_BEFORE_HOMING appelle LED_ON : une fois chamber_leds
-#    commente, Klipper interrompait START_PRINT sur « not valid for LED », la
-#    chauffe n'avait jamais lieu, et la suite echouait sur « extruder not hot
-#    enough ». On les fait passer par les primitives de leds.cfg, qui lisent le
-#    nom du ruban dans _LED_VARS : une seule source de verite.
+# 4. LED_ON / LED_OFF / LED_DIM nommaient le ruban en dur. Comme
+#    _USER_START_PRINT_BEFORE_HOMING appelle LED_ON, un nom perime
+#    interrompait START_PRINT avant la chauffe (« not valid for LED »), et le
+#    G-code suivant echouait sur « extruder not hot enough ». On passe par les
+#    primitives de leds.cfg : le nom du ruban n'existe plus qu'a un endroit.
 for nom, remplacement in (("LED_ON", "LUMIERE"),
                           ("LED_OFF", "LUMIERE_OFF"),
                           ("LED_DIM", "LUMIERE V=0.2")):
     b = bloc(tete, "gcode_macro %s" % nom)
-    if not b:
-        continue
-    corps = tete[b[0]:b[1]]
-    if "SET_LED" not in corps:
+    if not b or "SET_LED" not in tete[b[0]:b[1]]:
         continue
     corps = re.sub(r"(?m)^([ \t]*)SET_LED[ \t]+LED=\S+.*$",
-                   lambda m: m.group(1) + remplacement, corps, count=1)
+                   lambda m: m.group(1) + remplacement, tete[b[0]:b[1]], count=1)
     tete = tete[:b[0]] + corps + tete[b[1]:]
     fait.append("%s : SET_LED en dur -> %s" % (nom, remplacement))
 
+# 5. Un STATUS_PRINTING place en tete de START_PRINT fige le blanc pour toute
+#    la sequence : plus aucune couleur d'etape n'est visible. Il repart a sa
+#    vraie place, juste avant la premiere couche.
+b = bloc(tete, "gcode_macro START_PRINT")
+if b:
+    corps = re.sub(r"(?m)^([ \t]*)STATUS_PRINTING[ \t]*\n(?=[ \t]*G90)", "",
+                   tete[b[0]:b[1]], count=1)
+    if corps != tete[b[0]:b[1]]:
+        tete = tete[:b[0]] + corps + tete[b[1]:]
+        fait.append("START_PRINT : STATUS_PRINTING prematuré retire")
+
+# 6. Une couleur par etape, annoncee juste avant de lancer l'etape
+for ancre, macro in ETAPES:
+    tete, note = inserer(tete, "gcode_macro START_PRINT", ancre, macro)
+    if note:
+        fait.append(note)
+
+tete, note = inserer(tete, "gcode_macro END_PRINT", "M84", "STATUS_DONE", avant=False)
+if note:
+    fait.append(note)
+
 txt = tete + queue
 
-if txt == avant:
+if txt == avant_tout:
     print("Rien a changer — le fichier est deja a jour.")
     sys.exit(0)
 
 # Verifications avant d'ecrire
 assert txt.count("[neopixel cob_led]") == 1, "section cob_led en double"
 assert not re.search(r"^\[neopixel chamber_leds\]", txt, re.M), "chamber_leds encore actif"
-# Un SET_LED nommant un ruban commente interrompt la macro qui l'appelle.
-# C'est ce qui cassait START_PRINT : Klipper s'arretait avant la chauffe.
 reste = [l for l in txt.split("\n")
          if "SET_LED" in l and "chamber_leds" in l and not l.lstrip().startswith("#")]
 assert not reste, "SET_LED pointe encore sur chamber_leds : %s" % reste[:2]
