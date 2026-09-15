@@ -119,6 +119,26 @@ for section, ancre, ligne in (
     if note:
         fait.append(note)
 
+# 5. Les macros LED_ON / LED_OFF / LED_DIM nommaient chamber_leds en dur.
+#    _USER_START_PRINT_BEFORE_HOMING appelle LED_ON : une fois chamber_leds
+#    commente, Klipper interrompait START_PRINT sur « not valid for LED », la
+#    chauffe n'avait jamais lieu, et la suite echouait sur « extruder not hot
+#    enough ». On les fait passer par les primitives de leds.cfg, qui lisent le
+#    nom du ruban dans _LED_VARS : une seule source de verite.
+for nom, remplacement in (("LED_ON", "LUMIERE"),
+                          ("LED_OFF", "LUMIERE_OFF"),
+                          ("LED_DIM", "LUMIERE V=0.2")):
+    b = bloc(tete, "gcode_macro %s" % nom)
+    if not b:
+        continue
+    corps = tete[b[0]:b[1]]
+    if "SET_LED" not in corps:
+        continue
+    corps = re.sub(r"(?m)^([ \t]*)SET_LED[ \t]+LED=\S+.*$",
+                   lambda m: m.group(1) + remplacement, corps, count=1)
+    tete = tete[:b[0]] + corps + tete[b[1]:]
+    fait.append("%s : SET_LED en dur -> %s" % (nom, remplacement))
+
 txt = tete + queue
 
 if txt == avant:
@@ -128,6 +148,11 @@ if txt == avant:
 # Verifications avant d'ecrire
 assert txt.count("[neopixel cob_led]") == 1, "section cob_led en double"
 assert not re.search(r"^\[neopixel chamber_leds\]", txt, re.M), "chamber_leds encore actif"
+# Un SET_LED nommant un ruban commente interrompt la macro qui l'appelle.
+# C'est ce qui cassait START_PRINT : Klipper s'arretait avant la chauffe.
+reste = [l for l in txt.split("\n")
+         if "SET_LED" in l and "chamber_leds" in l and not l.lstrip().startswith("#")]
+assert not reste, "SET_LED pointe encore sur chamber_leds : %s" % reste[:2]
 if coupe != -1:
     assert queue in txt, "bloc SAVE_CONFIG perdu"
 
