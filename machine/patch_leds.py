@@ -93,6 +93,32 @@ if "[include leds.cfg]" not in tete:
     tete = "\n".join(lignes)
     fait.append("[include leds.cfg] ajoute (il manquait : macros non chargees)")
 
+# 4. Allumage automatique. La camera a besoin de lumiere, et le workflow n8n
+#    de detection d'anomalie analyse ses images : dans le noir, il ne voit
+#    rien non plus. On allume donc des le debut de START_PRINT — soit pendant
+#    la chauffe, la trempe et le palpage, bien avant la premiere couche.
+def inserer_apres(txt, section, ancre, ligne):
+    """Insere `ligne` juste apres la premiere occurrence de `ancre` dans
+    `section`, en reprenant son indentation. Ne fait rien si deja presente."""
+    b = bloc(txt, section)
+    if not b:
+        return txt, "%s introuvable — ignore" % section
+    corps = txt[b[0]:b[1]]
+    if re.search(r"^[ \t]*%s[ \t]*$" % re.escape(ligne), corps, re.M):
+        return txt, None
+    m = re.search(r"^([ \t]*)%s[ \t]*$" % re.escape(ancre), corps, re.M)
+    if not m:
+        return txt, "ancre '%s' absente de %s — ignore" % (ancre, section)
+    corps = corps[:m.end()] + "\n" + m.group(1) + ligne + corps[m.end():]
+    return txt[:b[0]] + corps + txt[b[1]:], "%s : %s ajoute" % (section, ligne)
+
+for section, ancre, ligne in (
+        ("gcode_macro START_PRINT", "CLEAR_PAUSE", "STATUS_PRINTING"),
+        ("gcode_macro END_PRINT",   "M84",         "STATUS_DONE")):
+    tete, note = inserer_apres(tete, section, ancre, ligne)
+    if note:
+        fait.append(note)
+
 txt = tete + queue
 
 if txt == avant:
