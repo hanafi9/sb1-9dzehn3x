@@ -3,21 +3,34 @@
 
 Ne reecrit PAS printer.cfg en entier : le bloc SAVE_CONFIG (PID, modele
 Cartographer, Z offset, bed mesh) est preserve tel quel.
+
+Relancable pour ajuster le reglage une fois le ruban teste :
+    patch_leds.py --chain 47 --order GRB
+Si [neopixel cob_led] existe deja, pin / chain_count / color_order sont
+mis a jour sur place.
 """
 import re, shutil, sys, time
 from pathlib import Path
 
-CFG = Path(sys.argv[1] if len(sys.argv) > 1
-           else Path.home() / "printer_data/config/printer.cfg")
+CHAIN, ORDER, PIN = "47", "RGB", "PB0"
+args, fichier = sys.argv[1:], None
+while args:
+    a = args.pop(0)
+    if a == "--chain":   CHAIN = args.pop(0)
+    elif a == "--order": ORDER = args.pop(0)
+    elif a == "--pin":   PIN = args.pop(0)
+    else:                fichier = a
+
+CFG = Path(fichier) if fichier else Path.home() / "printer_data/config/printer.cfg"
 
 NOUVEAU = """[neopixel cob_led]
-pin: PB0                         # connecteur Neopixel — sortie logique sure
-chain_count: 20                  # ⚠️ A AJUSTER — voir COB_TEST
-color_order: RGB                 # WS2811 = RGB (le WS2812 serait GRB)
+pin: %s                         # connecteur Neopixel — sortie logique sure
+chain_count: %s                  # segments du ruban (1 IC WS2811 = 1 segment)
+color_order: %s                 # WS2811 = RGB (le WS2812 serait GRB)
 initial_RED: 0
 initial_GREEN: 0
 initial_BLUE: 0
-"""
+""" % (PIN, CHAIN, ORDER)
 
 def bloc(txt, entete):
     """Etendue d'une section, de son entete jusqu'a la section suivante."""
@@ -42,7 +55,16 @@ if b:
     tete = tete[:b[0]] + NOUVEAU + "\n" + tete[b[1]:]
     fait.append("[output_pin cob_led] (PWM, PB10) -> [neopixel cob_led] (PB0)")
 elif "[neopixel cob_led]" in tete:
-    fait.append("[neopixel cob_led] deja present — inchange")
+    # Deja bascule : on ajuste les trois valeurs reglables sur place, pour que
+    # le script reste utile apres COB_TEST (chain_count, color_order).
+    d = bloc(tete, "neopixel cob_led")
+    corps, avant_corps = tete[d[0]:d[1]], tete[d[0]:d[1]]
+    for cle, val in (("pin", PIN), ("chain_count", CHAIN), ("color_order", ORDER)):
+        corps = re.sub(r"^(%s:\s*)\S+" % cle, r"\g<1>%s" % val, corps, count=1, flags=re.M)
+    tete = tete[:d[0]] + corps + tete[d[1]:]
+    fait.append("[neopixel cob_led] ajuste : pin=%s chain_count=%s color_order=%s"
+                % (PIN, CHAIN, ORDER) if corps != avant_corps
+                else "[neopixel cob_led] deja conforme")
 
 # 2. chamber_leds passe en commentaire : il ne peut pas partager PB0
 b = bloc(tete, "neopixel chamber_leds")
