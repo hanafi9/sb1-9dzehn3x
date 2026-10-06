@@ -1,0 +1,232 @@
+# ═══════════════════════════════════════════════════════════════════════════
+#  RATRIG VCORE 3.1 400×400 — HOME ASSISTANT
+#
+#  Carte calquée sur les autres cartes de la section « Appareils » des
+#  dashboards TABLET et Maison (Climatiseur Condor, Redkey R11, Purificateur) :
+#  un titre avec emoji, une grande image, puis le nom à gauche et l'état à
+#  droite en bas de l'image. Suivent les tuiles et la grille de boutons.
+#  Cartes natives uniquement : aucune dépendance HACS supplémentaire.
+#
+#  PRÉFIXE DES ENTITÉS : « ratrig » — vérifié dans Outils de développement →
+#  États (button.ratrig_pause_print, button.ratrig_cancel_print,
+#  sensor.ratrig_longest_print, appareil « Atelier ▸ Ratrig »).
+#
+#  ⚠️ LA CAMÉRA N'EST PAS FOURNIE PAR L'INTÉGRATION MOONRAKER.
+#     Aucune entité du domaine camera. n'est créée. Il faut la déclarer à la
+#     main dans configuration.yaml — voir le bloc CAMÉRA plus bas.
+# ═══════════════════════════════════════════════════════════════════════════
+
+type: vertical-stack
+cards:
+
+  # ── Titre, au même format que les autres appareils ──────────────────────
+  - type: heading
+    heading: 🖨️ Imprimante 3D RatRig V-Core 3.1 — 400×400
+    heading_style: title
+
+  # ── Grande image, nom à gauche et état à droite en surimpression ────────
+  #    Les autres appareils ont une photo figée ; la RatRig a une vraie
+  #    caméra, donc autant afficher le flux en direct au même emplacement :
+  #    on voit l'impression réelle au lieu d'une photo de catalogue.
+  #    Nécessite le bloc CAMÉRA de configuration.yaml (voir plus bas).
+  #
+  #    Pour une photo figée à la place (image de la V-Core déposée dans
+  #    /config/www/vcore.jpg), remplacer les deux lignes camera_* par :
+  #      image: /local/vcore.jpg
+  - type: picture-entity
+    entity: sensor.ratrig_current_print_state
+    camera_image: camera.ratrig_webcam
+    camera_view: live
+    name: RatRig V-Core 3.1
+    show_name: true
+    show_state: true
+    tap_action:
+      action: more-info
+
+  # ── Progression ────────────────────────────────────────────────────────
+  - type: tile
+    entity: sensor.ratrig_progress
+    name: Progression
+    color: orange
+    vertical: false
+
+  # ── Températures ───────────────────────────────────────────────────────
+  - type: grid
+    columns: 2
+    square: false
+    cards:
+      - type: tile
+        entity: sensor.ratrig_extruder_temperature
+        name: Buse
+        icon: mdi:printer-3d-nozzle-heat
+        color: red
+      - type: tile
+        entity: sensor.ratrig_bed_temperature
+        name: Plateau
+        icon: mdi:heating-coil
+        color: orange
+
+  # ── Avancement détaillé ────────────────────────────────────────────────
+  - type: grid
+    columns: 2
+    square: false
+    cards:
+      - type: tile
+        entity: sensor.ratrig_current_layer
+        name: Couche
+        icon: mdi:layers-triple
+        color: blue
+      - type: tile
+        entity: sensor.ratrig_print_eta
+        name: Fin estimée
+        icon: mdi:clock-outline
+        color: purple
+
+  # ── Commandes d'impression ─────────────────────────────────────────────
+  #    4 colonnes : les boutons tiennent sur une seule ligne, ce qui ramène
+  #    la carte à la hauteur des autres appareils de la section.
+  - type: grid
+    columns: 4
+    square: false
+    cards:
+      - type: button
+        entity: button.ratrig_pause_print
+        name: Pause
+        icon: mdi:pause
+        icon_height: 34px
+        show_state: false
+        tap_action:
+          action: toggle
+
+      - type: button
+        entity: button.ratrig_resume_print
+        name: Reprendre
+        icon: mdi:play
+        icon_height: 34px
+        show_state: false
+        tap_action:
+          action: toggle
+
+      - type: button
+        entity: button.ratrig_cancel_print
+        name: Annuler
+        icon: mdi:stop
+        icon_height: 34px
+        show_state: false
+        tap_action:
+          action: toggle
+          confirmation:
+            text: Annuler l'impression en cours ?
+
+      - type: button
+        entity: button.ratrig_emergency_stop
+        name: ARRÊT D'URGENCE
+        icon: mdi:alert-octagon
+        icon_height: 34px
+        show_state: false
+        tap_action:
+          action: toggle
+          confirmation:
+            text: Arrêt d'urgence de l'imprimante ?
+
+  # ── Alimentation ───────────────────────────────────────────────────────
+  #    Voir plus bas : à piloter de préférence via Moonraker, pas en direct.
+  - type: tile
+    entity: switch.ratrig_bureau
+    name: Alimentation RatRig
+    icon: mdi:power-plug
+    color: green
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  CAMÉRA — à déclarer à la main dans configuration.yaml
+#
+#  L'intégration Moonraker ne crée aucune entité camera. On la déclare donc
+#  directement, en MJPEG.
+#
+#      camera:
+#        - platform: mjpeg
+#          name: RatRig Webcam
+#          mjpeg_url: http://192.168.1.41/webcam/?action=stream
+#          still_image_url: http://192.168.1.41/webcam/?action=snapshot
+#
+#  Le nom « RatRig Webcam » produit l'entité camera.ratrig_webcam, celle que
+#  la carte ci-dessus attend. Puis Outils de développement → YAML →
+#  Vérifier la configuration → Redémarrer.
+#
+#  ⚠️ Si `camera:` existe déjà dans configuration.yaml, n'ajouter que les
+#     quatre lignes « - platform: mjpeg ... » sous le bloc existant : une clé
+#     en double fait rejeter tout le fichier.
+#
+#  ── POURQUOI MJPEG ET PAS WEBRTC ────────────────────────────────────────
+#  Le passage de crowsnest en camera-streamer (WebRTC) n'a pas tenu : le flux
+#  s'arrêtait, retour en MJPEG (ustreamer).
+#
+#  Pour Home Assistant c'est de toute façon le bon choix : HA ne sait pas
+#  consommer du WebRTC dans une carte picture-entity sans go2rtc et une carte
+#  custom HACS, alors que la plateforme mjpeg native lit le flux telle quelle.
+#  Le MJPEG consomme plus de bande passante et a plus de latence — sans
+#  conséquence en réseau local pour surveiller une impression.
+#
+#  Si le flux reste noir, l'URL est à ajuster : tester dans un navigateur
+#  http://192.168.1.41/webcam/?action=stream puis, à défaut,
+#  http://192.168.1.41:8080/?action=stream
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  L'ALIMENTATION — à déclarer dans Moonraker, pas piloter en direct
+#
+#  switch.ratrig_bureau fonctionne évidemment tel quel depuis Home Assistant.
+#  Le problème : un interrupteur nu ignore totalement ce que fait l'imprimante.
+#  Un appui malheureux, ou une automatisation mal réglée, et le courant est
+#  coupé EN PLEINE IMPRESSION.
+#
+#  En le déclarant dans Moonraker, la coupure devient impossible pendant une
+#  impression, et le bouton d'alimentation apparaît AUSSI dans Mainsail.
+#
+#  Dans moonraker.conf :
+#
+#      [power imprimante]
+#      type: homeassistant
+#      address: 192.168.1.252           # IP de Home Assistant
+#      port: 8123
+#      device: switch.ratrig_bureau
+#      token: <JETON_LONGUE_DUREE>      # Profil HA → Jetons d'accès longue durée
+#      domain: switch
+#      locked_while_printing: True      # ⭐ la sécurité qui compte
+#      off_when_shutdown: True          # coupe si Klipper part en erreur
+#      restart_klipper_when_powered: True
+#
+#  ⚠️ LE RASPBERRY PI NE DOIT PAS ÊTRE SUR CETTE PRISE.
+#     Sur la prise : l'alimentation 24 V et le plateau chauffant.
+#     Le Pi sur une alimentation séparée — sinon chaque coupure l'éteint
+#     brutalement et finira par corrompre sa carte SD.
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  AUTOMATISATION — alerte erreur Klipper
+#
+#  Celle qui aurait prévenu immédiatement lors du « ADC out of range » au lieu
+#  de le découvrir en allant voir la machine.
+#
+#  Paramètres → Automatisations → Créer → Éditer en YAML :
+#
+#    alias: RatRig — alerte erreur Klipper
+#    triggers:
+#      - trigger: state
+#        entity_id: sensor.ratrig_current_print_state
+#        to: [error, shutdown]
+#    actions:
+#      - action: notify.mobile_app_TON_TELEPHONE
+#        data:
+#          title: 🚨 RatRig en erreur
+#          message: >-
+#            État : {{ states('sensor.ratrig_current_print_state') }} —
+#            buse {{ states('sensor.ratrig_extruder_temperature') }} °C
+#          data:
+#            image: /api/camera_proxy/camera.ratrig_webcam
+#            color: red
+#    mode: single
+# ═══════════════════════════════════════════════════════════════════════════
