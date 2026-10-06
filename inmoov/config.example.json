@@ -1,0 +1,74 @@
+{
+  "mrl": {
+    "url": "http://127.0.0.1:8888",
+    "timeout_s": 2.0
+  },
+
+  "vision": {
+    "camera_index": 0,
+    "frame_width": 640,
+    "frame_height": 480,
+    "model": "models/ssd_mobilenet_v2_face_quant_postprocess_edgetpu.tflite",
+    "score_threshold": 0.6,
+    "max_command_rate_hz": 10,
+    "lost_face_timeout_s": 3.0,
+    "show_window": false,
+
+    "pan": {
+      "service": "i01.head.rothead",
+      "min": 30, "max": 150, "rest": 90,
+      "gain": 12.0,
+      "deadband": 0.08,
+      "max_step": 4.0,
+      "invert": false
+    },
+    "tilt": {
+      "service": "i01.head.neck",
+      "min": 60, "max": 120, "rest": 90,
+      "gain": 8.0,
+      "deadband": 0.10,
+      "max_step": 3.0,
+      "invert": true
+    }
+  },
+
+  "voice": {
+    "input_device": null,
+    "whisper_model": "base",
+    "whisper_compute_type": "int8",
+    "whisper_threads": 4,
+    "beam_size": 2,
+    "language": "fr",
+    "vad_aggressiveness": 2,
+    "start_speech_ratio": 0.6,
+    "padding_ms": 300,
+    "end_silence_ms": 700,
+    "min_utterance_ms": 400,
+    "max_utterance_s": 12,
+    "max_no_speech_prob": 0.6,
+    "min_avg_logprob": -1.0,
+
+    "wake_words": ["inmoov", "robot"],
+    "wake_window_s": 8,
+    "vocabulary": "InMoov, MyRobotLab, Raspberry, bonjour, au revoir, regarde, gauche, droite, haut, bas, main, bras, tête",
+
+    "chatbot_service": "i01.chatBot",
+    "chatbot_method": "getResponse",
+    "mouth_service": "i01.mouth",
+    "seconds_per_char": 0.07,
+
+    "fuzzy_threshold": 0.8,
+    "commands": {
+      "regarde à gauche": [["i01.head.rothead", "moveTo", 140]],
+      "regarde à droite": [["i01.head.rothead", "moveTo", 40]],
+      "regarde devant":   [["i01.head.rothead", "moveTo", 90], ["i01.head.neck", "moveTo", 90]],
+      "regarde en haut":  [["i01.head.neck", "moveTo", 70]],
+      "regarde en bas":   [["i01.head.neck", "moveTo", 110]],
+      "ouvre la main droite": [["i01.rightHand", "open"]],
+      "ferme la main droite": [["i01.rightHand", "close"]],
+      "ouvre la main gauche": [["i01.leftHand", "open"]],
+      "ferme la main gauche": [["i01.leftHand", "close"]],
+      "position de repos": [["i01", "rest"]]
+    }
+  }
+}

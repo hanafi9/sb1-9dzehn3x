@@ -1,0 +1,13 @@
+[Unit]
+Description=InMoov - reconnaissance vocale (Whisper)
+After=network.target sound.target
+
+[Service]
+User=pi
+WorkingDirectory=/home/pi/inmoov/voice
+ExecStart=/home/pi/inmoov/.venv-voice/bin/python speech_listener.py --config /home/pi/inmoov/config.json
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
