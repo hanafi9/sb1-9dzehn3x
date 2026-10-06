@@ -9,6 +9,7 @@ et lui parlent par son API REST (`http://127.0.0.1:8888/api/service/...`) :
 | `voice/speech_listener.py` | Micro → détection de voix → Whisper → commandes locales, **IA Claude** ou chatbot `i01.chatBot` | 3.11 (celui du système) |
 | `voice/llm_brain.py` | IA conversationnelle (Claude) qui remplace le chatbot AIML et peut bouger la tête et les mains | 3.11 |
 | `legs/` | Jambes motorisées : firmware Arduino Mega, pilotage depuis le Pi, calcul des moteurs | Arduino + 3.11 |
+| `app/` | **Atelier InMoov** : application web pour tout monter, programmer et régler (voir section 0) | 3.11 |
 
 ```
  Caméra USB ─► face_tracker.py (Coral) ──┐  POST /api/service/i01.head.rothead/moveTo [95.0]
@@ -16,6 +17,64 @@ et lui parlent par son API REST (`http://127.0.0.1:8888/api/service/...`) :
  Micro USB ──► speech_listener.py ───────┘  POST /api/service/i01.chatBot/getResponse ["bonjour"]
                                                          └─► htmlFilter ─► i01.mouth (synthèse vocale)
 ```
+
+## 0. Atelier InMoov : l'application qui regroupe tout
+
+Une application web qui tourne sur le Raspberry Pi et s'ouvre depuis un téléphone, une
+tablette ou un PC du même réseau : `http://<adresse-du-pi>:8090`.
+
+![Tableau de bord](app/docs/tableau-de-bord.png)
+
+| Onglet | Ce qu'il fait |
+|---|---|
+| **Tableau de bord** | État de MyRobotLab, du Coral, des ports série, des services, avancement du montage |
+| **Guide de montage** | 34 étapes en 9 phases (Pi, MyRobotLab, Arduino, tête et cou, bras/mains/torse, vision, voix et IA, jambes, mise en service), à cocher, avec les commandes à copier |
+| **Servos** | Les 31 servos d'InMoov2 (tête et cou, torse, bras, mains) : curseur pour bouger, repos, activer/désactiver, lire la position, **calibration** (min, max, repos, vitesse, sens), envoi à MyRobotLab et enregistrement de sa configuration |
+| **Arduino** | Voir le code, **compiler et téléverser** MrlComm (les deux Mega du haut du corps) et le firmware des jambes, installer le cœur AVR et les bibliothèques, détecter les cartes branchées |
+| **Jambes** | Connexion à l'Arduino des jambes, état de chaque servo (position, charge, température, tension), RESET, FIGER, couple, poses (mouvement seulement si « robot sur portique » est coché) |
+| **Services** | Démarrer, arrêter et voir le journal du suivi de visage et de la voix |
+| **Réglages** | Adresse et dossier de MyRobotLab, arduino-cli, édition **vérifiée** de `config.json` et de la config des jambes (copie `.bak` à chaque enregistrement) |
+
+![Servos de la tête et du cou](app/docs/servos.png)
+
+### Installation
+
+```bash
+cd /home/pi/inmoov
+python3 -m venv .venv-app
+.venv-app/bin/pip install -r app/requirements.txt
+sudo usermod -aG dialout pi            # accès aux ports série (Arduino), puis se reconnecter
+
+# arduino-cli (compilation et téléversement depuis l'appli)
+curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR=$HOME/.local/bin sh
+
+# mot de passe de l'appli (conseillé : elle peut bouger le robot et reprogrammer les cartes)
+echo 'INMOOV_APP_PASSWORD=choisissez-un-mot-de-passe' > app.env && chmod 600 app.env
+
+cd app && set -a && . ../app.env && set +a && ../.venv-app/bin/python app.py
+```
+
+Pour que les boutons Démarrer / Arrêter de l'onglet Services fonctionnent, autorisez **uniquement**
+ces commandes sans mot de passe (`sudo visudo -f /etc/sudoers.d/inmoov`) :
+
+```
+pi ALL=(root) NOPASSWD: /usr/bin/systemctl start inmoov-vision, /usr/bin/systemctl stop inmoov-vision, /usr/bin/systemctl restart inmoov-vision, /usr/bin/systemctl start inmoov-voice, /usr/bin/systemctl stop inmoov-voice, /usr/bin/systemctl restart inmoov-voice
+```
+
+Démarrage automatique : service `systemd/inmoov-app.service` (voir section 5).
+
+### Bon à savoir
+
+- Le curseur d'un servo envoie une valeur **de 0 à 180** que MyRobotLab convertit entre **min** et
+  **max** (c'est le fonctionnement d'InMoov2). Les valeurs par défaut affichées viennent du code
+  de MyRobotLab (InMoov2HeadConfig, InMoov2ArmConfig, InMoov2HandConfig, InMoov2TorsoConfig).
+- « Enregistrer + appliquer » envoie `setMinMaxOutput`, `setInverted`, `setRest` et `setSpeed` au servo ;
+  « Enregistrer la config MyRobotLab » appelle `runtime.saveConfig` pour que ce soit conservé au redémarrage.
+- MrlComm est pris dans le dossier de MyRobotLab (`<mrl_dir>/resource/Arduino/MrlComm`) pour être
+  toujours de la même version que MyRobotLab. **Arrêtez MyRobotLab** (ou déconnectez la carte) avant
+  de téléverser : le port série ne peut pas servir à deux programmes.
+- Testée avec un faux MyRobotLab et un faux Arduino des jambes : le firmware des jambes a été
+  **réellement compilé depuis l'appli**. Elle n'a pas encore été essayée avec le vrai robot.
 
 ## 1. Préparer le Raspberry Pi 5
 
@@ -179,7 +238,7 @@ commandes locales partent vers **Claude** (API Anthropic) au lieu du chatbot AIM
 ```bash
 sudo cp systemd/inmoov-*.service /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable --now inmoov-vision inmoov-voice
+sudo systemctl enable --now inmoov-app inmoov-vision inmoov-voice
 journalctl -u inmoov-voice -f      # voir ce que le robot entend
 ```
 
@@ -189,7 +248,7 @@ journalctl -u inmoov-voice -f      # voir ce que le robot entend
 python3 -m unittest discover -s tests -v
 ```
 
-Ces tests vérifient la logique de suivi, le découpage audio, le mot de réveil, les commandes,
+Ces tests vérifient l'Atelier (avec un faux MyRobotLab, si Flask est installé), la logique de suivi, le découpage audio, le mot de réveil, les commandes,
 le format des appels à MyRobotLab (avec un faux serveur), le cerveau Claude (avec un faux client,
 si le paquet `anthropic` est installé), les poses des jambes, la cohérence des limites
 entre le Pi et le firmware Arduino, et le calcul de couple.

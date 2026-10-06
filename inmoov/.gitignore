@@ -4,3 +4,5 @@ models/
 __pycache__/
 anthropic.env
 legs/legs_config.json
+app/data/
+app.env

@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Atelier InMoov</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Ccircle cx=%228%22 cy=%228%22 r=%227%22 fill=%22%232563eb%22/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo" aria-hidden="true">◉</span>
+      <span>Atelier InMoov</span>
+    </div>
+    <div id="mrl-pill" class="pill">MyRobotLab…</div>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button data-tab="dashboard" class="active">Tableau de bord</button>
+    <button data-tab="guide">Guide de montage</button>
+    <button data-tab="servos">Servos</button>
+    <button data-tab="arduino">Arduino</button>
+    <button data-tab="legs">Jambes</button>
+    <button data-tab="services">Services</button>
+    <button data-tab="settings">Réglages</button>
+  </nav>
+
+  <main>
+    <!-- Tableau de bord -->
+    <section id="tab-dashboard" class="tab active">
+      <div class="grid" id="dash-cards"></div>
+      <div class="card">
+        <h2>Avancement du montage</h2>
+        <div class="progress"><div id="dash-progress-bar"></div></div>
+        <p id="dash-progress-text" class="muted"></p>
+        <p id="dash-next"></p>
+      </div>
+    </section>
+
+    <!-- Guide -->
+    <section id="tab-guide" class="tab">
+      <div class="card">
+        <h2>Guide de montage</h2>
+        <p class="muted">Cochez chaque étape terminée. L'avancement est enregistré sur le Raspberry Pi.</p>
+        <div class="progress"><div id="guide-progress-bar"></div></div>
+      </div>
+      <div id="guide-phases"></div>
+    </section>
+
+    <!-- Servos -->
+    <section id="tab-servos" class="tab">
+      <div class="card">
+        <h2>Servos du haut du corps</h2>
+        <p class="muted">
+          Le curseur envoie une valeur de 0 à 180 que MyRobotLab convertit entre <b>min</b> et <b>max</b>
+          (les butées réelles du servo). Calibrer = régler min et max pour que le servo ne force jamais.
+        </p>
+        <div class="row wrap">
+          <select id="servo-group"></select>
+          <button id="servo-apply-all">Appliquer tout à MyRobotLab</button>
+          <input id="mrl-config-name" placeholder="nom de config MRL" value="inmoov2" size="14">
+          <button id="mrl-save-config">Enregistrer la config MyRobotLab</button>
+          <button id="servo-defaults" class="ghost">Valeurs par défaut</button>
+        </div>
+      </div>
+      <div id="servo-list" class="grid"></div>
+    </section>
+
+    <!-- Arduino -->
+    <section id="tab-arduino" class="tab">
+      <div class="card">
+        <h2>Outils Arduino</h2>
+        <p class="muted">Installe le cœur « Arduino AVR » (cartes Mega) et les bibliothèques : <span id="ard-libs"></span>.</p>
+        <button id="ard-setup">Installer cœur et bibliothèques</button>
+      </div>
+      <div class="card">
+        <div class="row between">
+          <h2>Cartes branchées</h2>
+          <button id="ard-refresh" class="ghost">Actualiser</button>
+        </div>
+        <div id="ard-boards"></div>
+      </div>
+      <div id="ard-sketches" class="grid"></div>
+      <div class="card hidden" id="job-card">
+        <div class="row between">
+          <h2 id="job-title">Tâche</h2>
+          <span id="job-state" class="pill"></span>
+        </div>
+        <pre id="job-log" class="log"></pre>
+      </div>
+      <div class="card hidden" id="source-card">
+        <div class="row between">
+          <h2 id="source-title">Code</h2>
+          <button id="source-close" class="ghost">Fermer</button>
+        </div>
+        <pre id="source-code" class="code"></pre>
+      </div>
+    </section>
+
+    <!-- Jambes -->
+    <section id="tab-legs" class="tab">
+      <div class="card danger-zone">
+        <h2>Jambes motorisées</h2>
+        <p><b>Robot accroché au portique</b> et <b>arrêt d'urgence matériel</b> à portée de main avant tout mouvement.</p>
+        <label class="check"><input type="checkbox" id="legs-gantry"> Le robot est accroché au portique et l'arrêt d'urgence est prêt</label>
+        <div class="row wrap">
+          <input id="legs-port" placeholder="/dev/ttyACM2" size="16">
+          <button id="legs-connect">Connecter</button>
+          <button id="legs-disconnect" class="ghost">Déconnecter</button>
+          <button id="legs-hold" class="stop">FIGER</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="row between">
+          <h2>État</h2>
+          <span id="legs-state" class="pill">non connecté</span>
+        </div>
+        <div class="row wrap">
+          <button id="legs-reset">RESET (effacer le défaut)</button>
+          <button id="legs-torque-on" class="ghost">Couple ON</button>
+          <button id="legs-torque-off" class="ghost">Couple OFF</button>
+        </div>
+        <div id="legs-status"></div>
+      </div>
+      <div class="card">
+        <h2>Poses</h2>
+        <div class="row wrap">
+          <label>Durée (ms) <input id="legs-time" type="number" value="3000" min="300" step="100"></label>
+        </div>
+        <div id="legs-poses" class="row wrap"></div>
+        <p class="muted">Commencez toujours par <b>test_genoux_5deg</b> pour vérifier le sens des articulations.</p>
+      </div>
+    </section>
+
+    <!-- Services -->
+    <section id="tab-services" class="tab">
+      <div id="services-list" class="grid"></div>
+      <div class="card hidden" id="logs-card">
+        <div class="row between">
+          <h2 id="logs-title">Journal</h2>
+          <button id="logs-close" class="ghost">Fermer</button>
+        </div>
+        <pre id="logs-text" class="log"></pre>
+      </div>
+    </section>
+
+    <!-- Réglages -->
+    <section id="tab-settings" class="tab">
+      <div class="card">
+        <h2>Réglages de l'atelier</h2>
+        <form id="settings-form" class="form"></form>
+        <button id="settings-save">Enregistrer</button>
+      </div>
+      <div class="card">
+        <div class="row between">
+          <h2>Fichier de configuration</h2>
+          <select id="config-name">
+            <option value="robot">Robot (vision, voix, IA)</option>
+            <option value="legs">Jambes (articulations, poses)</option>
+          </select>
+        </div>
+        <p id="config-path" class="muted"></p>
+        <textarea id="config-text" spellcheck="false"></textarea>
+        <button id="config-save">Vérifier et enregistrer</button>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script src="/static/app.js"></script>
+</body>
+</html>
