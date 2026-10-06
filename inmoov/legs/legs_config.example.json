@@ -1,0 +1,172 @@
+{
+  "_lisez_moi": "Angles en degrés, 0 = debout jambe tendue. Vérifiez le SENS de chaque articulation avec de petits angles (pose test_genoux_5deg) avant toute autre pose ; si une articulation part à l'envers, mettez sa direction à -1. Les signes : hanche_tangage + = cuisse vers l'avant, genou + = flexion, cheville_tangage + = pointe du pied vers le haut.",
+  "serial_port": "/dev/ttyACM0",
+  "baud": 115200,
+  "joints": {
+    "gauche_hanche_lacet": {
+      "id": 1,
+      "center": 2048,
+      "direction": 1,
+      "min_deg": -20,
+      "max_deg": 20
+    },
+    "gauche_hanche_roulis": {
+      "id": 2,
+      "center": 2048,
+      "direction": 1,
+      "min_deg": -12,
+      "max_deg": 12
+    },
+    "gauche_hanche_tangage": {
+      "id": 3,
+      "center": 2048,
+      "direction": 1,
+      "min_deg": -40,
+      "max_deg": 40
+    },
+    "gauche_genou": {
+      "id": 4,
+      "center": 2048,
+      "direction": 1,
+      "min_deg": 0,
+      "max_deg": 65
+    },
+    "gauche_cheville_tangage": {
+      "id": 5,
+      "center": 2048,
+      "direction": 1,
+      "min_deg": -30,
+      "max_deg": 30
+    },
+    "gauche_cheville_roulis": {
+      "id": 6,
+      "center": 2048,
+      "direction": 1,
+      "min_deg": -12,
+      "max_deg": 12
+    },
+    "droite_hanche_lacet": {
+      "id": 11,
+      "center": 2048,
+      "direction": 1,
+      "min_deg": -20,
+      "max_deg": 20
+    },
+    "droite_hanche_roulis": {
+      "id": 12,
+      "center": 2048,
+      "direction": 1,
+      "min_deg": -12,
+      "max_deg": 12
+    },
+    "droite_hanche_tangage": {
+      "id": 13,
+      "center": 2048,
+      "direction": 1,
+      "min_deg": -40,
+      "max_deg": 40
+    },
+    "droite_genou": {
+      "id": 14,
+      "center": 2048,
+      "direction": 1,
+      "min_deg": 0,
+      "max_deg": 65
+    },
+    "droite_cheville_tangage": {
+      "id": 15,
+      "center": 2048,
+      "direction": 1,
+      "min_deg": -30,
+      "max_deg": 30
+    },
+    "droite_cheville_roulis": {
+      "id": 16,
+      "center": 2048,
+      "direction": 1,
+      "min_deg": -12,
+      "max_deg": 12
+    }
+  },
+  "poses": {
+    "debout": {},
+    "test_genoux_5deg": {
+      "gauche_genou": 5,
+      "droite_genou": 5
+    },
+    "flexion_legere": {
+      "gauche_hanche_tangage": 10,
+      "gauche_genou": 20,
+      "gauche_cheville_tangage": 10,
+      "droite_hanche_tangage": 10,
+      "droite_genou": 20,
+      "droite_cheville_tangage": 10
+    },
+    "flexion_moyenne": {
+      "gauche_hanche_tangage": 20,
+      "gauche_genou": 40,
+      "gauche_cheville_tangage": 20,
+      "droite_hanche_tangage": 20,
+      "droite_genou": 40,
+      "droite_cheville_tangage": 20
+    },
+    "transfert_gauche": {
+      "gauche_hanche_roulis": 4,
+      "droite_hanche_roulis": 4,
+      "gauche_cheville_roulis": -4,
+      "droite_cheville_roulis": -4
+    },
+    "transfert_droite": {
+      "gauche_hanche_roulis": -4,
+      "droite_hanche_roulis": -4,
+      "gauche_cheville_roulis": 4,
+      "droite_cheville_roulis": 4
+    }
+  },
+  "sequences": {
+    "flexions": [
+      [
+        "debout",
+        3000
+      ],
+      [
+        "flexion_legere",
+        4000
+      ],
+      [
+        "debout",
+        4000
+      ],
+      [
+        "flexion_moyenne",
+        5000
+      ],
+      [
+        "debout",
+        5000
+      ]
+    ],
+    "balancement": [
+      [
+        "debout",
+        3000
+      ],
+      [
+        "transfert_gauche",
+        3000
+      ],
+      [
+        "debout",
+        3000
+      ],
+      [
+        "transfert_droite",
+        3000
+      ],
+      [
+        "debout",
+        3000
+      ]
+    ]
+  }
+}

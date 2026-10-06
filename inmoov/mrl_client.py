@@ -25,6 +25,11 @@ class MrlClient:
 
     def call(self, service, method, *params):
         """Appelle service.method(*params) et renvoie la réponse décodée (ou None)."""
+        return self.call_checked(service, method, *params)[1]
+
+    def call_checked(self, service, method, *params):
+        """Comme call(), mais renvoie (succès, réponse) pour distinguer une méthode
+        qui ne renvoie rien d'un MyRobotLab injoignable."""
         url = "%s/api/service/%s/%s" % (self.base_url, service, method)
         body = json.dumps(list(params)).encode("utf-8")
         req = urllib.request.Request(
@@ -35,13 +40,13 @@ class MrlClient:
                 raw = resp.read().decode("utf-8")
         except (urllib.error.URLError, OSError) as e:
             log.warning("Appel MRL échoué %s.%s%s : %s", service, method, params, e)
-            return None
+            return False, None
         if not raw:
-            return None
+            return True, None
         try:
-            return json.loads(raw)
+            return True, json.loads(raw)
         except ValueError:
-            return raw
+            return True, raw
 
 
 class AsyncMrlClient(MrlClient):

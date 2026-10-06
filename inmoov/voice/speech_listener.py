@@ -2,10 +2,13 @@
 """Reconnaissance vocale améliorée pour InMoov (hors ligne, en français).
 
 Chaîne : micro -> détection de voix (WebRTC VAD) -> Whisper (faster-whisper)
-         -> mot de réveil -> commande locale OU chatbot MyRobotLab (i01.chatBot)
+         -> mot de réveil -> commande locale
+                          OU IA Claude (si "brain.enabled", voir llm_brain.py)
+                          OU chatbot MyRobotLab (i01.chatBot) si Claude est injoignable
 
 La réponse du chatbot est prononcée par MyRobotLab lui-même
-(chatBot -> htmlFilter -> mouth, câblage standard d'InMoov2).
+(chatBot -> htmlFilter -> mouth, câblage standard d'InMoov2) ;
+celle de Claude est envoyée à i01.mouth.speak.
 
     python speech_listener.py --config ../config.json
     python speech_listener.py --list-devices
@@ -36,10 +39,16 @@ FRAME_SAMPLES = SAMPLE_RATE * FRAME_MS // 1000
 
 
 class Listener:
-    def __init__(self, cfg, mrl, dry_run=False):
+    def __init__(self, cfg, mrl, dry_run=False, brain_cfg=None):
         self.cfg = cfg
         self.mrl = mrl
         self.dry_run = dry_run
+        self.brain = None
+        if brain_cfg and brain_cfg.get("enabled"):
+            from llm_brain import ClaudeBrain  # importé seulement si utilisé
+
+            self.brain = ClaudeBrain(brain_cfg, self._call_checked, self.say)
+            log.info("IA conversationnelle : Claude (%s)", brain_cfg["model"])
         self.vad = webrtcvad.Vad(cfg["vad_aggressiveness"])
         self.segmenter = UtteranceSegmenter(
             frame_ms=FRAME_MS,
@@ -98,10 +107,13 @@ class Listener:
 
     # --- actions -----------------------------------------------------------
     def _call(self, service, method, *params):
+        return self._call_checked(service, method, *params)[1]
+
+    def _call_checked(self, service, method, *params):
         log.info("-> %s.%s%s", service, method, params)
         if self.dry_run:
-            return None
-        return self.mrl.call(service, method, *params)
+            return True, None
+        return self.mrl.call_checked(service, method, *params)
 
     def say(self, text):
         self._call(self.cfg["mouth_service"], "speak", text)
@@ -133,6 +145,15 @@ class Listener:
             for action in actions:
                 self._call(*action)
             return
+
+        if self.brain is not None:
+            try:
+                if self.brain.ask(text) is not None:
+                    return
+            except Exception:  # ex. clé API absente : le robot doit continuer d'écouter
+                log.exception("Erreur inattendue de l'IA")
+                self.brain.reset()
+            log.warning("Claude indisponible, on utilise le chatbot d'InMoov2")
 
         resp = self._call(self.cfg["chatbot_service"], self.cfg["chatbot_method"], text)
         reply = resp.get("msg") if isinstance(resp, dict) else None
@@ -188,7 +209,7 @@ def main():
     cfg = load_config(args.config)
     mrl = MrlClient(cfg["mrl"]["url"], cfg["mrl"]["timeout_s"])
     try:
-        Listener(cfg["voice"], mrl, args.dry_run).run()
+        Listener(cfg["voice"], mrl, args.dry_run, cfg.get("brain")).run()
     except KeyboardInterrupt:
         pass
     return 0

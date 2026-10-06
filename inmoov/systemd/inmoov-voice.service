@@ -1,10 +1,13 @@
 [Unit]
 Description=InMoov - reconnaissance vocale (Whisper)
-After=network.target sound.target
+After=network-online.target sound.target
+Wants=network-online.target
 
 [Service]
 User=pi
 WorkingDirectory=/home/pi/inmoov/voice
+# contient la ligne ANTHROPIC_API_KEY=... (chmod 600, jamais dans git)
+EnvironmentFile=-/home/pi/inmoov/anthropic.env
 ExecStart=/home/pi/inmoov/.venv-voice/bin/python speech_listener.py --config /home/pi/inmoov/config.json
 Restart=on-failure
 RestartSec=5

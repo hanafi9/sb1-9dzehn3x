@@ -1,5 +1,6 @@
-# Python 3.9 à 3.12 (fonctionne avec le Python 3.11 de Raspberry Pi OS Bookworm)
+# Python 3.10 ou plus (le SDK anthropic 1.x l'exige) : le Python 3.11 de Raspberry Pi OS Bookworm convient
 faster-whisper>=1.1
 webrtcvad-wheels>=2.0.14
 sounddevice>=0.4.6
 numpy
+anthropic>=1.0
