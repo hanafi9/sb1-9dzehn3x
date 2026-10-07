@@ -524,8 +524,27 @@ def main():
     p.add_argument("--host", default="0.0.0.0")
     p.add_argument("--port", type=int, default=8090)
     a = p.parse_args()
+    if port_in_use(a.port):
+        # Sous Windows, un autre site déjà lancé sur ce port (127.0.0.1) prendrait le dessus
+        # sans erreur : http://localhost:<port> afficherait cet autre site au lieu de l'Atelier.
+        print("Le port %d est déjà utilisé par un autre programme (un autre site web ?).\n"
+              "Lancez l'Atelier sur un autre port, par exemple :\n"
+              "    python app.py --port %d\n"
+              "puis ouvrez http://localhost:%d" % (a.port, a.port + 1, a.port + 1))
+        return 1
+    print("Atelier InMoov : ouvrez http://localhost:%d" % a.port)
     create_app().run(host=a.host, port=a.port, threaded=True)
 
 
+def port_in_use(port):
+    import socket
+
+    try:
+        with socket.create_connection(("127.0.0.1", port), timeout=0.5):
+            return True
+    except OSError:
+        return False
+
+
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
