@@ -171,3 +171,40 @@ td.hot { color: var(--bad); font-weight: 700; }
 .list-row { display: flex; justify-content: space-between; align-items: center; gap: .5rem; padding: .4rem 0; border-top: 1px solid var(--border); }
 .list-row:first-child { border-top: none; }
 code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .85em; }
+
+/* ---------- documentation */
+.docs { display: grid; grid-template-columns: 260px 1fr; gap: 1rem; align-items: start; }
+.docs-nav { position: sticky; top: 4.5rem; display: flex; flex-direction: column; gap: .5rem; margin: 0; }
+.docs-nav input { width: 100%; }
+#docs-toc { display: flex; flex-direction: column; gap: .15rem; }
+#docs-toc button { text-align: left; background: none; color: var(--text); border: none; padding: .4rem .5rem; border-radius: 6px; }
+#docs-toc button.active { background: var(--accent); color: var(--accent-text); }
+#docs-toc .count { color: var(--muted); font-size: .8rem; }
+.docs-content { min-width: 0; }
+.doc-chapter h1 { font-size: 1.4rem; margin: 0 0 .8rem; }
+.doc-chapter h2 { margin-top: 1.4rem; }
+.doc-chapter ol, .doc-chapter ul { padding-left: 2.2rem; }
+.doc-chapter li { margin: .35rem 0; }
+.doc-chapter ul.checklist { list-style: none; padding-left: .2rem; }
+.doc-chapter ul.checklist li::before { content: "☐ "; color: var(--accent); }
+.callout { border-left: 4px solid var(--warn); background: var(--bg); padding: .6rem .8rem; border-radius: 6px; margin: .7rem 0; }
+.callout.tip { border-left-color: var(--ok); }
+.doc-chapter mark { background: #fde68a; color: #111; }
+#manual-print { display: none; }
+@media (max-width: 760px) {
+  .docs { grid-template-columns: 1fr; }
+  .docs-nav { position: static; }
+}
+@media print {
+  body { background: #fff; color: #000; }
+  .topbar, .tabs, main, #toast { display: none !important; }
+  #manual-print { display: block !important; }
+  #manual-print .doc-chapter { break-before: page; }
+  #manual-print .doc-chapter:first-child { break-before: auto; }
+  #manual-print table, #manual-print svg, .callout { break-inside: avoid; }
+  #manual-print .diagram svg { min-width: 0; }
+  #manual-print .card { border: 1px solid #ccc; }
+  #manual-print button { display: none; }
+  a { color: #000; }
+  a[href^="http"]::after { content: " (" attr(href) ")"; font-size: .8em; }
+}

@@ -28,6 +28,7 @@ sys.path[:0] = [ROOT, os.path.join(ROOT, "legs")]
 import arduino_tools  # noqa: E402
 import servo_inventory  # noqa: E402
 import system_tools  # noqa: E402
+import manual  # noqa: E402
 import wiring  # noqa: E402
 
 sys.path.insert(0, os.path.join(ROOT, "voice"))
@@ -460,6 +461,31 @@ def create_app(data_dir=None, run=None, mrl=None):
         else:
             raise ValueError("commande inconnue")
         return jsonify({"ok": True})
+
+    # ---------------------------------------------------------- documentation
+    def part_view_for(key):
+        part = next((p for p in wiring.PARTS if p["key"] == key), None)
+        if part is None:
+            raise ValueError("partie inconnue : %s" % key)
+        groups = servo_inventory.groups_with(calib_store.load())
+        return wiring.part_view(part, groups, legs_cfg() if part.get("legs") else None)
+
+    @app.get("/api/manual")
+    def manual_index():
+        return jsonify({"chapters": manual.chapter_list()})
+
+    @app.get("/api/manual/all")
+    @api
+    def manual_all():
+        return jsonify({"chapters": [manual.serialize(c, part_view_for) for c in manual.CHAPTERS]})
+
+    @app.get("/api/manual/<chapter_id>")
+    @api
+    def manual_chapter(chapter_id):
+        chapter = manual.get_chapter(chapter_id)
+        if chapter is None:
+            raise ValueError("chapitre inconnu")
+        return jsonify(manual.serialize(chapter, part_view_for))
 
     # ---------------------------------------------------------- capteurs
     def robot_cfg():

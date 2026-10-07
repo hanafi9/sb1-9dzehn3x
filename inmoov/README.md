@@ -28,6 +28,7 @@ tablette ou un PC du même réseau : `http://<adresse-du-pi>:8090`.
 | Onglet | Ce qu'il fait |
 |---|---|
 | **Tableau de bord** | État de MyRobotLab, du Coral, des ports série, des services, avancement du montage |
+| **Documentation** | **Le manuel complet** : un chapitre par partie du corps (tête et cou, torse et électronique, bras, mains, bassin, jambes, capteurs) avec rôle, servos, schéma de câblage, pièces, montage pas à pas, réglages, test final, problèmes fréquents et liens officiels ; plus logiciel, IA, dépannage général et tous les liens. Recherche intégrée et bouton « Tout imprimer / PDF ». Version PDF prête : [docs/manuel-inmoov.pdf](docs/manuel-inmoov.pdf) |
 | **Guide de montage** | 43 étapes en 10 phases (Pi, MyRobotLab, électronique, tête et cou, bras/mains/torse, vision, voix et IA, jambes, mise en service, nouveautés IA et capteurs), à cocher, avec les commandes à copier |
 | **Schémas** | Un schéma de câblage par partie (tête, torse, bras, mains, bassin, jambes) généré automatiquement, la liste des servos (modèle, carte, canal), les **pièces imprimées à cocher**, le matériel, et l'**électronique simplifiée** : une seule Arduino Mega + 3 cartes PCA9685, avec le script MyRobotLab qui rattache chaque servo à sa carte |
 | **Capteurs** | Courant et tension de chaque carte (coupure automatique si un servo force), batterie, toucher au bout des doigts, présence, bouton « prise douce » |

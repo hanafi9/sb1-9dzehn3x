@@ -358,5 +358,43 @@ class AiAndSensorsTest(unittest.TestCase):
         self.assertIn("0x29", addrs)
 
 
+@unittest.skipIf(atelier is None, "Flask non installé")
+class ManualTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.c = atelier.create_app(data_dir=self.tmp, run=FakeRun(), mrl=FakeMrl()).test_client()
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp)
+
+    def test_every_chapter_renders(self):
+        index = self.c.get("/api/manual").get_json()["chapters"]
+        ids = [c["id"] for c in index]
+        self.assertEqual(len(ids), len(set(ids)))
+        for part in ("tete", "torse", "bras", "mains", "bassin", "jambes", "capteurs"):
+            self.assertIn(part, ids)
+        all_ = self.c.get("/api/manual/all").get_json()["chapters"]
+        self.assertEqual([c["id"] for c in all_], ids)
+        for c in all_:
+            self.assertTrue(c["blocks"], c["id"])
+            for b in c["blocks"]:
+                if b["type"] == "links":
+                    for l in b["items"]:
+                        self.assertTrue(l["url"].startswith("https://"), l["url"])
+                if b["type"] in ("schema", "servos", "parts"):
+                    self.assertIn("printed", b["view"])
+                if b["type"] == "tab":
+                    self.assertIn(b["tab"], ("guide", "servos", "schema", "sensors", "ai", "legs", "services"))
+
+    def test_body_part_chapters_are_complete(self):
+        for part in ("tete", "bras", "mains", "bassin"):
+            types = [b["type"] for b in self.c.get("/api/manual/" + part).get_json()["blocks"]]
+            for needed in ("servos", "schema", "parts", "steps", "links"):
+                self.assertIn(needed, types, "%s : %s manquant" % (part, needed))
+
+    def test_unknown_chapter(self):
+        self.assertEqual(self.c.get("/api/manual/nexiste-pas").status_code, 400)
+
+
 if __name__ == "__main__":
     unittest.main()

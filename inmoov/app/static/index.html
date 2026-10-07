@@ -18,6 +18,7 @@
 
   <nav class="tabs" role="tablist">
     <button data-tab="dashboard" class="active">Tableau de bord</button>
+    <button data-tab="docs">Documentation</button>
     <button data-tab="guide">Guide de montage</button>
     <button data-tab="schema">Schémas</button>
     <button data-tab="servos">Servos</button>
@@ -38,6 +39,18 @@
         <div class="progress"><div id="dash-progress-bar"></div></div>
         <p id="dash-progress-text" class="muted"></p>
         <p id="dash-next"></p>
+      </div>
+    </section>
+
+    <!-- Documentation -->
+    <section id="tab-docs" class="tab">
+      <div class="docs">
+        <aside class="docs-nav card">
+          <input id="docs-search" type="search" placeholder="Rechercher (ex. tendon, fusible)" aria-label="Rechercher dans la documentation">
+          <nav id="docs-toc" aria-label="Chapitres"></nav>
+          <button id="docs-print" class="ghost">Tout imprimer / PDF</button>
+        </aside>
+        <article id="docs-content" class="docs-content"></article>
       </div>
     </section>
 
@@ -241,6 +254,7 @@
     </section>
   </main>
 
+  <div id="manual-print" aria-hidden="true"></div>
   <div id="toast" role="status" aria-live="polite"></div>
   <script src="/static/app.js"></script>
 </body>

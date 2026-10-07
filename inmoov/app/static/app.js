@@ -88,6 +88,127 @@ loaders.dashboard = async () => {
   $("#dash-next").innerHTML = next ? `Prochaine étape : <b>${esc(next.phase)} — ${esc(next.title)}</b>` : "Bravo, tout est terminé !";
 };
 
+// ------------------------------------------------------------ documentation
+let docsChapters = null;   // tous les chapitres (chargés une fois)
+let docsOverview = null;   // cartes PCA9685 pour le schéma d'ensemble
+let docsCurrent = "start";
+
+function chapterText(c) {
+  return c.blocks.map((b) => [b.text, ...(b.items || []).map((i) => (typeof i === "string" ? i : i.title)),
+    ...(b.rows || []).flat(), ...(b.headers || [])].join(" ")).join(" ").toLowerCase() + " " + c.title.toLowerCase();
+}
+
+function highlight(text, q) {
+  const safe = esc(text);
+  if (!q) return safe;
+  const i = safe.toLowerCase().indexOf(esc(q).toLowerCase());
+  return i < 0 ? safe : safe.slice(0, i) + "<mark>" + safe.slice(i, i + esc(q).length) + "</mark>" + safe.slice(i + esc(q).length);
+}
+
+function renderBlock(b, q) {
+  const div = document.createElement("div");
+  const H = (t) => highlight(t, q);
+  switch (b.type) {
+    case "p": div.innerHTML = `<p>${H(b.text)}</p>`; break;
+    case "h": div.innerHTML = `<h2>${H(b.text)}</h2>`; break;
+    case "warn": div.innerHTML = `<div class="callout"><b>⚠ Attention :</b> ${H(b.text)}</div>`; break;
+    case "tip": div.innerHTML = `<div class="callout tip"><b>Astuce :</b> ${H(b.text)}</div>`; break;
+    case "steps": div.innerHTML = `<ol>${b.items.map((i) => `<li>${H(i)}</li>`).join("")}</ol>`; break;
+    case "check": div.innerHTML = `<ul class="checklist">${b.items.map((i) => `<li>${H(i)}</li>`).join("")}</ul>`; break;
+    case "cmd": div.innerHTML = b.items.map((c) => `<div class="cmd"><code>${esc(c)}</code><button class="ghost" data-copy="${esc(c)}">Copier</button></div>`).join(""); break;
+    case "table": div.innerHTML = `<div class="table-wrap"><table><tr>${b.headers.map((h) => `<th>${H(h)}</th>`).join("")}</tr>${
+      b.rows.map((r) => `<tr>${r.map((c) => `<td>${H(c)}</td>`).join("")}</tr>`).join("")}</table></div>`; break;
+    case "links": div.innerHTML = `<ul>${b.items.map((l) => `<li><a href="${esc(l.url)}" target="_blank" rel="noopener">${H(l.title)}</a></li>`).join("")}</ul>`; break;
+    case "tab": div.innerHTML = `<p><button class="ghost" data-goto="${esc(b.tab)}">→ ${esc(b.text)}</button></p>`; break;
+    case "overview":
+      div.className = "diagram";
+      if (docsOverview) div.appendChild(drawOverview(docsOverview.boards, docsOverview.arduino));
+      break;
+    case "schema":
+      div.className = "diagram";
+      div.appendChild(drawPart(b.view));
+      break;
+    case "servos":
+      div.innerHTML = b.view.servos.length ? `<div class="table-wrap"><table><tr><th>Servo</th><th>Service MyRobotLab</th><th>Modèle</th><th>Carte</th><th>Canal</th></tr>${
+        b.view.servos.map((s) => `<tr><td>${esc(s.label)}</td><td>${esc(s.service)}</td><td>${esc(s.model)}</td><td>${esc(s.address)}</td><td>CH${s.channel}</td></tr>`).join("")}</table></div>` : "";
+      break;
+    case "parts": {
+      const printed = b.view.printed.map((g) => `<p><b>${esc(g.group)}</b> : ${g.items.map((it, i) =>
+        (g.done && g.done[i] ? "✓ " : "") + esc(it)).join(", ")}</p>`).join("");
+      div.innerHTML = (b.view.note ? `<p>${esc(b.view.note)}</p>` : "") + printed +
+        `<div class="table-wrap"><table><tr><th>Matériel</th><th>Quantité</th></tr>${
+          b.view.hardware.map((h) => `<tr><td>${esc(h.item)}</td><td>${esc(h.qty)}</td></tr>`).join("")}</table></div>`;
+      break;
+    }
+  }
+  return div;
+}
+
+function renderChapter(c, q) {
+  const art = document.createElement("section");
+  art.className = "doc-chapter card";
+  art.innerHTML = `<h1>${esc(c.title)}</h1>`;
+  c.blocks.forEach((b) => art.appendChild(renderBlock(b, q)));
+  return art;
+}
+
+function renderToc() {
+  const q = $("#docs-search").value.trim().toLowerCase();
+  const list = docsChapters.filter((c) => !q || c._text.includes(q));
+  $("#docs-toc").innerHTML = list.length ? list.map((c) =>
+    `<button data-chapter="${esc(c.id)}" class="${c.id === docsCurrent ? "active" : ""}">${esc(c.title)}</button>`).join("")
+    : `<p class="muted">Aucun résultat.</p>`;
+  if (q && list.length && !list.some((c) => c.id === docsCurrent)) showChapter(list[0].id);
+  else showChapter(docsCurrent);
+}
+
+function showChapter(id) {
+  docsCurrent = id;
+  const c = docsChapters.find((x) => x.id === id) || docsChapters[0];
+  const box = $("#docs-content");
+  box.innerHTML = "";
+  box.appendChild(renderChapter(c, $("#docs-search").value.trim()));
+  document.querySelectorAll("#docs-toc button").forEach((b) => b.classList.toggle("active", b.dataset.chapter === c.id));
+}
+
+loaders.docs = async () => {
+  if (!docsChapters) {
+    const [all, ov] = await Promise.all([api("GET", "/api/manual/all"), api("GET", "/api/schema")]);
+    docsOverview = ov;
+    docsChapters = all.chapters.map((c) => ({ ...c, _text: chapterText(c) }));
+  }
+  renderToc();
+};
+$("#docs-search").addEventListener("input", () => docsChapters && renderToc());
+$("#docs-toc").addEventListener("click", (e) => {
+  const id = e.target.dataset.chapter;
+  if (id) { showChapter(id); window.scrollTo({ top: 0, behavior: "smooth" }); }
+});
+$("#docs-content").addEventListener("click", async (e) => {
+  if (e.target.dataset.goto) showTab(e.target.dataset.goto);
+  if (e.target.dataset.copy !== undefined) {
+    try { await navigator.clipboard.writeText(e.target.dataset.copy); toast("Commande copiée"); }
+    catch (_) { toast("Copie impossible : sélectionnez le texte à la main", true); }
+  }
+});
+$("#docs-print").addEventListener("click", (e) => withButton(e.target, async () => {
+  const all = await api("GET", "/api/manual/all");   // version à jour (avancement des pièces)
+  buildManualBook(all.chapters);
+  window.print();
+}));
+
+// Livre complet pour l'impression : page de garde avec sommaire, puis un chapitre par page.
+function buildManualBook(chapters) {
+  const box = $("#manual-print");
+  box.innerHTML = `<section class="doc-chapter"><h1>Manuel du robot InMoov</h1>
+    <p>Robot humanoïde InMoov : Raspberry Pi 5, MyRobotLab, Atelier InMoov.<br>
+    Version du ${new Date().toLocaleDateString("fr-FR")}.</p>
+    <h2>Sommaire</h2><ol>${chapters.map((c) => `<li>${esc(c.title)}</li>`).join("")}</ol>
+    <p>Les schémas de câblage, les listes de pièces et les réglages viennent de l'Atelier : réimprimez ce manuel
+    après chaque changement de câblage ou de calibration.</p></section>`;
+  chapters.forEach((c) => box.appendChild(renderChapter(c, "")));
+}
+
 // ------------------------------------------------------------ guide
 loaders.guide = async () => {
   const g = await api("GET", "/api/guide");
