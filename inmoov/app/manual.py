@@ -179,6 +179,10 @@ CHAPTERS = [
                 "Relier toutes les masses : alimentation des servos, Arduino, cartes PCA9685, Raspberry Pi.",
                 "Fixer les haut-parleurs et le capteur PIR, puis ranger les câbles avec des colliers.",
             ]),
+            ("tip", "Circuit imprimé prêt à commander : la « carte servos 16 voies » (dossier pcb/carte_servos, à faire "
+                    "en 3 exemplaires A, B, C) regroupe sur une seule carte le PCA9685, le bornier, le fusible, la "
+                    "mesure de courant INA226 et des connecteurs à verrou pour chaîner les cartes. Les puces sont "
+                    "posées par JLCPCB (fichiers bom_jlcpcb.csv et cpl_jlcpcb.csv) ; mode d'emploi dans LISEZMOI.md."),
             ("warn", "Avant de brancher le moindre servo : mesurer au multimètre la tension sur le bornier de chaque carte "
                      "(environ 6 V) et vérifier la polarité. Une inversion détruit les servos."),
             ("h", "Vérifier que les cartes répondent"),
@@ -444,6 +448,9 @@ CHAPTERS = [
                 "cd sensors && ../.venv-sensors/bin/python sensor_hub.py --config ../config.json --simulate",
             ]),
             ("p", "i2cdetect doit afficher les adresses du tableau. Essayer d'abord avec --simulate, puis sans."),
+            ("tip", "Circuit imprimé prêt à commander : le « HAT capteurs » (dossier pcb/hat_capteurs) s'enfiche sur le "
+                    "Raspberry Pi 5. Il porte les 3 ADS1115 (0x48, 0x49, 0x4A), les 10 résistances des FSR, un "
+                    "connecteur à verrou par doigt et 3 sorties I2C (cartes servos, batterie, VL53L1X)."),
             ("tab", "sensors", "Ouvrir l'onglet Capteurs"),
         ],
     },

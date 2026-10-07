@@ -1,0 +1,31 @@
+Repère;Valeur;Empreinte KiCad;Composant;LCSC;Référence fabricant;Soudé par
+J1;2x20;Connector_PinSocket_2.54mm:PinSocket_2x20_P2.54mm_Vertical;Connecteur femelle 2 x 20 broches 2,54 mm (hauteur standard HAT, soudé sous la carte);;;vous
+U1;ADS1115;Package_SO:TSSOP-10_3x3mm_P0.5mm;ADS1115 convertisseur 16 bits;C37593;ADS1115IDGSR;JLCPCB
+C1;100nF;Capacitor_SMD:C_0603_1608Metric;100 nF;C14663;CC0603KRX7R9BB104;JLCPCB
+U2;ADS1115;Package_SO:TSSOP-10_3x3mm_P0.5mm;ADS1115 convertisseur 16 bits;C37593;ADS1115IDGSR;JLCPCB
+C2;100nF;Capacitor_SMD:C_0603_1608Metric;100 nF;C14663;CC0603KRX7R9BB104;JLCPCB
+U3;ADS1115;Package_SO:TSSOP-10_3x3mm_P0.5mm;ADS1115 convertisseur 16 bits;C37593;ADS1115IDGSR;JLCPCB
+C3;100nF;Capacitor_SMD:C_0603_1608Metric;100 nF;C14663;CC0603KRX7R9BB104;JLCPCB
+J10;G pouce;Connector_JST:JST_XH_B2B-XH-A_1x02_P2.50mm_Vertical;JST-XH 2 broches droit (B2B-XH-A) + câble;;;vous
+R1;10k;Resistor_SMD:R_0603_1608Metric;10 kΩ (pont diviseur du FSR);C25804;0603WAF1002T5E;JLCPCB
+J11;G index;Connector_JST:JST_XH_B2B-XH-A_1x02_P2.50mm_Vertical;JST-XH 2 broches droit (B2B-XH-A) + câble;;;vous
+R2;10k;Resistor_SMD:R_0603_1608Metric;10 kΩ (pont diviseur du FSR);C25804;0603WAF1002T5E;JLCPCB
+J12;G majeur;Connector_JST:JST_XH_B2B-XH-A_1x02_P2.50mm_Vertical;JST-XH 2 broches droit (B2B-XH-A) + câble;;;vous
+R3;10k;Resistor_SMD:R_0603_1608Metric;10 kΩ (pont diviseur du FSR);C25804;0603WAF1002T5E;JLCPCB
+J13;G annulaire;Connector_JST:JST_XH_B2B-XH-A_1x02_P2.50mm_Vertical;JST-XH 2 broches droit (B2B-XH-A) + câble;;;vous
+R4;10k;Resistor_SMD:R_0603_1608Metric;10 kΩ (pont diviseur du FSR);C25804;0603WAF1002T5E;JLCPCB
+J14;D pouce;Connector_JST:JST_XH_B2B-XH-A_1x02_P2.50mm_Vertical;JST-XH 2 broches droit (B2B-XH-A) + câble;;;vous
+R5;10k;Resistor_SMD:R_0603_1608Metric;10 kΩ (pont diviseur du FSR);C25804;0603WAF1002T5E;JLCPCB
+J15;D index;Connector_JST:JST_XH_B2B-XH-A_1x02_P2.50mm_Vertical;JST-XH 2 broches droit (B2B-XH-A) + câble;;;vous
+R6;10k;Resistor_SMD:R_0603_1608Metric;10 kΩ (pont diviseur du FSR);C25804;0603WAF1002T5E;JLCPCB
+J16;D majeur;Connector_JST:JST_XH_B2B-XH-A_1x02_P2.50mm_Vertical;JST-XH 2 broches droit (B2B-XH-A) + câble;;;vous
+R7;10k;Resistor_SMD:R_0603_1608Metric;10 kΩ (pont diviseur du FSR);C25804;0603WAF1002T5E;JLCPCB
+J17;D annulaire;Connector_JST:JST_XH_B2B-XH-A_1x02_P2.50mm_Vertical;JST-XH 2 broches droit (B2B-XH-A) + câble;;;vous
+R8;10k;Resistor_SMD:R_0603_1608Metric;10 kΩ (pont diviseur du FSR);C25804;0603WAF1002T5E;JLCPCB
+J18;G auriculaire;Connector_JST:JST_XH_B2B-XH-A_1x02_P2.50mm_Vertical;JST-XH 2 broches droit (B2B-XH-A) + câble;;;vous
+R9;10k;Resistor_SMD:R_0603_1608Metric;10 kΩ (pont diviseur du FSR);C25804;0603WAF1002T5E;JLCPCB
+J19;D auriculaire;Connector_JST:JST_XH_B2B-XH-A_1x02_P2.50mm_Vertical;JST-XH 2 broches droit (B2B-XH-A) + câble;;;vous
+R10;10k;Resistor_SMD:R_0603_1608Metric;10 kΩ (pont diviseur du FSR);C25804;0603WAF1002T5E;JLCPCB
+J2;Cartes servos;Connector_JST:JST_XH_B4B-XH-A_1x04_P2.50mm_Vertical;JST-XH 4 broches droit (B4B-XH-A) + câble;;;vous
+J3;Batterie INA226;Connector_JST:JST_XH_B4B-XH-A_1x04_P2.50mm_Vertical;JST-XH 4 broches droit (B4B-XH-A) + câble;;;vous
+J4;VL53L1X;Connector_JST:JST_XH_B4B-XH-A_1x04_P2.50mm_Vertical;JST-XH 4 broches droit (B4B-XH-A) + câble;;;vous

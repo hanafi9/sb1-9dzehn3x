@@ -231,7 +231,8 @@ def build_board(path):
     b.keepout(60.5, -33.5, 69.5, -22.5, "ICSP de la Mega")
     b.keepout(0.5, -45.0, 18.0, -27.0, "prise USB de la Mega")
     b.keepout(0.5, -15.0, 15.0, -0.5, "prise d'alimentation de la Mega")
-    b.text("InMoov · shield jambes v1", 24.0, -48.0, 1.2)
+    b.text("DOMOKAMI CONNECT", 24.0, -48.0, 1.2)
+    b.text("shield jambes v1", 44.0, -48.0, 0.9)
     b.text("Arduino Mega n°2", 24.0, -46.2, 0.9)
     b.text("Isoler sous la carte au-dessus de la prise USB", 3.0, -30.0, 0.8, pcbnew.B_SilkS, 90)
     return b
