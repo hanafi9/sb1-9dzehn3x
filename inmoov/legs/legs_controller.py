@@ -9,6 +9,11 @@ puis converties en positions servo (0..4095) d'après legs_config.json.
     python legs_controller.py --config legs_config.json pose debout --time 3000
     python legs_controller.py --config legs_config.json sequence flexions
     python legs_controller.py --config legs_config.json torque off
+    python legs_controller.py --config legs_config.json feet           # pieds et équilibre
+    python legs_controller.py --config legs_config.json feet tare      # pieds en l'air
+    python legs_controller.py --config legs_config.json feet cal 0 2000
+    python legs_controller.py --config legs_config.json balance monitor
+    python legs_controller.py --config legs_config.json sequence pas_sur_place
 
 SÉCURITÉ : robot accroché à un portique, arrêt d'urgence matériel à portée de main.
 L'IA conversationnelle n'a volontairement aucun accès à ce programme.
@@ -68,9 +73,67 @@ def move_command(targets, duration_ms):
     return "MOVE %d %s" % (int(duration_ms), " ".join(parts))
 
 
+FEET_KEYS = ("ok", "g_kg", "g_cop_x", "g_cop_y", "d_kg", "d_cop_x", "d_cop_y",
+             "balance", "corr_tangage", "corr_roulis", "roll", "pitch")
+BALANCE_MODES = {"off": 0, "on": 1, "monitor": 2}
+ANKLES = ("gauche_cheville_tangage", "gauche_cheville_roulis", "droite_cheville_tangage", "droite_cheville_roulis")
+
+
+def parse_feet(line):
+    """Ligne « F ... » du firmware -> dict (charges en kg, centres de pression de -1 à 1)."""
+    parts = line.split()
+    if len(parts) != len(FEET_KEYS) + 1 or parts[0] != "F":
+        raise ValueError("ligne pieds invalide : %r" % line)
+    values = [float(x) for x in parts[1:]]
+    feet = dict(zip(FEET_KEYS, values))
+    feet["ok"] = feet["ok"] == 1
+    feet["balance"] = int(feet["balance"])
+    return feet
+
+
+def support_ratio(feet, side):
+    """Part du poids portée par le pied « gauche » ou « droite » (0 à 1), None sans mesure."""
+    if not feet or not feet["ok"]:
+        return None
+    total = feet["g_kg"] + feet["d_kg"]
+    if total < 0.5:
+        return None
+    return (feet["g_kg"] if side == "gauche" else feet["d_kg"]) / total
+
+
+def balance_command(cfg):
+    """Commande BALCFG d'après la section « balance » et le sens des chevilles."""
+    b = cfg.get("balance", {})
+    vals = [b.get("kp", 0.3), b.get("kd", 0.02), b.get("kc", 3.0), b.get("max_deg", 5.0),
+            b.get("contact_kg", 1.0), b.get("imu_pitch_sign", 1), b.get("imu_roll_sign", 1)]
+    if not 0 <= vals[3] <= 10:
+        raise PoseError("balance.max_deg doit être entre 0 et 10 degrés")
+    if min(vals[:5]) < 0:
+        raise PoseError("balance : kp, kd, kc et contact_kg doivent être positifs")
+    signs = {"imu_pitch_sign": vals[5], "imu_roll_sign": vals[6]}
+    signs.update({n: cfg["joints"][n]["direction"] for n in ANKLES})
+    for name, v in signs.items():
+        if v not in (1, -1):
+            raise PoseError("%s doit valoir 1 ou -1" % name)
+    vals += [cfg["joints"][n]["direction"] for n in ANKLES]
+    return "BALCFG " + " ".join("%g" % v for v in vals)
+
+
+def parse_step(step):
+    """Étape de séquence : [pose, ms] ou [pose, ms, {"appui": "gauche", "min": 0.85, "timeout_ms": 4000}]."""
+    pose, ms = step[0], step[1]
+    gate = step[2] if len(step) > 2 else None
+    if gate is not None:
+        if gate.get("appui") not in ("gauche", "droite"):
+            raise PoseError("appui doit être « gauche » ou « droite »")
+        if not 0.5 <= float(gate.get("min", 0.85)) <= 1.0:
+            raise PoseError("min (part du poids) doit être entre 0.5 et 1")
+    return pose, ms, gate
+
+
 def parse_status(lines):
     """Analyse la réponse à STATUS."""
-    status = {"state": None, "reason": "", "servos": {}, "imu": None}
+    status = {"state": None, "reason": "", "servos": {}, "imu": None, "cells": {}, "feet": None}
     for line in lines:
         parts = line.split()
         if not parts:
@@ -83,6 +146,10 @@ def parse_status(lines):
             status["servos"][sid] = {"pos": pos, "load": load, "temp_c": temp, "volt": volt / 10.0}
         elif parts[0] == "IMU" and len(parts) == 4:
             status["imu"] = {"ok": parts[1] == "1", "roll": float(parts[2]), "pitch": float(parts[3])}
+        elif parts[0] == "CELL" and len(parts) == 4:
+            status["cells"][int(parts[1])] = {"raw": int(parts[2]), "kg": float(parts[3])}
+        elif parts[0] == "F":
+            status["feet"] = parse_feet(line)
     return status
 
 
@@ -96,6 +163,7 @@ class LegsLink:
         time.sleep(2.0)  # l'Arduino Mega redémarre à l'ouverture du port
         self.lines = queue.Queue()
         self.lock = threading.Lock()
+        self.cmd_lock = threading.Lock()  # une commande à la fois (séquence + appli)
         self.running = True
         threading.Thread(target=self._reader, daemon=True).start()
         threading.Thread(target=self._heartbeat, args=(heartbeat_s,), daemon=True).start()
@@ -131,6 +199,10 @@ class LegsLink:
 
     def command(self, text, done_prefixes, timeout=3.0):
         """Envoie une commande et renvoie les lignes jusqu'à la réponse finale."""
+        with self.cmd_lock:
+            return self._command(text, done_prefixes, timeout)
+
+    def _command(self, text, done_prefixes, timeout):
         while not self.lines.empty():
             self.lines.get_nowait()
         self._write(text)
@@ -165,6 +237,69 @@ class LegsLink:
     def torque(self, on):
         self.command("TORQUE %d" % (1 if on else 0), ["OK TORQUE"])
 
+    def feet(self):
+        out = self.command("FEET", ["F "])
+        return parse_feet(out[-1])
+
+    def tare(self):
+        self.command("TARE", ["OK TARE"])
+
+    def calibrate_cell(self, cell, grams):
+        return self.command("CAL %d %d" % (int(cell), int(grams)), ["OK CAL"])[-1]
+
+    def balance(self, mode, cfg=None):
+        if cfg is not None:
+            self.command(balance_command(cfg), ["OK BALCFG"])
+        self.command("BAL %d" % BALANCE_MODES[mode], ["OK BAL"])
+
+    def wait_support(self, side, minimum=0.85, timeout_ms=4000):
+        """Attend que le pied « side » porte au moins « minimum » du poids. Renvoie la dernière part mesurée."""
+        end = time.monotonic() + timeout_ms / 1000.0
+        ratio = None
+        while time.monotonic() < end:
+            ratio = support_ratio(self.feet(), side)
+            if ratio is not None and ratio >= minimum:
+                return ratio
+            time.sleep(0.05)
+        raise RuntimeError("appui %s insuffisant (%s) : pied pas encore prêt à porter le robot"
+                           % (side, "pas de mesure" if ratio is None else "%.0f %%" % (ratio * 100)))
+
+
+def run_sequence(link, cfg, name, log_fn=None, stop_event=None):
+    """Joue une séquence. Une étape avec « appui » attend que le pied porte le robot
+    avant de continuer ; sinon FIGE et s'arrête (le robot ne lève jamais un pied chargé).
+    stop_event (threading.Event) : arrête la séquence entre deux étapes."""
+    stop_event = stop_event or threading.Event()
+    for step in cfg["sequences"][name]:
+        if stop_event.is_set():
+            raise RuntimeError("séquence arrêtée")
+        pose_name, ms, gate = parse_step(step)
+        if log_fn:
+            log_fn("pose %s en %d ms" % (pose_name, ms))
+        link.move(pose_targets(cfg, cfg["poses"][pose_name]), ms)
+        if stop_event.wait(ms / 1000.0 + 0.3):
+            raise RuntimeError("séquence arrêtée")
+        if gate:
+            try:
+                link.wait_support(gate["appui"], float(gate.get("min", 0.85)), int(gate.get("timeout_ms", 4000)))
+            except RuntimeError:
+                link.hold()
+                raise
+        st = link.status()
+        if st["state"] != "READY":
+            raise RuntimeError("défaut : %s" % st["reason"])
+
+
+def print_feet(f):
+    if not f["ok"]:
+        print("Pieds : cellules absentes ou non étalonnées (voir « feet tare » et « feet cal »)")
+    for side, key in (("gauche", "g"), ("droit ", "d")):
+        print("Pied %s : %5.1f kg  centre de pression avant/arrière %+.2f  ext./int. %+.2f"
+              % (side, f[key + "_kg"], f[key + "_cop_x"], f[key + "_cop_y"]))
+    mode = {v: k for k, v in BALANCE_MODES.items()}.get(f["balance"], "?")
+    print("Équilibre : %s, correction cheville tangage %+.1f°, roulis %+.1f° (bassin roulis %.1f°, tangage %.1f°)"
+          % (mode, f["corr_tangage"], f["corr_roulis"], f["roll"], f["pitch"]))
+
 
 def print_status(cfg, st):
     names = {j["id"]: n for n, j in cfg["joints"].items()}
@@ -173,6 +308,8 @@ def print_status(cfg, st):
         name = names.get(sid, "?")
         deg = raw_to_deg(cfg["joints"][name], s["pos"]) if name in cfg["joints"] and s["pos"] >= 0 else float("nan")
         print("  %-24s id %2d  %6.1f°  charge %5d  %3d°C  %4.1f V" % (name, sid, deg, s["load"], s["temp_c"], s["volt"]))
+    if st.get("feet"):
+        print_feet(st["feet"])
     if st["imu"]:
         print("Bassin : roulis %.1f°, tangage %.1f° (IMU %s)"
               % (st["imu"]["roll"], st["imu"]["pitch"], "ok" if st["imu"]["ok"] else "ABSENTE"))
@@ -193,6 +330,12 @@ def main():
     p.add_argument("name")
     p = sub.add_parser("torque")
     p.add_argument("state", choices=["on", "off"])
+    p = sub.add_parser("feet", help="pieds : état, tare, étalonnage")
+    p.add_argument("action", nargs="?", choices=["show", "tare", "cal"], default="show")
+    p.add_argument("cell", nargs="?", type=int, help="cellule 0..7 (cal)")
+    p.add_argument("grams", nargs="?", type=int, help="masse posée en grammes (cal)")
+    p = sub.add_parser("balance", help="équilibre : on, off ou monitor (calcule sans bouger)")
+    p.add_argument("mode", choices=list(BALANCE_MODES))
     sub.add_parser("check", help="vérifie les poses sans matériel")
     args = parser.parse_args()
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO,
@@ -203,8 +346,12 @@ def main():
         for name, pose in cfg["poses"].items():
             pose_targets(cfg, pose)
             print("pose %-20s ok" % name)
+        if "balance" in cfg:
+            balance_command(cfg)
+            print("équilibre         ok")
         for name, steps in cfg["sequences"].items():
-            for pose_name, _ in steps:
+            for step in steps:
+                pose_name = parse_step(step)[0]
                 if pose_name not in cfg["poses"]:
                     raise PoseError("séquence %s : pose inconnue %s" % (name, pose_name))
             print("séquence %-16s ok" % name)
@@ -227,15 +374,26 @@ def main():
             link.move(pose_targets(cfg, cfg["poses"][args.name]), args.time)
             time.sleep(args.time / 1000.0 + 0.3)
             print_status(cfg, link.status())
+        elif args.cmd == "feet":
+            if args.action == "tare":
+                print("Pieds EN L'AIR (robot sur le portique) : mise à zéro des 8 cellules.")
+                link.tare()
+            elif args.action == "cal":
+                if args.cell is None or args.grams is None:
+                    print("Usage : feet cal <cellule 0..7> <grammes>")
+                    return 1
+                print(link.calibrate_cell(args.cell, args.grams))
+            print_feet(link.feet())
+        elif args.cmd == "balance":
+            link.balance(args.mode, cfg)
+            print_feet(link.feet())
         elif args.cmd == "sequence":
-            for pose_name, ms in cfg["sequences"][args.name]:
-                log.info("pose %s en %d ms", pose_name, ms)
-                link.move(pose_targets(cfg, cfg["poses"][pose_name]), ms)
-                time.sleep(ms / 1000.0 + 0.3)
-                st = link.status()
-                if st["state"] != "READY":
-                    print_status(cfg, st)
-                    return 2
+            try:
+                run_sequence(link, cfg, args.name, log.info)
+            except RuntimeError as exc:
+                print("ARRÊT : %s" % exc)
+                print_status(cfg, link.status())
+                return 2
     except KeyboardInterrupt:
         link.hold()
     finally:

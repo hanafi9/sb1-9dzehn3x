@@ -208,3 +208,11 @@ code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .85em; 
   a { color: #000; }
   a[href^="http"]::after { content: " (" attr(href) ")"; font-size: .8em; }
 }
+
+/* pieds (onglet Jambes) */
+.feet figure { margin: 0; text-align: center; width: 110px; }
+.feet svg { width: 90px; height: 144px; }
+.feet .foot { fill: var(--bg); stroke: currentColor; stroke-width: 2; }
+.feet .foot-axis { stroke: currentColor; stroke-opacity: .25; stroke-dasharray: 3 3; }
+.feet .cop { fill: var(--bad); }
+.feet .warn { color: var(--warn); }

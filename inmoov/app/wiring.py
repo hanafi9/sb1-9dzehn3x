@@ -193,8 +193,27 @@ PARTS = [
             ("Adaptateur bus Feetech (half-duplex) ou RS485 selon le modèle", "1"),
             ("Alimentation 12 V forte puissance, via l'arrêt d'urgence", "1"),
             ("Portique de sécurité + sangle au bassin", "1"),
+            ("Cellule de charge 50 kg demi-pont (type pèse-personne) ou cellule à poutre", "8"),
+            ("Module HX711 (une par cellule, broche RATE à 5 V pour 80 mesures/s)", "8"),
+            ("Semelle rigide en 2 plaques (haut / bas) par pied, cellules aux 4 coins", "2"),
         ],
-        "pages": [],
+        "foot_sensors": {
+            "note": "Une cellule de charge à chaque coin du pied, prise entre la plaque du dessus (fixée à la cheville) "
+                    "et la semelle qui touche le sol. Chaque cellule a son HX711 ; les HX711 sont sur l'Arduino "
+                    "Mega n°2 (5 V, GND). Les capteurs FSR ne conviennent pas ici : ils saturent vers 10 N.",
+            "cells": [
+                ("0", "Pied gauche, avant extérieur", "22", "23"),
+                ("1", "Pied gauche, avant intérieur", "24", "25"),
+                ("2", "Pied gauche, arrière extérieur", "26", "27"),
+                ("3", "Pied gauche, arrière intérieur", "28", "29"),
+                ("4", "Pied droit, avant extérieur", "30", "31"),
+                ("5", "Pied droit, avant intérieur", "32", "33"),
+                ("6", "Pied droit, arrière extérieur", "34", "35"),
+                ("7", "Pied droit, arrière intérieur", "36", "37"),
+            ],
+        },
+        "pages": [("Capteurs de pieds à 4 cellules (Hamburg Bit-Bots)", "https://bit-bots.de/?p=7555"),
+                  ("Chaussures à capteurs de force open source (article)", "https://arxiv.org/abs/2104.06618")],
     },
 ]
 
@@ -260,6 +279,10 @@ def part_view(part, groups, legs_cfg=None):
     view["note"] = part.get("note")
     if part.get("i2c_devices"):
         view["i2c_devices"] = [{"name": n, "address": a, "pins": p, "role": r} for n, a, p, r in part["i2c_devices"]]
+    if part.get("foot_sensors"):
+        fs = part["foot_sensors"]
+        view["foot_sensors"] = {"note": fs["note"], "cells": [{"cell": c, "place": p, "dout": d, "sck": k}
+                                                             for c, p, d, k in fs["cells"]]}
     view["printed"] = [{"group": g, "items": items} for g, items in part["printed"]]
     view["hardware"] = [{"item": i, "qty": q} for i, q in part["hardware"]]
     view["servos"] = servos

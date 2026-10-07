@@ -193,6 +193,64 @@ class AppTest(unittest.TestCase):
         self.assertIn("test_genoux_5deg", info["poses"])
         self.assertEqual(self.c.post("/api/legs/pose", json={"name": "debout"}).status_code, 502)
 
+    def test_legs_balance_and_sequence_with_fake_arduino(self):
+        import legs_controller
+
+        calls = []
+
+        class FakeLink:
+            def __init__(self, port, baud=115200):
+                calls.append(("connect", port))
+
+            def status(self):
+                return legs_controller.parse_status(
+                    ["STATE READY", "F 1 19 0 0 1 0 0 1 -0.5 0 0 1", "OK STATUS"])
+
+            def balance(self, mode, cfg=None):
+                calls.append(("balance", mode, legs_controller.balance_command(cfg)))
+
+            def tare(self):
+                calls.append(("tare",))
+
+            def move(self, targets, ms):
+                calls.append(("move", ms))
+
+            def wait_support(self, side, minimum, timeout_ms):
+                calls.append(("appui", side))
+
+            def hold(self):
+                calls.append(("hold",))
+
+            def close(self):
+                pass
+
+        orig = legs_controller.LegsLink
+        legs_controller.LegsLink = FakeLink
+        try:
+            self.assertEqual(self.c.post("/api/legs/connect", json={"port": "/dev/fake"}).status_code, 200)
+            self.assertEqual(self.c.post("/api/legs/balance", json={"mode": "on"}).status_code, 400)  # portique
+            self.assertEqual(self.c.post("/api/legs/balance", json={"mode": "on", "gantry_ok": True}).status_code, 200)
+            self.assertEqual(calls[-1][:2], ("balance", "on"))
+            self.assertEqual(self.c.post("/api/legs/balance", json={"mode": "x", "gantry_ok": True}).status_code, 400)
+            self.assertEqual(self.c.post("/api/legs/tare", json={"gantry_ok": True}).status_code, 200)
+            info = self.c.get("/api/legs").get_json()
+            self.assertEqual(info["status"]["feet"]["g_kg"], 19.0)
+            self.assertIn("pas_sur_place", info["sequences"])
+            self.assertEqual(self.c.post("/api/legs/sequence", json={"name": "inconnue", "gantry_ok": True}).status_code, 400)
+            r = self.c.post("/api/legs/sequence", json={"name": "flexions", "gantry_ok": True})
+            self.assertEqual(r.status_code, 200)
+            self.assertEqual(self.c.post("/api/legs/hold", json={}).status_code, 200)  # arrête la séquence
+            for _ in range(50):
+                if not self.c.get("/api/legs").get_json()["sequence"]["running"]:
+                    break
+                time.sleep(0.1)
+            seq = self.c.get("/api/legs").get_json()["sequence"]
+            self.assertFalse(seq["running"])
+            self.assertIn("arrêtée", seq["error"])
+            self.assertEqual(self.c.post("/api/legs/disconnect", json={}).status_code, 200)
+        finally:
+            legs_controller.LegsLink = orig
+
     def test_config_edit_validates(self):
         self.c.put("/api/settings", json={"legs_config": os.path.join(self.tmp, "legs.json"),
                                           "robot_config": os.path.join(self.tmp, "config.json")})
@@ -202,6 +260,9 @@ class AppTest(unittest.TestCase):
         cfg["poses"]["trop"] = {"gauche_genou": 170}
         r = self.c.put("/api/config/legs", json={"text": json.dumps(cfg)})
         self.assertEqual(r.status_code, 400)
+        del cfg["poses"]["trop"]
+        cfg["balance"]["max_deg"] = 30  # correction de cheville trop grande
+        self.assertEqual(self.c.put("/api/config/legs", json={"text": json.dumps(cfg)}).status_code, 400)
         self.assertEqual(self.c.put("/api/config/robot", json={"text": "{pas du json"}).status_code, 400)
         robot = self.c.get("/api/config/robot").get_json()["text"]
         self.assertEqual(self.c.put("/api/config/robot", json={"text": robot}).status_code, 200)

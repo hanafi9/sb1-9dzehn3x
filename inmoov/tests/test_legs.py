@@ -11,8 +11,11 @@ ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 LEGS = os.path.join(ROOT, "legs")
 sys.path[:0] = [LEGS]
 
+import threading  # noqa: E402
+
 from legs_controller import (  # noqa: E402
-    PoseError, deg_to_raw, move_command, parse_status, pose_targets, raw_to_deg)
+    ANKLES, FEET_KEYS, PoseError, balance_command, deg_to_raw, move_command, parse_feet, parse_status,
+    parse_step, pose_targets, raw_to_deg, run_sequence, support_ratio)
 from torque_calc import joint_torques, suitable  # noqa: E402
 
 
@@ -52,7 +55,8 @@ class PoseTest(unittest.TestCase):
 
     def test_sequences_reference_known_poses(self):
         for name, steps in self.cfg["sequences"].items():
-            for pose_name, ms in steps:
+            for step in steps:
+                pose_name, ms, _ = parse_step(step)
                 self.assertIn(pose_name, self.cfg["poses"], name)
                 self.assertGreaterEqual(ms, 300)
 
@@ -116,3 +120,124 @@ class TorqueTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+FEET_LINE = "F 1 12.00 0.10 -0.05 4.00 -0.20 0.00 2 -1.5 0.3 0.8 -2.1"
+
+
+class FeetTest(unittest.TestCase):
+    def setUp(self):
+        self.cfg = load_cfg()
+
+    def test_parse_feet(self):
+        f = parse_feet(FEET_LINE)
+        self.assertTrue(f["ok"])
+        self.assertEqual(f["g_kg"], 12.0)
+        self.assertEqual(f["d_cop_x"], -0.2)
+        self.assertEqual(f["balance"], 2)
+        self.assertEqual(f["corr_tangage"], -1.5)
+        with self.assertRaises(ValueError):
+            parse_feet("F 1 2 3")
+
+    def test_status_includes_cells_and_feet(self):
+        st = parse_status(["STATE READY", "CELL 0 81234 2.50", FEET_LINE, "OK STATUS"])
+        self.assertEqual(st["cells"][0], {"raw": 81234, "kg": 2.5})
+        self.assertEqual(st["feet"]["d_kg"], 4.0)
+
+    def test_support_ratio(self):
+        f = parse_feet(FEET_LINE)
+        self.assertAlmostEqual(support_ratio(f, "gauche"), 0.75)
+        self.assertAlmostEqual(support_ratio(f, "droite"), 0.25)
+        self.assertIsNone(support_ratio(dict(f, ok=False), "gauche"))
+        self.assertIsNone(support_ratio(dict(f, g_kg=0.1, d_kg=0.1), "gauche"))  # pieds en l'air
+
+    def test_balance_command(self):
+        cmd = balance_command(self.cfg)
+        self.assertEqual(cmd, "BALCFG 0.3 0.02 3 5 1 1 1 1 1 1 1")
+        cfg = json.loads(json.dumps(self.cfg))
+        cfg["joints"]["droite_cheville_roulis"]["direction"] = -1
+        self.assertTrue(balance_command(cfg).endswith(" 1 1 1 -1"))
+        for key, bad in (("max_deg", 15), ("kp", -1), ("imu_pitch_sign", 2)):
+            cfg = json.loads(json.dumps(self.cfg))
+            cfg["balance"][key] = bad
+            with self.assertRaises(PoseError, msg=key):
+                balance_command(cfg)
+
+    def test_parse_step_gate(self):
+        self.assertEqual(parse_step(["debout", 3000]), ("debout", 3000, None))
+        with self.assertRaises(PoseError):
+            parse_step(["debout", 3000, {"appui": "milieu"}])
+        with self.assertRaises(PoseError):
+            parse_step(["debout", 3000, {"appui": "gauche", "min": 0.2}])
+
+    def test_walking_sequence_shifts_weight_before_lifting(self):
+        """Dans pas_sur_place, chaque pose qui lève un pied suit une étape qui vérifie l'appui sur l'autre."""
+        steps = [parse_step(s) for s in self.cfg["sequences"]["pas_sur_place"]]
+        for i, (pose, _, _) in enumerate(steps):
+            if pose.startswith("lever_pied_"):
+                support = "gauche" if pose.endswith("droit") else "droite"
+                self.assertEqual(steps[i - 1][2]["appui"], support, pose)
+
+    def test_firmware_matches_protocol(self):
+        with open(os.path.join(LEGS, "firmware", "inmoov_legs", "inmoov_legs.ino"), encoding="utf-8") as f:
+            src = f.read()
+        ids = firmware_tables()[0]
+        ankle_idx = [int(x) for x in re.search(r"ANKLE\[4\]\s*=\s*\{([^}]*)\}", src).group(1).split(",")]
+        self.assertEqual([ids[i] for i in ankle_idx], [self.cfg["joints"][n]["id"] for n in ANKLES])
+        self.assertIn("float v[%d];" % (len(balance_command(self.cfg).split()) - 1), src)
+        # ok + 3 valeurs par pied (boucle sur 2 pieds) + 5 valeurs finales
+        body = re.search(r"void printFeet\(\) \{(.*?)\n\}", src, re.S).group(1)
+        self.assertEqual(body.count("Serial.print(' ')"), 1 + 2 + 5)
+        self.assertEqual(1 + 2 * 3 + 5, len(FEET_KEYS))
+
+
+class FakeLink:
+    def __init__(self, feet):
+        self.feet_line = feet
+        self.moves = []
+        self.held = False
+
+    def move(self, targets, ms):
+        self.moves.append(ms)
+
+    def feet(self):
+        return parse_feet(self.feet_line)
+
+    def wait_support(self, side, minimum, timeout_ms):
+        r = support_ratio(self.feet(), side)
+        if r is None or r < minimum:
+            raise RuntimeError("appui %s insuffisant" % side)
+        return r
+
+    def hold(self):
+        self.held = True
+
+    def status(self):
+        return {"state": "READY", "reason": ""}
+
+
+class SequenceTest(unittest.TestCase):
+    def setUp(self):
+        self.cfg = load_cfg()
+        for steps in self.cfg["sequences"].values():
+            for step in steps:
+                step[1] = 0  # pas d'attente dans les tests
+
+    def test_stops_and_holds_when_weight_not_transferred(self):
+        link = FakeLink(FEET_LINE)  # 75 % à gauche : moins que les 85 % demandés
+        with self.assertRaises(RuntimeError):
+            run_sequence(link, self.cfg, "pas_sur_place")
+        self.assertTrue(link.held)
+        self.assertEqual(len(link.moves), 2)  # debout, transfert_gauche : aucun pied levé
+
+    def test_runs_when_weight_transferred(self):
+        link = FakeLink("F 1 19 0 0 1 0 0 0 0 0 0 0")  # 95 % à gauche
+        with self.assertRaises(RuntimeError):  # puis le transfert à droite échoue
+            run_sequence(link, self.cfg, "pas_sur_place")
+        self.assertEqual(len(link.moves), 6)  # le pied droit a été levé, pas le gauche
+
+    def test_stop_event(self):
+        stop = threading.Event()
+        stop.set()
+        with self.assertRaises(RuntimeError):
+            run_sequence(FakeLink(FEET_LINE), self.cfg, "flexions", stop_event=stop)

@@ -316,7 +316,9 @@ function drawPart(view) {
   if (view.leg_servos) {
     const legs = view.leg_servos;
     const rows = Math.ceil(legs.length / 2);
-    const h = 110 + rows * 46;
+    const fs = view.foot_sensors;
+    const legsH = 110 + rows * 46;
+    const h = legsH + (fs ? 170 : 0);
     const svg = svgEl("svg", { viewBox: `0 0 900 ${h}`, role: "img", "aria-label": "Câblage des jambes" });
     svgBox(svg, 20, 20, 200, 56, "sv-ctrl", "Arduino Mega n°2", "Serial1 TX18 / RX19");
     svgBox(svg, 260, 20, 200, 56, "sv-box", "Adaptateur bus", "half-duplex / RS485");
@@ -331,8 +333,23 @@ function drawPart(view) {
         svgBox(svg, x, y, 300, 36, "sv-box", `ID ${l.id} · ${l.name}`);
       });
     });
+    if (fs) {
+      // capteurs d'équilibre : BNO085 (I2C) et 8 HX711 (broches 22 à 37)
+      const y = legsH + 20;
+      svgLine(svg, `M60 76 V${y + 28} H120`, "sv-i2c");
+      svgLine(svg, `M40 76 V${y + 110} H120`, "sv-sig");
+      svgBox(svg, 120, y, 300, 56, "sv-box", "BNO085 au centre du bassin", "I2C : SDA 20 / SCL 21 (déjà prévu)");
+      svgBox(svg, 120, y + 82, 300, 56, "sv-box", "8 × HX711 (5 V, RATE à 5 V)", "DOUT 22,24…36 · SCK 23,25…37");
+      svgLine(svg, `M420 ${y + 110} H520`, "sv-sig");
+      svgBox(svg, 520, y + 82, 360, 56, "sv-box", "4 cellules de charge par pied", "une à chaque coin, entre 2 plaques");
+    }
     wrap.appendChild(svg);
-    wrap.insertAdjacentHTML("beforeend", `<div class="legend"><span class="l-bus">bus chaîné : signal + alimentation, de servo en servo</span></div>`);
+    wrap.insertAdjacentHTML("beforeend", `<div class="legend"><span class="l-bus">bus chaîné : signal + alimentation, de servo en servo</span>${fs ? `<span class="l-i2c">I2C</span><span class="l-sig">fils de données HX711</span>` : ""}</div>`);
+    if (fs) {
+      wrap.insertAdjacentHTML("beforeend", `<p>${esc(fs.note)}</p><div class="table-wrap"><table>
+        <tr><th>Cellule</th><th>Emplacement</th><th>HX711 DOUT</th><th>HX711 SCK</th></tr>${fs.cells.map((c) =>
+        `<tr><td>${esc(c.cell)}</td><td>${esc(c.place)}</td><td>${esc(c.dout)}</td><td>${esc(c.sck)}</td></tr>`).join("")}</table></div>`);
+    }
     return wrap;
   }
   if (!view.servos.length) return wrap;
@@ -739,6 +756,7 @@ loaders.legs = async () => {
     const info = await api("GET", "/api/legs");
     if (!$("#legs-port").value) $("#legs-port").value = info.port;
     $("#legs-poses").innerHTML = info.poses.map((p) => `<button class="ghost" data-pose="${esc(p)}">${esc(p)}</button>`).join("");
+    $("#legs-sequences").innerHTML = info.sequences.map((p) => `<button class="ghost" data-sequence="${esc(p)}">${esc(p)}</button>`).join("");
     renderLegsStatus(info);
   } catch (e) { toast(e.message, true); }
   clearInterval(legsTimer);
@@ -750,7 +768,11 @@ loaders.legs = async () => {
 
 function renderLegsStatus(info) {
   const st = $("#legs-state");
-  if (!info.connected) { st.className = "pill"; st.textContent = "non connecté"; $("#legs-status").innerHTML = ""; return; }
+  renderSequence(info.sequence);
+  if (!info.connected) {
+    st.className = "pill"; st.textContent = "non connecté"; $("#legs-status").innerHTML = "";
+    renderFeet(null); return;
+  }
   const s = info.status;
   st.className = "pill " + (s.state === "READY" ? "ok" : "bad");
   st.textContent = s.state === "READY" ? "prêt" : "DÉFAUT : " + s.reason;
@@ -759,7 +781,40 @@ function renderLegsStatus(info) {
       <td>${esc(names[id] || id)}</td><td>${v.pos}</td><td>${v.load}</td>
       <td class="${v.temp_c >= 55 ? "hot" : ""}">${v.temp_c} °C</td><td>${v.volt.toFixed(1)} V</td></tr>`).join("");
   const imu = s.imu ? `<p class="muted">Bassin : roulis ${s.imu.roll}°, tangage ${s.imu.pitch}° ${s.imu.ok ? "" : "(IMU ABSENTE)"}</p>` : "";
-  $("#legs-status").innerHTML = `<table><tr><th>Articulation</th><th>Position</th><th>Charge</th><th>Temp.</th><th>Tension</th></tr>${rows}</table>${imu}`;
+  renderFeet(s.feet);
+  $("#legs-status").innerHTML = `<div class="table-wrap"><table><tr><th>Articulation</th><th>Position</th><th>Charge</th><th>Temp.</th><th>Tension</th></tr>${rows}</table></div>${imu}`;
+}
+
+const BALANCE_LABELS = ["arrêté", "ACTIF", "surveillance"];
+
+function renderSequence(seq) {
+  if (!seq || !seq.name) { $("#legs-seq-state").textContent = ""; return; }
+  $("#legs-seq-state").textContent = seq.running ? `Séquence ${seq.name} en cours… (FIGER pour arrêter)`
+    : seq.error ? `Séquence ${seq.name} arrêtée : ${seq.error}` : `Séquence ${seq.name} terminée.`;
+}
+
+// Vue de dessus des deux pieds : poids et centre de pression (pointes en haut).
+function footSvg(label, kg, copX, copY, outsideLeft) {
+  const cx = 50 + (outsideLeft ? -copY : copY) * 30, cy = 80 - copX * 60;
+  return `<figure><svg viewBox="0 0 100 160" role="img" aria-label="${esc(label)}">
+      <rect x="15" y="10" width="70" height="140" rx="30" class="foot"/>
+      <line x1="50" y1="14" x2="50" y2="146" class="foot-axis"/><line x1="18" y1="80" x2="82" y2="80" class="foot-axis"/>
+      ${kg > 0.2 ? `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="7" class="cop"/>` : ""}
+    </svg><figcaption>${esc(label)}<br><b>${kg.toFixed(1)} kg</b></figcaption></figure>`;
+}
+
+function renderFeet(f) {
+  const mode = $("#feet-mode");
+  if (!f) { mode.className = "pill"; mode.textContent = "—"; $("#feet-view").innerHTML = ""; return; }
+  mode.className = "pill " + (f.balance === 1 ? "ok" : "");
+  mode.textContent = "équilibre " + (BALANCE_LABELS[f.balance] || "?");
+  const total = f.g_kg + f.d_kg;
+  const share = total > 0.5 ? Math.round(100 * f.g_kg / total) : null;
+  $("#feet-view").innerHTML = (f.ok ? "" : `<p class="warn">Cellules absentes ou non étalonnées : faites la tare puis l'étalonnage (voir Documentation → Jambes).</p>`)
+    + `<div class="row wrap">${footSvg("Pied gauche", f.g_kg, f.g_cop_x, f.g_cop_y, true)}${footSvg("Pied droit", f.d_kg, f.d_cop_x, f.d_cop_y, false)}
+      <div class="muted">Appui : ${share === null ? "pieds en l'air" : `${share} % gauche / ${100 - share} % droite`}<br>
+      Correction chevilles : tangage ${f.corr_tangage.toFixed(1)}°, roulis ${f.corr_roulis.toFixed(1)}°<br>
+      Bassin : roulis ${f.roll.toFixed(1)}°, tangage ${f.pitch.toFixed(1)}°</div></div>`;
 }
 
 function legsPost(cmd, extra = {}) {
@@ -778,6 +833,20 @@ $("#legs-torque-off").addEventListener("click", (e) => withButton(e.target, asyn
   if (!confirm("Sans couple, le robot ne tient plus debout. Il est bien sur le portique ?")) return;
   await legsPost("torque", { on: false }); toast("Couple coupé");
 }));
+$("#legs-sequences").addEventListener("click", (e) => {
+  const name = e.target.dataset.sequence;
+  if (!name) return;
+  withButton(e.target, async () => { await legsPost("sequence", { name }); toast("Séquence " + name + " lancée"); });
+});
+document.querySelectorAll("[data-balance]").forEach((b) => b.addEventListener("click", (e) => withButton(e.target, async () => {
+  await legsPost("balance", { mode: e.target.dataset.balance });
+  toast("Équilibre : " + e.target.textContent);
+})));
+$("#feet-tare").addEventListener("click", (e) => withButton(e.target, async () => {
+  if (!confirm("Les deux pieds sont-ils en l'air (robot suspendu au portique) ?")) return;
+  await legsPost("tare"); toast("Tare faite");
+}));
+
 $("#legs-poses").addEventListener("click", (e) => {
   const pose = e.target.dataset.pose;
   if (!pose) return;

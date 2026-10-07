@@ -78,6 +78,33 @@ class LegsManager:
     def __init__(self):
         self.link = None
         self.lock = threading.Lock()
+        self.stop = threading.Event()
+        self.sequence = {"name": None, "running": False, "error": ""}
+
+    def start_sequence(self, cfg, name):
+        import legs_controller
+
+        if name not in cfg["sequences"]:
+            raise ValueError("séquence inconnue : %s" % name)
+        with self.lock:
+            if self.sequence["running"]:
+                raise ValueError("une séquence est déjà en cours")
+            link = self.link
+            self.stop.clear()
+            self.sequence = {"name": name, "running": True, "error": ""}
+
+        def worker():
+            try:
+                legs_controller.run_sequence(link, cfg, name, stop_event=self.stop)
+            except Exception as exc:  # affiché dans l'onglet Jambes
+                self.sequence["error"] = str(exc)
+            finally:
+                self.sequence["running"] = False
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def stop_sequence(self):
+        self.stop.set()
 
     def connect(self, port):
         import legs_controller
@@ -89,6 +116,7 @@ class LegsManager:
 
     def disconnect(self):
         with self.lock:
+            self.stop.set()
             if self.link is not None:
                 try:
                     self.link.hold()
@@ -420,7 +448,8 @@ def create_app(data_dir=None, run=None, mrl=None):
         cfg = legs_cfg()
         info = {"connected": legs.link is not None, "port": cfg["serial_port"],
                 "poses": list(cfg["poses"]), "sequences": list(cfg["sequences"]),
-                "joints": {n: j["id"] for n, j in cfg["joints"].items()}}
+                "joints": {n: j["id"] for n, j in cfg["joints"].items()},
+                "sequence": legs.sequence}
         if legs.link is not None:
             info["status"] = legs.link.status()
         return jsonify(info)
@@ -445,6 +474,7 @@ def create_app(data_dir=None, run=None, mrl=None):
         link = legs_link()
         data = body()
         if command == "hold":
+            legs.stop_sequence()
             link.hold()
         elif command == "reset":
             require_gantry()
@@ -458,6 +488,19 @@ def create_app(data_dir=None, run=None, mrl=None):
             pose = cfg["poses"][data["name"]]
             duration = max(300, int(data.get("time", 3000)))
             link.move(legs_controller.pose_targets(cfg, pose), duration)
+        elif command == "sequence":
+            require_gantry()
+            legs.start_sequence(legs_cfg(), data.get("name"))
+        elif command == "balance":
+            mode = data.get("mode")
+            if mode not in legs_controller.BALANCE_MODES:
+                raise ValueError("mode : off, on ou monitor")
+            if mode != "off":
+                require_gantry()
+            link.balance(mode, legs_cfg())
+        elif command == "tare":
+            require_gantry()
+            link.tare()
         else:
             raise ValueError("commande inconnue")
         return jsonify({"ok": True})
@@ -642,6 +685,12 @@ def create_app(data_dir=None, run=None, mrl=None):
 
             for pose in data.get("poses", {}).values():
                 legs_controller.pose_targets(data, pose)  # refuse une pose hors limites
+            if "balance" in data:
+                legs_controller.balance_command(data)
+            for steps in data.get("sequences", {}).values():
+                for step in steps:
+                    if legs_controller.parse_step(step)[0] not in data.get("poses", {}):
+                        raise ValueError("séquence : pose inconnue %s" % step[0])
         if os.path.isfile(path):
             os.replace(path, path + ".bak")
         JsonStore(path, {}).save(data)

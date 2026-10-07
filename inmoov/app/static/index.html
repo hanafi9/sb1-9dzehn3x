@@ -218,6 +218,23 @@
         <div id="legs-poses" class="row wrap"></div>
         <p class="muted">Commencez toujours par <b>test_genoux_5deg</b> pour vérifier le sens des articulations.</p>
       </div>
+      <div class="card">
+        <div class="row between"><h2>Pieds et équilibre</h2><span id="feet-mode" class="pill">…</span></div>
+        <p class="muted">4 cellules de charge sous chaque pied mesurent le poids et le <b>centre de pression</b> (point
+          rouge). Avec la centrale BNO085, le firmware corrige les chevilles 50 fois par seconde.</p>
+        <div id="feet-view" class="feet"></div>
+        <div class="row wrap">
+          <button id="feet-tare" class="ghost">Tare (pieds en l'air)</button>
+          <button data-balance="monitor" class="ghost">Surveiller sans bouger</button>
+          <button data-balance="on">Équilibre ACTIF</button>
+          <button data-balance="off" class="ghost">Équilibre arrêté</button>
+        </div>
+        <h3>Séquences</h3>
+        <div id="legs-sequences" class="row wrap"></div>
+        <p id="legs-seq-state" class="muted"></p>
+        <p class="muted">« pas_sur_place » ne lève un pied que lorsque l'autre porte au moins 85 % du poids.
+          Sinon les jambes se figent.</p>
+      </div>
     </section>
 
     <!-- Services -->

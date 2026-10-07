@@ -1,5 +1,5 @@
 {
-  "_lisez_moi": "Angles en degrés, 0 = debout jambe tendue. Vérifiez le SENS de chaque articulation avec de petits angles (pose test_genoux_5deg) avant toute autre pose ; si une articulation part à l'envers, mettez sa direction à -1. Les signes : hanche_tangage + = cuisse vers l'avant, genou + = flexion, cheville_tangage + = pointe du pied vers le haut.",
+  "_lisez_moi": "Angles en degrés, 0 = debout jambe tendue. Vérifiez le SENS de chaque articulation avec de petits angles (pose test_genoux_5deg) avant toute autre pose ; si une articulation part à l'envers, mettez sa direction à -1. Les signes : hanche_tangage + = cuisse vers l'avant, genou + = flexion, cheville_tangage + = pointe du pied vers le haut. Cheville_roulis + = même sens pour les deux pieds que dans les poses transfert_*.",
   "serial_port": "/dev/ttyACM0",
   "baud": 115200,
   "joints": {
@@ -88,6 +88,16 @@
       "max_deg": 12
     }
   },
+  "balance": {
+    "_aide": "Équilibre par les chevilles (firmware). Commencez par « balance monitor » : penchez le robot À LA MAIN vers l'avant, corr_tangage doit devenir NÉGATIF (pointes vers le bas) ; penchez-le à droite, corr_roulis doit repousser vers la gauche. Sinon inversez imu_pitch_sign ou imu_roll_sign. Augmentez kp par petits pas.",
+    "kp": 0.3,
+    "kd": 0.02,
+    "kc": 3.0,
+    "max_deg": 5.0,
+    "contact_kg": 1.0,
+    "imu_pitch_sign": 1,
+    "imu_roll_sign": 1
+  },
   "poses": {
     "debout": {},
     "test_genoux_5deg": {
@@ -121,6 +131,24 @@
       "droite_hanche_roulis": -4,
       "gauche_cheville_roulis": 4,
       "droite_cheville_roulis": 4
+    },
+    "lever_pied_droit": {
+      "gauche_hanche_roulis": 4,
+      "droite_hanche_roulis": 4,
+      "gauche_cheville_roulis": -4,
+      "droite_cheville_roulis": -4,
+      "droite_hanche_tangage": 15,
+      "droite_genou": 30,
+      "droite_cheville_tangage": 15
+    },
+    "lever_pied_gauche": {
+      "gauche_hanche_roulis": -4,
+      "droite_hanche_roulis": -4,
+      "gauche_cheville_roulis": 4,
+      "droite_cheville_roulis": 4,
+      "gauche_hanche_tangage": 15,
+      "gauche_genou": 30,
+      "gauche_cheville_tangage": 15
     }
   },
   "sequences": {
@@ -162,6 +190,54 @@
       [
         "transfert_droite",
         3000
+      ],
+      [
+        "debout",
+        3000
+      ]
+    ],
+    "pas_sur_place": [
+      [
+        "debout",
+        3000
+      ],
+      [
+        "transfert_gauche",
+        3000,
+        {
+          "appui": "gauche",
+          "min": 0.85,
+          "timeout_ms": 4000
+        }
+      ],
+      [
+        "lever_pied_droit",
+        2000
+      ],
+      [
+        "transfert_gauche",
+        2000
+      ],
+      [
+        "debout",
+        3000
+      ],
+      [
+        "transfert_droite",
+        3000,
+        {
+          "appui": "droite",
+          "min": 0.85,
+          "timeout_ms": 4000
+        }
+      ],
+      [
+        "lever_pied_gauche",
+        2000
+      ],
+      [
+        "transfert_droite",
+        2000
       ],
       [
         "debout",

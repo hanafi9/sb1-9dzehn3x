@@ -35,7 +35,7 @@ tablette ou un PC du même réseau : `http://<adresse-du-pi>:8090`.
 | **IA** | État de l'IA (Claude, vision, IA locale, voix Piper, LED), **souvenirs** du robot (à consulter ou effacer), **gestes appris** à rejouer |
 | **Servos** | Les 31 servos d'InMoov2 (tête et cou, torse, bras, mains) : curseur pour bouger, repos, activer/désactiver, lire la position, **calibration** (min, max, repos, vitesse, sens), envoi à MyRobotLab et enregistrement de sa configuration |
 | **Arduino** | Voir le code, **compiler et téléverser** MrlComm (les deux Mega du haut du corps) et le firmware des jambes, installer le cœur AVR et les bibliothèques, détecter les cartes branchées |
-| **Jambes** | Connexion à l'Arduino des jambes, état de chaque servo (position, charge, température, tension), RESET, FIGER, couple, poses (mouvement seulement si « robot sur portique » est coché) |
+| **Jambes** | Connexion à l'Arduino des jambes, état de chaque servo (position, charge, température, tension), RESET, FIGER, couple, poses et séquences (mouvement seulement si « robot sur portique » est coché), **pieds et équilibre** : poids et centre de pression de chaque pied, tare, équilibre surveillé ou actif |
 | **Services** | Démarrer, arrêter et voir le journal du suivi de visage et de la voix |
 | **Réglages** | Adresse et dossier de MyRobotLab, arduino-cli, édition **vérifiée** de `config.json` et de la config des jambes (copie `.bak` à chaque enregistrement) |
 
@@ -350,7 +350,7 @@ Programmez l'ID de chaque servo **un par un** (logiciel FD de Feetech) avant de 
 ### 7.3 Firmware Arduino (`legs/firmware/inmoov_legs/`)
 
 Bibliothèques à installer : **SCServo** et **Adafruit BNO08x**. Carte : *Arduino Mega 2560*.
-Le firmware a été compilé pour la Mega (30 Ko de flash, 4 Ko de RAM) ; il n'a pas encore tourné
+Le firmware a été compilé pour la Mega (37 Ko de flash, 4,3 Ko de RAM) ; il n'a pas encore tourné
 sur de vrais servos.
 
 Protections intégrées : limites de position par articulation, arrêt si un servo ne répond plus,
@@ -379,6 +379,36 @@ et tout mouvement est refusé jusqu'à la commande `RESET`. **Au démarrage, le 
 5. Seulement ensuite : `pose flexion_legere`, puis `sequence flexions` et `sequence balancement`.
 
 Les poses sont en degrés (0 = debout). Une pose hors limites est **refusée**, pas rabotée.
+
+### 7.5 Capteurs d'équilibre pour la marche
+
+Deux capteurs, comme sur les robots humanoïdes de la RoboCup :
+
+- la **centrale BNO085** au centre du bassin (inclinaison + gyroscope) ;
+- **4 cellules de charge par pied** (une à chaque coin, entre la plaque fixée à la cheville et la
+  semelle), chacune avec un **HX711** (broche RATE à 5 V = 80 mesures/s) sur l'Arduino Mega n°2 :
+  cellule n → DOUT = broche 22 + 2n, SCK = 23 + 2n (ordre : pied gauche avant-ext, avant-int,
+  arrière-ext, arrière-int, puis pied droit). Elles donnent le **poids sur chaque pied** et le
+  **centre de pression**. Les capteurs FSR ne conviennent pas : ils saturent vers 10 N.
+
+Le firmware corrige les chevilles **50 fois par seconde** (« stratégie de cheville ») : correction
+bornée (`max_deg`, 10° au plus), progressive, remise à zéro si les pieds quittent le sol, en cas de
+défaut ou sur FIGER. Commandes série ajoutées : `FEET`, `TARE`, `CAL`, `BALCFG`, `BAL 0|1|2`.
+
+```bash
+cd legs
+python3 legs_controller.py --config legs_config.json feet tare          # pieds EN L'AIR
+python3 legs_controller.py --config legs_config.json feet cal 0 2000    # 2 kg posés sur la cellule 0
+python3 legs_controller.py --config legs_config.json balance monitor    # calcule sans bouger
+python3 legs_controller.py --config legs_config.json balance on
+python3 legs_controller.py --config legs_config.json sequence pas_sur_place
+```
+
+En mode `monitor`, penchez le robot à la main vers l'avant : `corr_tangage` doit devenir **négatif**
+(pointes vers le bas), sinon mettez `balance.imu_pitch_sign` à `-1` ; idem à droite pour le roulis.
+Une étape de séquence peut exiger un appui : `["transfert_gauche", 3000, {"appui": "gauche", "min": 0.85}]`.
+Si le pied ne porte pas 85 % du poids, les jambes se **figent** au lieu de lever l'autre pied.
+C'est une marche lente « quasi statique » ; tout se règle aussi dans l'onglet **Jambes** de l'Atelier.
 
 ## 8. Nouveautés : IA et capteurs, inspirés de l'état de l'art
 

@@ -320,6 +320,7 @@ CHAPTERS = [
                      "remplace pas ces deux protections."),
             ("h", "Schéma de câblage"),
             ("schema", "jambes"),
+            ("parts", "jambes"),
             ("h", "Choisir les moteurs"),
             ("steps", [
                 "Peser le haut du corps et mesurer la cuisse et le tibia.",
@@ -339,6 +340,52 @@ CHAPTERS = [
                 "Seulement ensuite : flexions, puis balancement.",
             ]),
             ("tab", "legs", "Ouvrir l'onglet Jambes"),
+            ("h", "Capteurs d'équilibre pour la marche"),
+            ("p", "Pour marcher, le robot doit savoir s'il penche et sur quel pied il s'appuie. Deux capteurs : la "
+                  "centrale BNO085 au centre du bassin (inclinaison et vitesse de basculement) et 4 cellules de charge "
+                  "sous chaque pied (poids et centre de pression : le point où le poids appuie). C'est la méthode "
+                  "utilisée par les équipes de robots humanoïdes de la RoboCup."),
+            ("warn", "Les capteurs FSR (ceux des doigts) ne conviennent pas sous les pieds : ils saturent vers 10 N, "
+                     "soit environ 1 kg. Il faut des cellules de charge."),
+            ("steps", [
+                "Faire chaque pied en deux plaques rigides : celle du dessus fixée à la cheville, la semelle en dessous. "
+                "Une cellule de charge à chaque coin, prise entre les deux plaques (seules les cellules transmettent le poids).",
+                "Brancher chaque cellule sur son module HX711 (rouge E+, noir E−, vert A+, blanc A− pour la plupart des "
+                "cellules : vérifier la fiche du vendeur). Relier la broche RATE de chaque HX711 au 5 V (80 mesures/s).",
+                "Relier les HX711 à l'Arduino Mega n°2 selon le tableau des cellules sous le schéma (5 V et GND communs).",
+                "Avant de monter les pieds : étalonner chaque cellule seule. Robot hors tension des servos, onglet "
+                "Jambes connecté : « Tare », puis poser une masse connue (ex. 2 kg) sur une cellule et lancer la "
+                "commande feet cal (numéro de cellule, masse en grammes). Recommencer pour les 8 cellules. "
+                "Les réglages restent dans l'Arduino (EEPROM).",
+                "Pieds montés, robot suspendu au portique, pieds en l'air : « Tare (pieds en l'air) ».",
+                "Poser le robot sur ses pieds (toujours accroché) : les deux poids et les points rouges doivent "
+                "apparaître. Le total doit être proche du poids du robot.",
+                "Cliquer « Surveiller sans bouger », puis pencher le robot à la main vers l'avant : la correction "
+                "« tangage » doit devenir négative (pointes des pieds vers le bas). Sinon mettre imu_pitch_sign à -1 "
+                "dans la config des jambes. Même test vers la droite pour le roulis (imu_roll_sign).",
+                "Seulement ensuite : « Équilibre ACTIF ». Pousser doucement le bassin : les chevilles compensent. "
+                "Si le robot oscille, diminuer kp ; s'il réagit trop peu, l'augmenter par pas de 0,05.",
+                "Enfin, la séquence pas_sur_place : elle ne lève un pied que lorsque l'autre porte 85 % du poids, "
+                "sinon elle fige les jambes. Ajuster les poses transfert_* (roulis des hanches et des chevilles) "
+                "jusqu'à atteindre ce report de poids.",
+            ]),
+            ("cmd", ["cd legs",
+                     "python3 legs_controller.py --config legs_config.json feet tare",
+                     "python3 legs_controller.py --config legs_config.json feet cal 0 2000",
+                     "python3 legs_controller.py --config legs_config.json balance monitor",
+                     "python3 legs_controller.py --config legs_config.json sequence pas_sur_place"]),
+            ("table", ["Réglage (config des jambes → balance)", "Rôle", "Départ"], [
+                ["kp", "Correction des chevilles par degré d'inclinaison du bassin", "0,3"],
+                ["kd", "Freine le basculement (par degré/seconde)", "0,02"],
+                ["kc", "Ramène le centre de pression au milieu du pied", "3"],
+                ["max_deg", "Correction maximale des chevilles (10° au plus)", "5"],
+                ["contact_kg", "Poids sous lequel un pied est considéré en l'air", "1"],
+            ]),
+            ("tip", "Ce que fait le firmware : 50 fois par seconde, il ajoute une petite correction aux chevilles "
+                    "(stratégie de cheville, comme un humain qui se rattrape avec les pieds). La correction est "
+                    "limitée, progressive, et revient à zéro dès que les pieds quittent le sol ou en cas de défaut. "
+                    "C'est une marche lente « quasi statique » : le poids reste toujours au-dessus d'un pied. "
+                    "La marche dynamique des robots du commerce demande des moteurs bien plus puissants et rapides."),
             ("h", "Problèmes fréquents"),
             ("table", ["Message", "Signification", "Solution"], [
                 ["démarrage (envoyer RESET)", "Normal au démarrage", "Cocher « robot sur portique » puis RESET"],
@@ -346,6 +393,14 @@ CHAPTERS = [
                 ["surcharge / trop chaud", "Le servo force", "Laisser refroidir, vérifier la mécanique et le couple"],
                 ["inclinaison", "Le bassin penche de plus de 20°", "Remettre le robot droit sur le portique"],
                 ["plus de battement de coeur", "Le Pi ne communique plus", "Reconnecter dans l'onglet Jambes"],
+                ["Cellules absentes ou non étalonnées", "Un HX711 ne répond pas, ou tare / étalonnage pas faits",
+                 "Vérifier DOUT/SCK et le 5 V, puis faire la tare et feet cal"],
+                ["cellule absente N (à la tare)", "Le HX711 n° N ne donne pas de mesure", "Vérifier son câblage (tableau des cellules)"],
+                ["Un pied affiche 0 kg posé au sol", "La semelle touche la plaque du dessus ailleurs qu'aux cellules",
+                 "Ajouter des entretoises : seules les cellules doivent porter"],
+                ["appui gauche/droite insuffisant", "Le poids ne passe pas assez sur un pied avant de lever l'autre",
+                 "Augmenter le roulis des poses transfert_* (par pas de 1°)"],
+                ["Les chevilles vibrent", "Équilibre trop nerveux", "Diminuer kp et kd"],
             ]),
         ],
     },
