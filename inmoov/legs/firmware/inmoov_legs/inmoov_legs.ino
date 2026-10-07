@@ -16,7 +16,7 @@
         cellule n : DOUT = 22 + 2n, SCK = 23 + 2n
         ordre : pied gauche avant-ext, avant-int, arrière-ext, arrière-int (0..3),
                 pied droit  avant-ext, avant-int, arrière-ext, arrière-int (4..7)
-        broche RATE des HX711 à 5 V (80 mesures/s au lieu de 10)
+        broche RATE des HX711 au VCC (couper la piste RATE-GND) : 80 mesures/s au lieu de 10
 
   Bibliothèques (gestionnaire de bibliothèques Arduino)
     - « SCServo » (Feetech / Waveshare)

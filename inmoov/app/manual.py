@@ -14,6 +14,7 @@ Chaque chapitre est une suite de « blocs » :
   ("servos", clé_partie)          tableau des servos de la partie
   ("parts", clé_partie)           pièces imprimées et matériel
   ("overview",)                   schéma de l'électronique complète
+  ("electrical", id_feuille)      schéma électrique détaillé + liste de câblage
   ("tab", onglet, texte)          bouton vers un onglet de l'Atelier
 
 Les informations mécaniques détaillées (ordre exact d'assemblage pièce par pièce)
@@ -111,6 +112,9 @@ CHAPTERS = [
             ("servos", "tete"),
             ("h", "Schéma de câblage"),
             ("schema", "tete"),
+            ("h", "Schéma électrique détaillé"),
+            ("electrical", "tete"),
+            ("electrical", "cou"),
             ("h", "Pièces et matériel"),
             ("parts", "tete"),
             ("h", "Montage pas à pas"),
@@ -157,6 +161,10 @@ CHAPTERS = [
                   "(Arduino, cartes de servos, alimentation, haut-parleurs, capteur de présence)."),
             ("h", "Schéma de l'électronique"),
             ("overview",),
+            ("h", "Schéma électrique : alimentation générale"),
+            ("electrical", "alimentation"),
+            ("h", "Schéma électrique : torse"),
+            ("electrical", "torse"),
             ("h", "Pièces et matériel"),
             ("parts", "torse"),
             ("h", "Montage pas à pas"),
@@ -195,6 +203,8 @@ CHAPTERS = [
             ("servos", "bras"),
             ("h", "Schéma de câblage"),
             ("schema", "bras"),
+            ("h", "Schéma électrique détaillé"),
+            ("electrical", "bras"),
             ("h", "Pièces et matériel"),
             ("parts", "bras"),
             ("h", "Le point important : le potentiomètre déporté"),
@@ -245,6 +255,8 @@ CHAPTERS = [
             ("servos", "mains"),
             ("h", "Schéma de câblage"),
             ("schema", "mains"),
+            ("h", "Schéma électrique détaillé"),
+            ("electrical", "mains"),
             ("h", "Pièces et matériel"),
             ("parts", "mains"),
             ("h", "Montage pas à pas"),
@@ -290,6 +302,8 @@ CHAPTERS = [
             ("servos", "bassin"),
             ("h", "Schéma de câblage"),
             ("schema", "bassin"),
+            ("h", "Schéma électrique détaillé"),
+            ("electrical", "bassin"),
             ("h", "Pièces et matériel"),
             ("parts", "bassin"),
             ("h", "Montage pas à pas"),
@@ -320,6 +334,8 @@ CHAPTERS = [
                      "remplace pas ces deux protections."),
             ("h", "Schéma de câblage"),
             ("schema", "jambes"),
+            ("h", "Schéma électrique détaillé"),
+            ("electrical", "jambes"),
             ("parts", "jambes"),
             ("h", "Choisir les moteurs"),
             ("steps", [
@@ -350,8 +366,10 @@ CHAPTERS = [
             ("steps", [
                 "Faire chaque pied en deux plaques rigides : celle du dessus fixée à la cheville, la semelle en dessous. "
                 "Une cellule de charge à chaque coin, prise entre les deux plaques (seules les cellules transmettent le poids).",
-                "Brancher chaque cellule sur son module HX711 (rouge E+, noir E−, vert A+, blanc A− pour la plupart des "
-                "cellules : vérifier la fiche du vendeur). Relier la broche RATE de chaque HX711 au 5 V (80 mesures/s).",
+                "Brancher chaque cellule sur son module HX711 (souvent rouge E+, noir E−, vert A+, blanc A− : vérifier "
+                "la fiche du vendeur). Une cellule 3 fils (demi-pont, type pèse-personne) se complète avec 2 résistances "
+                "de 1 kΩ (E+ → A− et A− → E−), son fil central sur A+. Sur les HX711 verts, la broche RATE est reliée "
+                "à la masse par une piste : la couper et relier RATE au VCC (80 mesures/s au lieu de 10).",
                 "Relier les HX711 à l'Arduino Mega n°2 selon le tableau des cellules sous le schéma (5 V et GND communs).",
                 "Avant de monter les pieds : étalonner chaque cellule seule. Robot hors tension des servos, onglet "
                 "Jambes connecté : « Tare », puis poser une masse connue (ex. 2 kg) sur une cellule et lancer la "
@@ -577,6 +595,12 @@ def serialize(chapter, part_view):
             blocks.append({"type": kind, "part": b[1], "view": part_view(b[1])})
         elif kind == "overview":
             blocks.append({"type": "overview"})
+        elif kind == "electrical":
+            import electrical
+            sheet = electrical.get_sheet(b[1])
+            if sheet is None:
+                raise ValueError("schéma électrique inconnu : %s" % b[1])
+            blocks.append({"type": "electrical", "sheet": sheet})
         elif kind == "tab":
             blocks.append({"type": "tab", "tab": b[1], "text": b[2]})
         else:

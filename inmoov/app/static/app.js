@@ -105,6 +105,23 @@ function highlight(text, q) {
   return i < 0 ? safe : safe.slice(0, i) + "<mark>" + safe.slice(i, i + esc(q).length) + "</mark>" + safe.slice(i + esc(q).length);
 }
 
+// Schéma électrique détaillé : dessin (SVG généré par le serveur), légende, remarques, liste de câblage.
+function renderElectrical(sheet, open = false) {
+  const div = document.createElement("div");
+  div.className = "el-sheet";
+  const legend = sheet.legend.map((l) => `<span><i style="background:${esc(l.color)}"></i>${esc(l.name)}</span>`).join("");
+  const rows = sheet.rows.map((r) => `<tr><td>${esc(r.from)}</td><td>${esc(r.to)}</td><td>${esc(r.type)}</td>
+      <td>${esc(r.color)}</td><td>${esc(r.section)}</td><td>${esc(r.note)}</td></tr>`).join("");
+  div.innerHTML = `<p class="muted">${esc(sheet.subtitle)}</p>
+    ${open ? sheet.pages.map((pg) => `<div class="el-scroll el-page">${pg}</div>`).join("") : `<div class="el-scroll">${sheet.svg}</div>`}
+    <div class="el-legend">${legend}</div>
+    ${sheet.notes.length ? `<ul class="el-notes">${sheet.notes.map((n) => `<li>${esc(n)}</li>`).join("")}</ul>` : ""}
+    <details class="el-rows" ${open ? "open" : ""}><summary>Liste de câblage (${sheet.rows.length} fils)</summary>
+      <div class="table-wrap"><table><tr><th>De</th><th>À</th><th>Type</th><th>Couleur conseillée</th><th>Section</th><th>Remarque</th></tr>${rows}</table></div>
+    </details>`;
+  return div;
+}
+
 function renderBlock(b, q) {
   const div = document.createElement("div");
   const H = (t) => highlight(t, q);
@@ -127,6 +144,9 @@ function renderBlock(b, q) {
     case "schema":
       div.className = "diagram";
       div.appendChild(drawPart(b.view));
+      break;
+    case "electrical":
+      div.appendChild(renderElectrical(b.sheet));
       break;
     case "servos":
       div.innerHTML = b.view.servos.length ? `<div class="table-wrap"><table><tr><th>Servo</th><th>Service MyRobotLab</th><th>Modèle</th><th>Carte</th><th>Canal</th></tr>${
@@ -396,7 +416,48 @@ loaders.schema = async () => {
     `<button data-part="${esc(p.key)}" class="${p.key === schemaPart ? "active" : ""}">${esc(p.label)}</button>`).join("");
   schemaStlViewer = o.stl_viewer;
   await renderSchemaPart();
+  const el = await api("GET", "/api/electrical");
+  $("#el-sheets").innerHTML = el.sheets.map((sh) =>
+    `<button data-sheet="${esc(sh.id)}" class="${sh.id === elSheet ? "active" : ""}">${esc(sh.title)}</button>`).join("");
+  await renderElSheet();
 };
+let elSheet = "alimentation";
+
+async function renderElSheet() {
+  const sheet = await api("GET", `/api/electrical/${elSheet}`);
+  document.querySelectorAll("#el-sheets button").forEach((b) => b.classList.toggle("active", b.dataset.sheet === elSheet));
+  const box = $("#el-sheet");
+  box.innerHTML = `<h2>${esc(sheet.title)}</h2>`;
+  box.appendChild(renderElectrical(sheet));
+}
+
+$("#el-sheets").addEventListener("click", (e) => {
+  const id = e.target.dataset.sheet;
+  if (!id) return;
+  elSheet = id;
+  renderElSheet().catch((err) => toast(err.message, true));
+});
+
+// Tous les schémas électriques à imprimer (ou enregistrer en PDF) : un schéma par page, puis sa liste de câblage.
+function buildElectricalBook(sheets) {
+  const box = $("#manual-print");
+  box.innerHTML = `<section class="doc-chapter"><h1>Schémas électriques du robot InMoov</h1>
+    <p>Version du ${new Date().toLocaleDateString("fr-FR")}. Générés par l'Atelier InMoov à partir de son plan de câblage.</p>
+    <h2>Sommaire</h2><ol>${sheets.map((s) => `<li>${esc(s.title)}</li>`).join("")}</ol>
+    <p>Chaque schéma est suivi de sa liste de câblage (de → à, type de fil, couleur, section).</p></section>`;
+  sheets.forEach((s) => {
+    const sec = document.createElement("section");
+    sec.className = "doc-chapter";
+    sec.innerHTML = `<h1>${esc(s.title)}</h1>`;
+    sec.appendChild(renderElectrical(s, true));
+    box.appendChild(sec);
+  });
+}
+$("#el-print").addEventListener("click", (e) => withButton(e.target, async () => {
+  const all = await api("GET", "/api/electrical/all");
+  buildElectricalBook(all.sheets);
+  window.print();
+}));
 let schemaStlViewer = "";
 
 async function renderSchemaPart() {

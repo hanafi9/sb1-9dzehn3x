@@ -193,8 +193,8 @@ PARTS = [
             ("Adaptateur bus Feetech (half-duplex) ou RS485 selon le modèle", "1"),
             ("Alimentation 12 V forte puissance, via l'arrêt d'urgence", "1"),
             ("Portique de sécurité + sangle au bassin", "1"),
-            ("Cellule de charge 50 kg demi-pont (type pèse-personne) ou cellule à poutre", "8"),
-            ("Module HX711 (une par cellule, broche RATE à 5 V pour 80 mesures/s)", "8"),
+            ("Cellule de charge à poutre 4 fils (pont complet) ; ou 3 fils (demi-pont) + 2 résistances 1 kΩ", "8"),
+            ("Module HX711 (un par cellule ; couper la piste RATE-GND et relier RATE au VCC : 80 mesures/s)", "8"),
             ("Semelle rigide en 2 plaques (haut / bas) par pied, cellules aux 4 coins", "2"),
         ],
         "foot_sensors": {

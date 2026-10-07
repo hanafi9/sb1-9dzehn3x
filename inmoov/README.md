@@ -31,6 +31,7 @@ tablette ou un PC du même réseau : `http://<adresse-du-pi>:8090`.
 | **Documentation** | **Le manuel complet** : un chapitre par partie du corps (tête et cou, torse et électronique, bras, mains, bassin, jambes, capteurs) avec rôle, servos, schéma de câblage, pièces, montage pas à pas, réglages, test final, problèmes fréquents et liens officiels ; plus logiciel, IA, dépannage général et tous les liens. Recherche intégrée et bouton « Tout imprimer / PDF ». Version PDF prête : [docs/manuel-inmoov.pdf](docs/manuel-inmoov.pdf) |
 | **Guide de montage** | 43 étapes en 10 phases (Pi, MyRobotLab, électronique, tête et cou, bras/mains/torse, vision, voix et IA, jambes, mise en service, nouveautés IA et capteurs), à cocher, avec les commandes à copier |
 | **Schémas** | Un schéma de câblage par partie (tête, torse, bras, mains, bassin, jambes) généré automatiquement, la liste des servos (modèle, carte, canal), les **pièces imprimées à cocher**, le matériel, et l'**électronique simplifiée** : une seule Arduino Mega + 3 cartes PCA9685, avec le script MyRobotLab qui rattache chaque servo à sa carte |
+| **Schémas électriques** (dans l'onglet Schémas) | **8 schémas détaillés** : alimentation générale, tête, cou, torse, bras, mains, bassin, jambes. Chaque fil, chaque broche, chaque fusible, avec la **liste de câblage** (de → à, type, couleur, section) et les points de vigilance. PDF prêt : [docs/schemas-electriques.pdf](docs/schemas-electriques.pdf) |
 | **Capteurs** | Courant et tension de chaque carte (coupure automatique si un servo force), batterie, toucher au bout des doigts, présence, bouton « prise douce » |
 | **IA** | État de l'IA (Claude, vision, IA locale, voix Piper, LED), **souvenirs** du robot (à consulter ou effacer), **gestes appris** à rejouer |
 | **Servos** | Les 31 servos d'InMoov2 (tête et cou, torse, bras, mains) : curseur pour bouger, repos, activer/désactiver, lire la position, **calibration** (min, max, repos, vitesse, sens), envoi à MyRobotLab et enregistrement de sa configuration |
@@ -386,7 +387,8 @@ Deux capteurs, comme sur les robots humanoïdes de la RoboCup :
 
 - la **centrale BNO085** au centre du bassin (inclinaison + gyroscope) ;
 - **4 cellules de charge par pied** (une à chaque coin, entre la plaque fixée à la cheville et la
-  semelle), chacune avec un **HX711** (broche RATE à 5 V = 80 mesures/s) sur l'Arduino Mega n°2 :
+  semelle ; cellule 4 fils, ou 3 fils complétée par 2 résistances de 1 kΩ), chacune avec un
+  **HX711** (couper la piste RATE-GND et relier RATE au VCC = 80 mesures/s) sur l'Arduino Mega n°2 :
   cellule n → DOUT = broche 22 + 2n, SCK = 23 + 2n (ordre : pied gauche avant-ext, avant-int,
   arrière-ext, arrière-int, puis pied droit). Elles donnent le **poids sur chaque pied** et le
   **centre de pression**. Les capteurs FSR ne conviennent pas : ils saturent vers 10 N.

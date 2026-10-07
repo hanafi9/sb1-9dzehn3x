@@ -26,6 +26,7 @@ ROOT = os.path.normpath(os.path.join(HERE, ".."))
 sys.path[:0] = [ROOT, os.path.join(ROOT, "legs")]
 
 import arduino_tools  # noqa: E402
+import electrical  # noqa: E402
 import servo_inventory  # noqa: E402
 import system_tools  # noqa: E402
 import manual  # noqa: E402
@@ -322,6 +323,29 @@ def create_app(data_dir=None, run=None, mrl=None):
             "arduino": wiring.ARDUINO,
             "stl_viewer": wiring.STL_VIEWER,
         })
+
+    @app.get("/api/electrical")
+    def electrical_index():
+        return jsonify({"sheets": electrical.sheet_list()})
+
+    @app.get("/api/electrical/all")
+    def electrical_all():
+        return jsonify({"sheets": electrical.all_sheets()})
+
+    @app.get("/api/electrical/<sheet_id>")
+    @api
+    def electrical_sheet(sheet_id):
+        sheet = electrical.get_sheet(sheet_id)
+        if sheet is None:
+            raise ValueError("schéma inconnu : %s" % sheet_id)
+        return jsonify(sheet)
+
+    @app.get("/api/electrical/<sheet_id>.svg")
+    def electrical_svg(sheet_id):
+        sheet = electrical.get_sheet(sheet_id)
+        if sheet is None:
+            return Response("schéma inconnu", status=404)
+        return Response(sheet["svg"], mimetype="image/svg+xml")
 
     @app.get("/api/schema/<part_key>")
     @api

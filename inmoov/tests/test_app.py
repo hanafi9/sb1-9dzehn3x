@@ -251,6 +251,20 @@ class AppTest(unittest.TestCase):
         finally:
             legs_controller.LegsLink = orig
 
+    def test_electrical_sheets(self):
+        idx = self.c.get("/api/electrical").get_json()
+        self.assertEqual(len(idx["sheets"]), 8)
+        sheet = self.c.get("/api/electrical/cou").get_json()
+        self.assertIn("<svg", sheet["svg"])
+        self.assertTrue(sheet["rows"])
+        r = self.c.get("/api/electrical/jambes.svg")
+        self.assertEqual(r.mimetype, "image/svg+xml")
+        self.assertEqual(self.c.get("/api/electrical/inconnu").status_code, 400)
+        self.assertEqual(self.c.get("/api/electrical/inconnu.svg").status_code, 404)
+        self.assertEqual(len(self.c.get("/api/electrical/all").get_json()["sheets"]), 8)
+        tete = self.c.get("/api/manual/tete").get_json()
+        self.assertEqual([b["sheet"]["id"] for b in tete["blocks"] if b["type"] == "electrical"], ["tete", "cou"])
+
     def test_config_edit_validates(self):
         self.c.put("/api/settings", json={"legs_config": os.path.join(self.tmp, "legs.json"),
                                           "robot_config": os.path.join(self.tmp, "config.json")})
