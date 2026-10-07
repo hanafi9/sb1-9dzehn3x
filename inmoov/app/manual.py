@@ -387,6 +387,10 @@ CHAPTERS = [
                 "sinon elle fige les jambes. Ajuster les poses transfert_* (roulis des hanches et des chevilles) "
                 "jusqu'à atteindre ce report de poids.",
             ]),
+            ("tip", "Circuit imprimé prêt à commander pour simplifier ce câblage : le « shield jambes » s'enfiche sur "
+                    "la Mega n°2 avec un connecteur à verrou par HX711, pour le BNO085, le bus des servos et l'arrêt "
+                    "d'urgence. Fichiers et mode d'emploi : dossier pcb/shield_jambes (envoyer "
+                    "shield_jambes-gerber.zip au fabricant)."),
             ("cmd", ["cd legs",
                      "python3 legs_controller.py --config legs_config.json feet tare",
                      "python3 legs_controller.py --config legs_config.json feet cal 0 2000",
