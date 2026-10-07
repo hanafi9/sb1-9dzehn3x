@@ -160,3 +160,14 @@ td.hot { color: var(--bad); font-weight: 700; }
 .parts-list label { display: flex; gap: .4rem; align-items: center; font-size: .88rem; }
 .parts-list label.done { color: var(--muted); text-decoration: line-through; }
 .table-wrap { overflow-x: auto; }
+
+/* ---------- capteurs et IA */
+.meter { height: 12px; background: var(--border); border-radius: 999px; overflow: hidden; margin: .3rem 0; }
+.meter > div { height: 100%; background: var(--ok); transition: width .3s; }
+.meter.warn > div { background: var(--warn); }
+.meter.bad > div { background: var(--bad); }
+.big { font-size: 1.6rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.stat { display: flex; justify-content: space-between; gap: .5rem; font-variant-numeric: tabular-nums; }
+.list-row { display: flex; justify-content: space-between; align-items: center; gap: .5rem; padding: .4rem 0; border-top: 1px solid var(--border); }
+.list-row:first-child { border-top: none; }
+code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .85em; }

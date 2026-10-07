@@ -145,6 +145,7 @@ PARTS = [
             ("MG996R (poignets)", "2"),
             ("Fil tressé 0,8 mm 200 lb (tendons)", "environ 10 m"),
             ("Ressorts d'extension 5 mm × 1 cm", "10"),
+            ("Nouveau : capteurs de force FSR au bout des doigts (voir Capteurs)", "10"),
         ],
         "pages": [("Main et avant-bras", "https://inmoov.fr/hand-and-forarm/")],
     },
@@ -198,6 +199,42 @@ PARTS = [
 ]
 
 
+SENSOR_PART = {
+    "key": "capteurs", "label": "Capteurs (nouveau)",
+    "servo_prefixes": [],
+    "summary": "Bus I2C n°1 du Raspberry Pi 5 (broche 3 = SDA, broche 5 = SCL, 3,3 V, GND), lu par "
+               "sensors/sensor_hub.py : courant de chaque carte PCA9685 avec coupure de sécurité, batterie, "
+               "toucher au bout des doigts et détection de présence.",
+    "i2c_devices": [
+        ("INA226 batterie", "0x40", "A0 et A1 à GND", "tension et courant de la batterie, shunt 1 mΩ"),
+        ("INA226 carte A (tête)", "0x41", "A0 à VS", "alimentation de pca_tete, shunt 2 mΩ"),
+        ("INA226 carte B (gauche)", "0x44", "A1 à VS", "alimentation de pca_gauche, shunt 2 mΩ"),
+        ("INA226 carte C (droite)", "0x45", "A0 et A1 à VS", "alimentation de pca_droite, shunt 2 mΩ"),
+        ("ADS1115 main gauche", "0x48", "ADDR à GND", "FSR pouce, index, majeur, annulaire"),
+        ("ADS1115 main droite", "0x49", "ADDR à VDD", "FSR pouce, index, majeur, annulaire"),
+        ("ADS1115 auriculaires", "0x4A", "ADDR à SDA", "voie 0 = auriculaire gauche, voie 1 = droit"),
+        ("VL53L1X distance", "0x29", "par défaut", "présence d'une personne devant le robot"),
+    ],
+    "printed": [],
+    "note": "Les capteurs FSR se placent sous le bout des doigts (silicone ou TPU par-dessus). Chaque FSR "
+            "forme un pont diviseur avec une résistance de 10 kΩ entre 3,3 V et GND ; le point milieu va sur "
+            "une voie de l'ADS1115.",
+    "hardware": [
+        ("Module INA226 (remplacer le shunt R100 par 1 ou 2 mΩ selon le courant)", "4"),
+        ("Module ADS1115 16 bits 4 voies", "3"),
+        ("Capteur de force FSR (ex. FSR 402) + résistance 10 kΩ", "10"),
+        ("Capteur de distance VL53L1X", "1"),
+        ("Anneau ou bande NeoPixel (LED d'état, service i01.neoPixel sur l'Arduino)", "1"),
+        ("Batterie LiFePO4 4S (12,8 V) avec BMS", "1"),
+        ("Convertisseur abaisseur 12 V → 6 V, 20 A ou plus (servos du haut du corps)", "1 à 3"),
+        ("Convertisseur 12 V → 5 V 5 A pour le Raspberry Pi 5", "1"),
+        ("Câblage I2C : câbles courts ou connecteurs Qwiic / STEMMA QT", "selon besoin"),
+    ],
+    "pages": [],
+}
+PARTS.append(SENSOR_PART)
+
+
 def board_by_name(name):
     for b in BOARDS:
         if b["name"] == name:
@@ -221,6 +258,8 @@ def part_view(part, groups, legs_cfg=None):
     servos.sort(key=lambda s: (s["address"], s["channel"]))
     view = {k: part[k] for k in ("key", "label", "summary", "pages")}
     view["note"] = part.get("note")
+    if part.get("i2c_devices"):
+        view["i2c_devices"] = [{"name": n, "address": a, "pins": p, "role": r} for n, a, p, r in part["i2c_devices"]]
     view["printed"] = [{"group": g, "items": items} for g, items in part["printed"]]
     view["hardware"] = [{"item": i, "qty": q} for i, q in part["hardware"]]
     view["servos"] = servos

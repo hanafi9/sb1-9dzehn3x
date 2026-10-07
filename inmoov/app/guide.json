@@ -238,5 +238,67 @@
         "details": "Voir README (règle sudoers limitée à systemctl pour les services inmoov)."
       }
     ]
+  },
+  {
+    "phase": "10. Nouveautés (IA et capteurs)",
+    "steps": [
+      {
+        "id": "new-i2c",
+        "title": "Activer l'I2C du Raspberry Pi et brancher les capteurs",
+        "details": "INA226 (courant des cartes et batterie), ADS1115 (doigts), VL53L1X (présence) : adresses dans l'onglet Schémas → Capteurs. Vérifiez qu'ils répondent avec i2cdetect.",
+        "commands": [
+          "sudo raspi-config nonint do_i2c 0",
+          "sudo apt install -y i2c-tools",
+          "i2cdetect -y 1"
+        ]
+      },
+      {
+        "id": "new-sensors",
+        "title": "Lancer la centrale des capteurs",
+        "details": "Essayez d'abord en simulation, puis avec les vrais capteurs. Réglez les shunts et les limites de courant dans config.json (section sensors).",
+        "commands": [
+          "cd /home/pi/inmoov && python3 -m venv .venv-sensors && .venv-sensors/bin/pip install -r sensors/requirements.txt",
+          "cd sensors && ../.venv-sensors/bin/python sensor_hub.py --config ../config.json --simulate"
+        ]
+      },
+      {
+        "id": "new-piper",
+        "title": "Voix française hors ligne (Piper)",
+        "details": "Puis mettez \"tts\": \"piper\" dans la section voice de config.json.",
+        "commands": [
+          "cd /home/pi/inmoov && .venv-voice/bin/pip install piper-tts",
+          "mkdir -p models && .venv-voice/bin/python -m piper.download_voices --download-dir models fr_FR-tom-medium"
+        ]
+      },
+      {
+        "id": "new-vision-ai",
+        "title": "Vision et mémoire de l'IA",
+        "details": "Le suivi de visage partage l'image (share_frame_path) ; l'IA la regarde quand on lui demande « qu'est-ce que tu vois ? ». Les souvenirs se gèrent dans l'onglet IA."
+      },
+      {
+        "id": "new-mirror",
+        "title": "Mode imitation et gestes appris",
+        "details": "Arrêtez le suivi de visage (la caméra ne sert qu'à un programme), testez sans bouger le robot, puis enregistrez un geste.",
+        "commands": [
+          "cd /home/pi/inmoov && python3 -m venv .venv-mirror && .venv-mirror/bin/pip install -r vision/requirements-mirror.txt",
+          "cd vision && ../.venv-mirror/bin/python mirror.py --config ../config.json --dry-run -v",
+          "../.venv-mirror/bin/python mirror.py --config ../config.json --record salut"
+        ]
+      },
+      {
+        "id": "new-local-ai",
+        "title": "IA locale de secours (facultatif)",
+        "details": "Ollama sur le Pi (lent) ou Raspberry Pi AI HAT+ 2 avec hailo-ollama. Puis \"enabled\": true dans la section local_llm.",
+        "commands": [
+          "curl -fsSL https://ollama.com/install.sh | sh",
+          "ollama pull qwen2.5:1.5b"
+        ]
+      },
+      {
+        "id": "new-battery",
+        "title": "Passer sur batterie (facultatif)",
+        "details": "Batterie LiFePO4 4S avec BMS, convertisseurs 12 V → 6 V (servos) et 12 V → 5 V 5 A (Pi). L'INA226 à 0x40 surveille la charge."
+      }
+    ]
   }
 ]

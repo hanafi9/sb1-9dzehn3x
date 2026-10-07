@@ -258,7 +258,7 @@ class SchemaTest(unittest.TestCase):
 
     def test_overview_and_parts(self):
         o = self.c.get("/api/schema").get_json()
-        self.assertEqual([p["key"] for p in o["parts"]], ["tete", "torse", "bras", "mains", "bassin", "jambes"])
+        self.assertEqual([p["key"] for p in o["parts"]], ["tete", "torse", "bras", "mains", "bassin", "jambes", "capteurs"])
         head = self.c.get("/api/schema/tete").get_json()
         neck = next(s for s in head["servos"] if s["service"] == "i01.head.neck")
         self.assertEqual((neck["address"], neck["channel"]), ("0x40", 1))
@@ -298,6 +298,64 @@ class SchemaTest(unittest.TestCase):
         groups = self.c.get("/api/servos").get_json()["groups"]
         thumb = next(s for g in groups for s in g["servos"] if s["service"] == "i01.rightHand.thumb")
         self.assertEqual(thumb["pca"]["address"], "0x42")
+
+
+@unittest.skipIf(atelier is None, "Flask non installé")
+class AiAndSensorsTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        cfg = json.load(open(os.path.join(ROOT, "config.example.json"), encoding="utf-8"))
+        cfg["sensors"]["port"] = 1  # aucun serveur : centrale injoignable
+        self.cfg_path = os.path.join(self.tmp, "config.json")
+        json.dump(cfg, open(self.cfg_path, "w", encoding="utf-8"))
+        self.mrl = FakeMrl()
+        self.c = atelier.create_app(data_dir=self.tmp, run=FakeRun(), mrl=self.mrl).test_client()
+        self.c.put("/api/settings", json={"robot_config": self.cfg_path})
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp)
+
+    def test_sensors_hub_down(self):
+        r = self.c.get("/api/sensors")
+        self.assertEqual(r.status_code, 502)
+        self.assertIn("capteurs injoignable", r.get_json()["error"])
+        self.assertEqual(self.c.post("/api/sensors/grip", json={"side": "milieu"}).status_code, 400)
+
+    def test_memory_management(self):
+        from memory_store import MemoryStore
+        store = MemoryStore(os.path.join(self.tmp, "data", "memory.json"))
+        store.add("Paul", "aime le football")
+        store.add("Léa", "a un chat")
+        info = self.c.get("/api/ai").get_json()
+        self.assertEqual([m["person"] for m in info["memory"]], ["Paul", "Léa"])
+        self.assertEqual(self.c.delete("/api/ai/memory/0").status_code, 200)
+        self.assertEqual(self.c.delete("/api/ai/memory/9").status_code, 400)
+        self.assertEqual([m["person"] for m in store.load()], ["Léa"])
+        self.c.post("/api/ai/memory/clear")
+        self.assertEqual(store.load(), [])
+
+    def test_recorded_gestures(self):
+        import gesture_player
+        gdir = os.path.join(self.tmp, "data", "gestures")
+        gesture_player.save(gdir, "salut", [{"t": 0, "service": "i01.rightArm.bicep", "pos": 40}])
+        info = self.c.get("/api/ai").get_json()
+        self.assertEqual(info["recorded"], ["salut"])
+        r = self.c.post("/api/ai/gestures/salut/play", json={})
+        self.assertEqual(r.status_code, 200)
+        for _ in range(50):
+            if ("i01.rightArm.bicep", "moveTo", 40.0) in self.mrl.calls:
+                break
+            time.sleep(0.02)
+        self.assertIn(("i01.rightArm.bicep", "moveTo", 40.0), self.mrl.calls)
+        self.assertEqual(self.c.post("/api/ai/gestures/..%2Fx/play").status_code, 404)
+        self.assertEqual(self.c.delete("/api/ai/gestures/salut").status_code, 200)
+        self.assertEqual(self.c.get("/api/ai").get_json()["recorded"], [])
+
+    def test_sensor_schema(self):
+        v = self.c.get("/api/schema/capteurs").get_json()
+        addrs = [d["address"] for d in v["i2c_devices"]]
+        self.assertEqual(len(addrs), len(set(addrs)))
+        self.assertIn("0x29", addrs)
 
 
 if __name__ == "__main__":

@@ -29,6 +29,10 @@ import arduino_tools  # noqa: E402
 import servo_inventory  # noqa: E402
 import system_tools  # noqa: E402
 import wiring  # noqa: E402
+
+sys.path.insert(0, os.path.join(ROOT, "voice"))
+import gesture_player  # noqa: E402
+from memory_store import MemoryStore  # noqa: E402
 from jobs import JobRunner  # noqa: E402
 from mrl_client import MrlClient  # noqa: E402
 
@@ -455,6 +459,107 @@ def create_app(data_dir=None, run=None, mrl=None):
             link.move(legs_controller.pose_targets(cfg, pose), duration)
         else:
             raise ValueError("commande inconnue")
+        return jsonify({"ok": True})
+
+    # ---------------------------------------------------------- capteurs
+    def robot_cfg():
+        path = settings()["robot_config"]
+        if not os.path.isfile(path):
+            path = os.path.join(ROOT, "config.example.json")
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f), os.path.dirname(os.path.abspath(path))
+
+    def hub_url():
+        cfg, _ = robot_cfg()
+        return "http://127.0.0.1:%d" % cfg.get("sensors", {}).get("port", 8095)
+
+    def hub_request(path, data=None, timeout=3.0):
+        import urllib.error
+        import urllib.request
+
+        body = None if data is None else json.dumps(data).encode("utf-8")
+        req = urllib.request.Request(hub_url() + path, data=body, method="POST" if body else "GET",
+                                     headers={"Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                return json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            raise ValueError(json.loads(e.read().decode("utf-8") or "{}").get("error", str(e)))
+        except (urllib.error.URLError, OSError):
+            raise RuntimeError("centrale des capteurs injoignable (service inmoov-sensors lancé ?)")
+
+    @app.get("/api/sensors")
+    @api
+    def sensors_status():
+        return jsonify({"ok": True, **hub_request("/status")})
+
+    @app.post("/api/sensors/reset")
+    @api
+    def sensors_reset():
+        return jsonify(hub_request("/reset", {"board": body().get("board")}))
+
+    @app.post("/api/sensors/grip")
+    @api
+    def sensors_grip():
+        data = body()
+        if data.get("side") not in ("left", "right"):
+            raise ValueError("main gauche ou droite")
+        return jsonify(hub_request("/grip", {"side": data["side"], "threshold": data.get("threshold")}, timeout=15))
+
+    # ---------------------------------------------------------- IA : mémoire et gestes
+    def memory_store():
+        cfg, base = robot_cfg()
+        path = cfg.get("brain", {}).get("memory_path") or "data/memory.json"
+        return MemoryStore(path if os.path.isabs(path) else os.path.join(base, path))
+
+    def gestures_dir():
+        cfg, base = robot_cfg()
+        d = cfg.get("brain", {}).get("recorded_gestures_dir") or "data/gestures"
+        return d if os.path.isabs(d) else os.path.join(base, d)
+
+    @app.get("/api/ai")
+    def ai_info():
+        cfg, _ = robot_cfg()
+        brain, voice = cfg.get("brain", {}), cfg.get("voice", {})
+        return jsonify({
+            "claude": bool(brain.get("enabled")), "model": brain.get("model"),
+            "vision": bool(brain.get("camera_frame_path")),
+            "local": cfg.get("local_llm", {}).get("enabled", False), "local_model": cfg.get("local_llm", {}).get("model"),
+            "tts": voice.get("tts", "mrl"), "leds": cfg.get("leds", {}).get("enabled", False),
+            "inmoov_gestures": brain.get("gestures", []),
+            "memory": memory_store().load(),
+            "recorded": gesture_player.list_gestures(gestures_dir()),
+        })
+
+    @app.delete("/api/ai/memory/<int:index>")
+    @api
+    def delete_memory(index):
+        try:
+            memory_store().delete(index)
+        except IndexError as e:
+            raise ValueError(str(e))
+        return jsonify({"ok": True})
+
+    @app.post("/api/ai/memory/clear")
+    @api
+    def clear_memory():
+        memory_store().clear()
+        return jsonify({"ok": True})
+
+    @app.post("/api/ai/gestures/<name>/play")
+    @api
+    def play_gesture(name):
+        data = gesture_player.load(gestures_dir(), name)
+        mrl_call("runtime", "getUptime")  # vérifie que MyRobotLab répond avant de lancer
+        speed = float(body().get("speed", 1.0))
+        gesture_player.play_async(lambda service, pos: mrl_client().call(service, "moveTo", pos), data,
+                                  speed=max(0.25, min(2.0, speed)))
+        return jsonify({"ok": True, "steps": len(data["steps"])})
+
+    @app.delete("/api/ai/gestures/<name>")
+    @api
+    def delete_gesture(name):
+        gesture_player.delete(gestures_dir(), name)
         return jsonify({"ok": True})
 
     # ---------------------------------------------------------- services

@@ -4,7 +4,9 @@
 Chaîne : micro -> détection de voix (WebRTC VAD) -> Whisper (faster-whisper)
          -> mot de réveil -> commande locale
                           OU IA Claude (si "brain.enabled", voir llm_brain.py)
-                          OU chatbot MyRobotLab (i01.chatBot) si Claude est injoignable
+                          OU IA locale (si "local_llm.enabled", voir llm_local.py)
+                          OU chatbot MyRobotLab (i01.chatBot) en dernier recours
+Voix : MyRobotLab (i01.mouth) ou Piper hors ligne ("voice.tts": "piper").
 
 La réponse du chatbot est prononcée par MyRobotLab lui-même
 (chatBot -> htmlFilter -> mouth, câblage standard d'InMoov2) ;
@@ -38,17 +40,45 @@ FRAME_MS = 30
 FRAME_SAMPLES = SAMPLE_RATE * FRAME_MS // 1000
 
 
+# couleurs des LED d'état (NeoPixel d'InMoov2)
+LED_COLORS = {
+    "idle": (0, 0, 20),
+    "awake": (0, 80, 255),
+    "thinking": (120, 0, 200),
+    "speaking": (0, 200, 60),
+    "error": (255, 0, 0),
+}
+
+
 class Listener:
-    def __init__(self, cfg, mrl, dry_run=False, brain_cfg=None):
+    def __init__(self, cfg, mrl, dry_run=False, brain_cfg=None, local_cfg=None, leds_cfg=None):
         self.cfg = cfg
         self.mrl = mrl
         self.dry_run = dry_run
+        self.leds = leds_cfg if leds_cfg and leds_cfg.get("enabled") else None
+        self.tts = None
+        if cfg.get("tts") == "piper":
+            from tts_piper import PiperSpeaker  # importé seulement si utilisé
+
+            self.tts = PiperSpeaker(cfg["piper_model"], length_scale=cfg.get("piper_length_scale"))
+            log.info("Voix hors ligne Piper : %s", cfg["piper_model"])
+        self.memory = None
         self.brain = None
         if brain_cfg and brain_cfg.get("enabled"):
             from llm_brain import ClaudeBrain  # importé seulement si utilisé
 
-            self.brain = ClaudeBrain(brain_cfg, self._call_checked, self.say)
+            if brain_cfg.get("memory_path"):
+                from memory_store import MemoryStore
+
+                self.memory = MemoryStore(brain_cfg["memory_path"])
+            self.brain = ClaudeBrain(brain_cfg, self._call_checked, self.say, memory=self.memory)
             log.info("IA conversationnelle : Claude (%s)", brain_cfg["model"])
+        self.local = None
+        if local_cfg and local_cfg.get("enabled"):
+            from llm_local import LocalBrain
+
+            self.local = LocalBrain(local_cfg, (brain_cfg or {}).get("robot_name", "InMoov"))
+            log.info("IA locale de secours : %s (%s)", local_cfg["model"], local_cfg["url"])
         self.vad = webrtcvad.Vad(cfg["vad_aggressiveness"])
         self.segmenter = UtteranceSegmenter(
             frame_ms=FRAME_MS,
@@ -116,8 +146,23 @@ class Listener:
         return self.mrl.call_checked(service, method, *params)
 
     def say(self, text):
+        self.status("speaking")
+        if self.tts is not None and not self.dry_run:
+            try:
+                self.tts.speak(text)  # bloquant : le micro est ignoré pendant ce temps
+                self.mute_until = time.monotonic() + 0.3
+                return
+            except Exception:
+                log.exception("Voix Piper en échec, on utilise la voix de MyRobotLab")
         self._call(self.cfg["mouth_service"], "speak", text)
         self._mute_for(text)
+
+    def status(self, state):
+        """Couleur des LED d'état (facultatif, service NeoPixel d'InMoov2)."""
+        if self.leds is None:
+            return
+        r, g, b = self.leds.get("colors", {}).get(state, LED_COLORS[state])
+        self._call_checked(self.leds["service"], "fill", r, g, b)
 
     def _mute_for(self, text):
         # Le micro entendrait la voix du robot : on l'ignore le temps qu'il parle.
@@ -135,6 +180,7 @@ class Listener:
             if not rest:
                 self.awake_until = now + self.cfg["wake_window_s"]
                 self.say("oui ?")
+                self.status("awake")
                 return
             text = rest
         self.awake_until = 0.0
@@ -146,14 +192,28 @@ class Listener:
                 self._call(*action)
             return
 
-        if self.brain is not None:
-            try:
-                if self.brain.ask(text) is not None:
+        self.status("thinking")
+        try:
+            if self.brain is not None:
+                try:
+                    if self.brain.ask(text) is not None:
+                        return
+                except Exception:  # ex. clé API absente : le robot doit continuer d'écouter
+                    log.exception("Erreur inattendue de l'IA")
+                    self.brain.reset()
+                log.warning("Claude indisponible")
+
+            if self.local is not None:
+                reply = self.local.ask(text)
+                if reply:
+                    log.info("Réponse de l'IA locale : %s", reply)
+                    self.say(reply)
                     return
-            except Exception:  # ex. clé API absente : le robot doit continuer d'écouter
-                log.exception("Erreur inattendue de l'IA")
-                self.brain.reset()
-            log.warning("Claude indisponible, on utilise le chatbot d'InMoov2")
+                log.warning("IA locale indisponible")
+        finally:
+            self.status("idle")
+
+        log.warning("On utilise le chatbot d'InMoov2")
 
         resp = self._call(self.cfg["chatbot_service"], self.cfg["chatbot_method"], text)
         reply = resp.get("msg") if isinstance(resp, dict) else None
@@ -207,9 +267,16 @@ def main():
         return 0
 
     cfg = load_config(args.config)
+    base = os.path.dirname(os.path.abspath(args.config))
+    # chemins relatifs = relatifs au dossier de config.json
+    for section, key in (("voice", "piper_model"), ("brain", "memory_path"), ("brain", "recorded_gestures_dir")):
+        value = cfg.get(section, {}).get(key)
+        if value and not os.path.isabs(value):
+            cfg[section][key] = os.path.join(base, value)
     mrl = MrlClient(cfg["mrl"]["url"], cfg["mrl"]["timeout_s"])
     try:
-        Listener(cfg["voice"], mrl, args.dry_run, cfg.get("brain")).run()
+        Listener(cfg["voice"], mrl, args.dry_run, cfg.get("brain"),
+                 cfg.get("local_llm"), cfg.get("leds")).run()
     except KeyboardInterrupt:
         pass
     return 0

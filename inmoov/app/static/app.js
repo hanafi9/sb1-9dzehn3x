@@ -173,6 +173,25 @@ function drawOverview(boards, arduino) {
 // Schéma d'une partie : chaque carte, ses canaux, et les servos branchés dessus.
 function drawPart(view) {
   const wrap = document.createElement("div");
+  if (view.i2c_devices) {
+    const devs = view.i2c_devices;
+    const h = 100 + devs.length * 48;
+    const svg = svgEl("svg", { viewBox: `0 0 900 ${h}`, role: "img", "aria-label": "Bus I2C des capteurs" });
+    svgBox(svg, 20, 20, 260, 56, "sv-ctrl", "Raspberry Pi 5 · I2C n°1", "broche 3 SDA · broche 5 SCL · 3,3 V");
+    svgLine(svg, `M150 76 V${100 + (devs.length - 1) * 48 + 18}`, "sv-i2c");
+    devs.forEach((d, i) => {
+      const y = 100 + i * 48;
+      svgLine(svg, `M150 ${y + 18} H300`, "sv-i2c");
+      svg.appendChild(svgEl("rect", { x: 300, y, width: 580, height: 36, rx: 6, class: "sv-box" }));
+      svg.appendChild(svgEl("text", { x: 312, y: y + 23, class: "sv-b" }, `${d.address} · ${d.name}`));
+      svg.appendChild(svgEl("text", { x: 600, y: y + 23, class: "sv-s" }, d.pins));
+    });
+    wrap.appendChild(svg);
+    wrap.insertAdjacentHTML("beforeend", `<div class="legend"><span class="l-i2c">bus I2C (4 fils : 3,3 V, GND, SDA, SCL)</span></div>
+      <div class="table-wrap"><table><tr><th>Capteur</th><th>Adresse</th><th>Réglage</th><th>Rôle</th></tr>${devs.map((d) =>
+      `<tr><td>${esc(d.name)}</td><td>${esc(d.address)}</td><td>${esc(d.pins)}</td><td>${esc(d.role)}</td></tr>`).join("")}</table></div>`);
+    return wrap;
+  }
   if (view.leg_servos) {
     const legs = view.leg_servos;
     const rows = Math.ceil(legs.length / 2);
@@ -294,6 +313,119 @@ $("#schema-apply").addEventListener("click", (e) => withButton(e.target, async (
   const r = await api("POST", "/api/schema/apply", { confirm: true });
   toast(`Câblage appliqué (${r.calls} commandes). Pensez à « Enregistrer la config MyRobotLab ».`);
 }));
+
+// ------------------------------------------------------------ capteurs
+const FINGER_LABELS = { thumb: "Pouce", index: "Index", majeure: "Majeur", ringFinger: "Annulaire", pinky: "Auriculaire" };
+const fmt = (v, d = 1) => (v === null || v === undefined ? "—" : Number(v).toFixed(d));
+function meter(ratio, warnAt = 0.7, badAt = 0.9) {
+  const r = Math.max(0, Math.min(1, ratio || 0));
+  const cls = r >= badAt ? "bad" : r >= warnAt ? "warn" : "";
+  return `<div class="meter ${cls}"><div style="width:${(r * 100).toFixed(0)}%"></div></div>`;
+}
+
+let sensorsTimer = null;
+async function refreshSensors() {
+  let s;
+  try { s = await api("GET", "/api/sensors"); }
+  catch (e) {
+    $("#sens-state").className = "pill bad"; $("#sens-state").textContent = "injoignable";
+    $("#sens-boards").innerHTML = `<p class="muted">${esc(e.message)}</p>`;
+    return false;
+  }
+  const faults = Object.values(s.boards).filter((b) => b.fault).length;
+  $("#sens-state").className = "pill " + (faults ? "bad" : "ok");
+  $("#sens-state").textContent = faults ? `${faults} carte(s) en défaut` : "tout va bien";
+  $("#sens-boards").innerHTML = Object.entries(s.boards).map(([name, b]) => `
+    <div class="card"><div class="row between"><h3>${esc(name)}</h3>
+      ${b.fault ? `<button class="stop" data-reset="${esc(name)}">Réarmer</button>` : b.error ? `<span class="pill warn">capteur absent</span>` : `<span class="pill ok">OK</span>`}</div>
+      <div class="stat"><span>Courant</span><span class="big">${fmt(b.amps)} A</span></div>
+      ${meter((b.amps || 0) / b.max_current_a)}
+      <div class="stat"><span>Tension</span><span>${fmt(b.volts, 2)} V</span></div>
+      <div class="stat"><span>Limite</span><span>${b.max_current_a} A</span></div>
+      ${b.fault ? `<p class="muted">⚠ ${esc(b.fault)}</p>` : ""}${b.error ? `<p class="muted">${esc(b.error)}</p>` : ""}
+    </div>`).join("");
+  const bat = s.battery;
+  $("#sens-battery").innerHTML = !bat ? `<p class="muted">Non configurée.</p>` : bat.error ? `<p class="muted">${esc(bat.error)}</p>` : `
+    <div class="stat"><span>Charge (approximative)</span><span class="big">${fmt(bat.percent, 0)} %</span></div>
+    ${(() => { const pc = bat.percent || 0; const cls = pc <= 20 ? "bad" : pc <= 40 ? "warn" : "";
+      return `<div class="meter ${cls}"><div style="width:${pc}%"></div></div>`; })()}
+    <div class="stat"><span>Tension</span><span>${fmt(bat.volts, 2)} V</span></div>
+    <div class="stat"><span>Courant</span><span>${fmt(bat.amps)} A</span></div>
+    ${bat.low ? `<p><span class="pill bad">batterie faible</span></p>` : ""}`;
+  const p = s.presence;
+  $("#sens-presence").innerHTML = `<div class="stat"><span>Personne la plus proche</span>
+    <span class="big">${p.distance_mm ? (p.distance_mm / 1000).toFixed(2) + " m" : "—"}</span></div>
+    <p>${p.present ? `<span class="pill ok">quelqu'un est là</span>` : `<span class="pill">personne</span>`}</p>`;
+  const sides = { left: "Main gauche", right: "Main droite" };
+  $("#sens-touch").innerHTML = Object.entries(sides).map(([side, label]) => `
+    <div class="card"><h3>${label}</h3>${Object.entries(FINGER_LABELS).map(([f, l]) => {
+      const v = s.touch[`${side}.${f}`];
+      return `<div class="stat"><span>${l}</span><span>${v === undefined || v === null ? "—" : (v * 100).toFixed(0) + " %"}</span></div>${meter(v || 0, 0.35, 0.8)}`;
+    }).join("")}</div>`).join("");
+  return true;
+}
+loaders.sensors = async () => {
+  await refreshSensors();
+  clearInterval(sensorsTimer);
+  sensorsTimer = setInterval(() => {
+    if (currentTab !== "sensors") { clearInterval(sensorsTimer); return; }
+    refreshSensors();
+  }, 1000);
+};
+$("#sens-boards").addEventListener("click", (e) => {
+  const board = e.target.dataset.reset;
+  if (!board) return;
+  withButton(e.target, async () => {
+    if (!confirm(`La cause de la surintensité sur ${board} est-elle corrigée ?`)) return;
+    await api("POST", "/api/sensors/reset", { board });
+    toast("Carte réarmée : réactivez les servos (onglet Servos)");
+    refreshSensors();
+  });
+});
+document.querySelectorAll("[data-grip]").forEach((b) => b.addEventListener("click", (e) => withButton(e.target, async () => {
+  const r = await api("POST", "/api/sensors/grip", { side: e.target.dataset.grip, threshold: Number($("#grip-threshold").value) });
+  toast(r.touching && r.touching.length ? "Objet saisi (" + r.touching.map((f) => FINGER_LABELS[f]).join(", ") + ")" : "Main fermée, aucun contact détecté");
+})));
+
+// ------------------------------------------------------------ IA
+loaders.ai = async () => {
+  const a = await api("GET", "/api/ai");
+  const on = (v, yes, no = "désactivé") => v ? `<span class="pill ok">${esc(yes)}</span>` : `<span class="pill">${esc(no)}</span>`;
+  $("#ai-status").innerHTML = `
+    <div class="stat"><span>Claude (en ligne)</span>${on(a.claude, a.model || "activé")}</div>
+    <div class="stat"><span>Vision (outil « look »)</span>${on(a.vision, "activée")}</div>
+    <div class="stat"><span>IA locale de secours</span>${on(a.local, a.local_model || "activée")}</div>
+    <div class="stat"><span>Voix</span>${on(true, a.tts === "piper" ? "Piper (hors ligne)" : "MyRobotLab")}</div>
+    <div class="stat"><span>LED d'état</span>${on(a.leds, "activées")}</div>
+    <div class="stat"><span>Gestes InMoov2 autorisés</span><span>${a.inmoov_gestures.length ? esc(a.inmoov_gestures.join(", ")) : "aucun"}</span></div>`;
+  $("#ai-memory").innerHTML = a.memory.length ? a.memory.map((m, i) => `
+    <div class="list-row"><span><b>${esc(m.person)}</b> : ${esc(m.fact)}</span>
+      <button class="ghost" data-forget="${i}">Oublier</button></div>`).join("") : `<p class="muted">Aucun souvenir pour l'instant.</p>`;
+  $("#ai-gestures").innerHTML = a.recorded.length ? a.recorded.map((g) => `
+    <div class="list-row"><span>${esc(g)}</span><span class="row">
+      <button data-play="${esc(g)}">Jouer</button><button class="ghost" data-delgesture="${esc(g)}">Supprimer</button></span></div>`).join("")
+    : `<p class="muted">Aucun geste enregistré.</p>`;
+};
+$("#ai-memory").addEventListener("click", (e) => {
+  const i = e.target.dataset.forget;
+  if (i === undefined) return;
+  withButton(e.target, async () => { await api("DELETE", `/api/ai/memory/${i}`); loaders.ai(); });
+});
+$("#ai-clear").addEventListener("click", (e) => withButton(e.target, async () => {
+  if (!confirm("Effacer tous les souvenirs du robot ?")) return;
+  await api("POST", "/api/ai/memory/clear"); loaders.ai();
+}));
+$("#ai-gestures").addEventListener("click", (e) => {
+  const { play, delgesture } = e.target.dataset;
+  if (play) withButton(e.target, async () => {
+    const r = await api("POST", `/api/ai/gestures/${encodeURIComponent(play)}/play`, { speed: Number($("#ai-speed").value) || 1 });
+    toast(`Geste « ${play} » lancé (${r.steps} consignes)`);
+  });
+  if (delgesture) withButton(e.target, async () => {
+    if (!confirm(`Supprimer le geste « ${delgesture} » ?`)) return;
+    await api("DELETE", `/api/ai/gestures/${encodeURIComponent(delgesture)}`); loaders.ai();
+  });
+});
 
 // ------------------------------------------------------------ servos
 let servoGroups = [];

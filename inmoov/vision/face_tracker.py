@@ -37,6 +37,17 @@ def detect_faces(interpreter, frame_bgr, threshold):
     return [(o.bbox.xmin, o.bbox.ymin, o.bbox.xmax, o.bbox.ymax, o.score) for o in objs]
 
 
+def share_frame(frame, path, quality=80):
+    """Écrit l'image courante pour l'IA (outil « look »), de façon atomique."""
+    ok, jpg = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, quality])
+    if not ok:
+        return
+    tmp = path + ".tmp"
+    with open(tmp, "wb") as f:
+        f.write(jpg.tobytes())
+    os.replace(tmp, path)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", default=os.path.join(os.path.dirname(__file__), "..", "config.json"))
@@ -75,6 +86,9 @@ def main():
     last_cmd = 0.0
     last_seen = 0.0
     sent = {"pan": None, "tilt": None}
+    share_path = vcfg.get("share_frame_path")
+    share_period = vcfg.get("share_frame_period_s", 1.0)
+    last_share = 0.0
     fps_t, fps_n = time.monotonic(), 0
 
     def send(axis_name, axis):
@@ -125,6 +139,13 @@ def main():
                 cv2.imshow("InMoov - suivi de visage", frame)
                 if cv2.waitKey(1) & 0xFF == ord("q"):
                     break
+
+            if share_path and now - last_share >= share_period:
+                try:
+                    share_frame(frame, share_path)
+                except OSError as e:
+                    log.warning("Image non partagée : %s", e)
+                last_share = now
 
             fps_n += 1
             if now - fps_t >= 5.0:

@@ -6,6 +6,7 @@ import subprocess
 SERVICES = {
     "inmoov-vision": "Suivi de visage (Coral)",
     "inmoov-voice": "Voix + IA",
+    "inmoov-sensors": "Capteurs (courant, batterie, toucher)",
 }
 
 CORAL_USB_IDS = ("1a6e:089a", "18d1:9302")  # avant / après initialisation

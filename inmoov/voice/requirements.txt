@@ -4,3 +4,4 @@ webrtcvad-wheels>=2.0.14
 sounddevice>=0.4.6
 numpy
 anthropic>=1.0
+# facultatif, voix française hors ligne : pip install piper-tts

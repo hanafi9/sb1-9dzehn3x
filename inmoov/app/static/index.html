@@ -22,6 +22,8 @@
     <button data-tab="schema">Schémas</button>
     <button data-tab="servos">Servos</button>
     <button data-tab="arduino">Arduino</button>
+    <button data-tab="sensors">Capteurs</button>
+    <button data-tab="ai">IA</button>
     <button data-tab="legs">Jambes</button>
     <button data-tab="services">Services</button>
     <button data-tab="settings">Réglages</button>
@@ -97,6 +99,46 @@
       </div>
       <div class="chips" id="schema-parts" role="tablist"></div>
       <div id="schema-part"></div>
+    </section>
+
+    <!-- Capteurs -->
+    <section id="tab-sensors" class="tab">
+      <div class="card">
+        <div class="row between"><h2>Alimentation des cartes</h2><span id="sens-state" class="pill">…</span></div>
+        <p class="muted">Si un servo force trop longtemps, tous les servos de sa carte sont désactivés. Corrigez la cause, puis « Réarmer ».</p>
+        <div id="sens-boards" class="grid"></div>
+      </div>
+      <div class="grid">
+        <div class="card"><h2>Batterie</h2><div id="sens-battery"></div></div>
+        <div class="card"><h2>Présence</h2><div id="sens-presence"></div></div>
+      </div>
+      <div class="card">
+        <h2>Toucher (bout des doigts)</h2>
+        <div id="sens-touch" class="grid"></div>
+        <div class="row wrap">
+          <label>Seuil de contact <input id="grip-threshold" type="number" min="0.05" max="1" step="0.05" value="0.35"></label>
+          <button data-grip="left">Prise douce main gauche</button>
+          <button data-grip="right">Prise douce main droite</button>
+        </div>
+        <p class="muted">La main se ferme doigt par doigt et chaque doigt s'arrête dès qu'il sent l'objet.</p>
+      </div>
+    </section>
+
+    <!-- IA -->
+    <section id="tab-ai" class="tab">
+      <div class="card"><h2>Intelligence du robot</h2><div id="ai-status" class="grid"></div></div>
+      <div class="card">
+        <div class="row between"><h2>Mémoire</h2><button id="ai-clear" class="ghost">Tout effacer</button></div>
+        <p class="muted">Ce que le robot a retenu sur les personnes (outil « remember »). Utilisé au début de chaque conversation.</p>
+        <div id="ai-memory"></div>
+      </div>
+      <div class="card">
+        <h2>Gestes appris par imitation</h2>
+        <p class="muted">Enregistrez un geste en le montrant devant la caméra :
+          <code>python vision/mirror.py --record salut</code>. L'IA peut ensuite le jouer (« InMoov, fais le geste salut »).</p>
+        <div class="row wrap"><label>Vitesse <input id="ai-speed" type="number" min="0.25" max="2" step="0.25" value="1"></label></div>
+        <div id="ai-gestures"></div>
+      </div>
     </section>
 
     <!-- Arduino -->

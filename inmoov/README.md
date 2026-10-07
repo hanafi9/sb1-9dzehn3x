@@ -28,8 +28,10 @@ tablette ou un PC du même réseau : `http://<adresse-du-pi>:8090`.
 | Onglet | Ce qu'il fait |
 |---|---|
 | **Tableau de bord** | État de MyRobotLab, du Coral, des ports série, des services, avancement du montage |
-| **Guide de montage** | 36 étapes en 9 phases (Pi, MyRobotLab, Arduino, tête et cou, bras/mains/torse, vision, voix et IA, jambes, mise en service), à cocher, avec les commandes à copier |
+| **Guide de montage** | 43 étapes en 10 phases (Pi, MyRobotLab, électronique, tête et cou, bras/mains/torse, vision, voix et IA, jambes, mise en service, nouveautés IA et capteurs), à cocher, avec les commandes à copier |
 | **Schémas** | Un schéma de câblage par partie (tête, torse, bras, mains, bassin, jambes) généré automatiquement, la liste des servos (modèle, carte, canal), les **pièces imprimées à cocher**, le matériel, et l'**électronique simplifiée** : une seule Arduino Mega + 3 cartes PCA9685, avec le script MyRobotLab qui rattache chaque servo à sa carte |
+| **Capteurs** | Courant et tension de chaque carte (coupure automatique si un servo force), batterie, toucher au bout des doigts, présence, bouton « prise douce » |
+| **IA** | État de l'IA (Claude, vision, IA locale, voix Piper, LED), **souvenirs** du robot (à consulter ou effacer), **gestes appris** à rejouer |
 | **Servos** | Les 31 servos d'InMoov2 (tête et cou, torse, bras, mains) : curseur pour bouger, repos, activer/désactiver, lire la position, **calibration** (min, max, repos, vitesse, sens), envoi à MyRobotLab et enregistrement de sa configuration |
 | **Arduino** | Voir le code, **compiler et téléverser** MrlComm (les deux Mega du haut du corps) et le firmware des jambes, installer le cœur AVR et les bibliothèques, détecter les cartes branchées |
 | **Jambes** | Connexion à l'Arduino des jambes, état de chaque servo (position, charge, température, tension), RESET, FIGER, couple, poses (mouvement seulement si « robot sur portique » est coché) |
@@ -82,7 +84,7 @@ Pour que les boutons Démarrer / Arrêter de l'onglet Services fonctionnent, aut
 ces commandes sans mot de passe (`sudo visudo -f /etc/sudoers.d/inmoov`) :
 
 ```
-pi ALL=(root) NOPASSWD: /usr/bin/systemctl start inmoov-vision, /usr/bin/systemctl stop inmoov-vision, /usr/bin/systemctl restart inmoov-vision, /usr/bin/systemctl start inmoov-voice, /usr/bin/systemctl stop inmoov-voice, /usr/bin/systemctl restart inmoov-voice
+pi ALL=(root) NOPASSWD: /usr/bin/systemctl start inmoov-vision, /usr/bin/systemctl stop inmoov-vision, /usr/bin/systemctl restart inmoov-vision, /usr/bin/systemctl start inmoov-voice, /usr/bin/systemctl stop inmoov-voice, /usr/bin/systemctl restart inmoov-voice, /usr/bin/systemctl start inmoov-sensors, /usr/bin/systemctl stop inmoov-sensors, /usr/bin/systemctl restart inmoov-sensors
 ```
 
 Démarrage automatique : service `systemd/inmoov-app.service` (voir section 5).
@@ -262,7 +264,7 @@ commandes locales partent vers **Claude** (API Anthropic) au lieu du chatbot AIM
 ```bash
 sudo cp systemd/inmoov-*.service /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable --now inmoov-app inmoov-vision inmoov-voice
+sudo systemctl enable --now inmoov-app inmoov-vision inmoov-voice inmoov-sensors
 journalctl -u inmoov-voice -f      # voir ce que le robot entend
 ```
 
@@ -376,3 +378,72 @@ et tout mouvement est refusé jusqu'à la commande `RESET`. **Au démarrage, le 
 5. Seulement ensuite : `pose flexion_legere`, puis `sequence flexions` et `sequence balancement`.
 
 Les poses sont en degrés (0 = debout). Une pose hors limites est **refusée**, pas rabotée.
+
+## 8. Nouveautés : IA et capteurs, inspirés de l'état de l'art
+
+Le comparatif complet avec ce qui se fait ailleurs (LeRobot, modèles vision-langage-action,
+Unitree G1, Raspberry Pi AI HAT+ 2…) est dans [docs/veille-robotique.md](docs/veille-robotique.md).
+
+### 8.1 Une IA qui voit, fait des gestes et se souvient
+
+Dans `config.json` → `brain` :
+
+| Clé | Effet |
+|---|---|
+| `camera_frame_path` | image partagée par le suivi de visage (`vision.share_frame_path`, par défaut `/dev/shm/inmoov_frame.jpg`) : l'IA peut **regarder** (« qu'est-ce que je tiens ? ») |
+| `gestures` | gestes d'InMoov2 que l'IA a le droit de lancer (`i01.execGesture`) |
+| `recorded_gestures_dir` | gestes **appris par imitation**, aussi jouables par l'IA |
+| `memory_path` | **souvenirs** : l'IA retient prénoms et informations (outil `remember`), visibles et effaçables dans l'onglet IA |
+
+Section `local_llm` : **IA de secours sans Internet** (Ollama sur le Pi, ou hailo-ollama avec le
+Raspberry Pi AI HAT+ 2). Ordre utilisé : Claude → IA locale → chatbot d'InMoov2.
+
+Section `leds` : **LED d'état** NeoPixel (bleu = écoute, violet = réfléchit, vert = parle, rouge = défaut).
+
+### 8.2 Voix française hors ligne (Piper)
+
+```bash
+.venv-voice/bin/pip install piper-tts
+mkdir -p models && .venv-voice/bin/python -m piper.download_voices --download-dir models fr_FR-tom-medium
+```
+Puis `"tts": "piper"` dans la section `voice`. Voix françaises : `fr_FR-tom-medium` (homme),
+`fr_FR-siwis-medium` (femme), `fr_FR-upmc-medium`, `fr_FR-gilles-low`. Avec Piper, le micro est
+coupé exactement pendant que le robot parle.
+
+### 8.3 Mode imitation et gestes appris (`vision/mirror.py`)
+
+Le robot **copie vos bras et vos doigts** devant la caméra (MediaPipe Pose + Hands), en miroir,
+et peut **enregistrer** le mouvement pour le rejouer (onglet IA, ou « InMoov, fais le geste salut »).
+
+```bash
+python3 -m venv .venv-mirror && .venv-mirror/bin/pip install -r vision/requirements-mirror.txt
+sudo systemctl stop inmoov-vision             # la caméra ne sert qu'à un programme
+cd vision
+../.venv-mirror/bin/python mirror.py --config ../config.json --dry-run -v   # sans bouger le robot
+../.venv-mirror/bin/python mirror.py --config ../config.json --record salut
+```
+Section `mirror` : articulations activées (l'omoplate est désactivée par défaut), vitesse maximale,
+lissage. Vérifié sur des photos de test MediaPipe : poing fermé, index levé, pouce levé et main
+ouverte sont bien reconnus ; bras tendus sur les côtés → omoplate au maximum, épaule ≈ 0.
+**Pas encore essayé sur le vrai robot** : commencez en `--dry-run`, vitesse basse, personne à
+portée des bras.
+
+### 8.4 Capteurs (`sensors/sensor_hub.py`)
+
+Sur le bus I2C du Raspberry Pi 5 (le Pi gère très bien l'I2C en Python ; seul MyRobotLab ne le peut pas) :
+
+| Capteur | Rôle |
+|---|---|
+| INA226 × 4 | courant et tension de chaque carte PCA9685 + batterie ; **coupure automatique** des servos d'une carte qui force trop longtemps |
+| ADS1115 × 3 + FSR × 10 | force au bout de chaque doigt ; bouton **« prise douce »** |
+| VL53L1X | distance de la personne la plus proche ; salut automatique facultatif (`greet_text`) |
+
+```bash
+sudo raspi-config nonint do_i2c 0 && sudo apt install -y i2c-tools && i2cdetect -y 1
+python3 -m venv .venv-sensors && .venv-sensors/bin/pip install -r sensors/requirements.txt
+cd sensors && ../.venv-sensors/bin/python sensor_hub.py --config ../config.json --simulate   # essai sans capteurs
+```
+**Important :** le module INA226 courant a un shunt de 0,1 Ω (0,8 A maximum). Pour des servos,
+remplacez-le par un shunt de 1 à 2 mΩ et indiquez sa valeur (`shunt_ohm`). Les limites de
+courant (`max_current_a`) sont des valeurs de départ : ajustez-les après avoir mesuré votre robot.
+Câblage et adresses : onglet **Schémas → Capteurs**.
