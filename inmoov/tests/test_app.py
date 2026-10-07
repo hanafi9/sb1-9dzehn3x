@@ -20,6 +20,7 @@ try:
     import app as atelier
     import arduino_tools
     import servo_inventory
+    import wiring
 except ImportError:  # pragma: no cover
     atelier = None
 
@@ -233,6 +234,70 @@ class InventoryTest(unittest.TestCase):
                          ["cli", "compile", "--fqbn", "arduino:avr:mega", "/x/inmoov_legs"])
         self.assertIn(["cli", "lib", "install", "Servo", "SCServo", "Adafruit BNO08x"],
                       arduino_tools.setup_commands("cli"))
+
+
+@unittest.skipIf(atelier is None, "Flask non installé")
+class SchemaTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.mrl = FakeMrl()
+        self.c = atelier.create_app(data_dir=self.tmp, run=FakeRun(), mrl=self.mrl).test_client()
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp)
+
+    def test_every_servo_has_a_unique_channel(self):
+        self.assertEqual(set(wiring.SERVO_PLAN), servo_inventory.all_services())
+        used = {}
+        for service, (board, channel, _m) in wiring.SERVO_PLAN.items():
+            self.assertTrue(0 <= channel <= 15, service)
+            self.assertNotIn((board, channel), used, "%s et %s" % (service, used.get((board, channel))))
+            used[(board, channel)] = service
+        addresses = [b["address"] for b in wiring.BOARDS]
+        self.assertEqual(len(addresses), len(set(addresses)))
+
+    def test_overview_and_parts(self):
+        o = self.c.get("/api/schema").get_json()
+        self.assertEqual([p["key"] for p in o["parts"]], ["tete", "torse", "bras", "mains", "bassin", "jambes"])
+        head = self.c.get("/api/schema/tete").get_json()
+        neck = next(s for s in head["servos"] if s["service"] == "i01.head.neck")
+        self.assertEqual((neck["address"], neck["channel"]), ("0x40", 1))
+        self.assertTrue(head["printed"] and head["hardware"])
+        mains = self.c.get("/api/schema/mains").get_json()
+        self.assertEqual(len(mains["servos"]), 12)
+        self.assertEqual({b["address"] for b in mains["boards"]}, {"0x41", "0x42"})
+        legs = self.c.get("/api/schema/jambes").get_json()
+        self.assertEqual(len(legs["leg_servos"]), 12)
+        self.assertEqual(self.c.get("/api/schema/queue").status_code, 400)
+
+    def test_printed_checklist_persists(self):
+        head = self.c.get("/api/schema/tete").get_json()
+        g = head["printed"][0]
+        r = self.c.post("/api/schema/tete/printed", json={"group": g["group"], "item": g["items"][0], "done": True})
+        self.assertEqual(r.status_code, 200)
+        again = self.c.get("/api/schema/tete").get_json()
+        self.assertTrue(again["printed"][0]["done"][0])
+        self.assertFalse(again["printed"][0]["done"][1])
+
+    def test_script_and_apply(self):
+        script = self.c.get("/api/schema/mrl_script").get_data(as_text=True)
+        self.assertIn('runtime.start(nom, "Adafruit16CServoDriver")', script)
+        self.assertIn('carte.attach("i01.left", "0", adresse)', script)
+        self.assertIn('("i01.head.neck", "pca_tete", 1)', script)
+        compile(script, "mrl_script", "exec")  # syntaxe Python valide
+        self.assertEqual(self.c.post("/api/schema/apply", json={}).status_code, 400)
+        r = self.c.post("/api/schema/apply", json={"confirm": True}).get_json()
+        self.assertTrue(r["ok"])
+        self.assertIn(("runtime", "start", "pca_gauche", "Adafruit16CServoDriver"), self.mrl.calls)
+        self.assertIn(("pca_droite", "attach", "i01.left", "0", "0x42"), self.mrl.calls)
+        i = self.mrl.calls.index(("i01.head.neck", "detach"))
+        self.assertEqual(self.mrl.calls[i + 1:i + 3], [("i01.head.neck", "setPin", 1),
+                                                       ("i01.head.neck", "attach", "pca_tete")])
+
+    def test_servos_tab_shows_pca_channel(self):
+        groups = self.c.get("/api/servos").get_json()["groups"]
+        thumb = next(s for g in groups for s in g["servos"] if s["service"] == "i01.rightHand.thumb")
+        self.assertEqual(thumb["pca"]["address"], "0x42")
 
 
 if __name__ == "__main__":

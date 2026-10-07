@@ -2,114 +2,241 @@
   {
     "phase": "1. Raspberry Pi 5",
     "steps": [
-      {"id": "pi-os", "title": "Installer Raspberry Pi OS 64 bits (Bookworm)",
-       "details": "Avec Raspberry Pi Imager, sur un SSD NVMe ou une carte SD rapide. Activez SSH et le Wi-Fi dans les réglages de l'Imager.",
-       "commands": ["sudo apt update && sudo apt full-upgrade -y"]},
-      {"id": "pi-power", "title": "Alimentation officielle 5 V / 5 A (27 W)",
-       "details": "Sans elle, les ports USB du Pi 5 sont limités à 600 mA : pas assez pour le Coral, la caméra et le micro."},
-      {"id": "pi-copy", "title": "Copier le dossier inmoov sur le Pi",
-       "details": "Par exemple dans /home/pi/inmoov, puis créer config.json à partir de l'exemple.",
-       "commands": ["cd /home/pi/inmoov && cp config.example.json config.json"]}
+      {
+        "id": "pi-os",
+        "title": "Installer Raspberry Pi OS 64 bits (Bookworm)",
+        "details": "Avec Raspberry Pi Imager, sur un SSD NVMe ou une carte SD rapide. Activez SSH et le Wi-Fi dans les réglages de l'Imager.",
+        "commands": [
+          "sudo apt update && sudo apt full-upgrade -y"
+        ]
+      },
+      {
+        "id": "pi-power",
+        "title": "Alimentation officielle 5 V / 5 A (27 W)",
+        "details": "Sans elle, les ports USB du Pi 5 sont limités à 600 mA : pas assez pour le Coral, la caméra et le micro."
+      },
+      {
+        "id": "pi-copy",
+        "title": "Copier le dossier inmoov sur le Pi",
+        "details": "Par exemple dans /home/pi/inmoov, puis créer config.json à partir de l'exemple.",
+        "commands": [
+          "cd /home/pi/inmoov && cp config.example.json config.json"
+        ]
+      }
     ]
   },
   {
     "phase": "2. MyRobotLab (Nixie)",
     "steps": [
-      {"id": "mrl-java", "title": "Installer Java 11 (64 bits)",
-       "details": "MyRobotLab Nixie demande Java 11. Vérifiez avec java -version."},
-      {"id": "mrl-install", "title": "Installer MyRobotLab Nixie",
-       "details": "Téléchargez la version Nixie sur myrobotlab.org, décompressez-la (par exemple dans /home/pi/mrl), puis lancez myrobotlab.sh. Renseignez ce dossier dans « mrl_dir » (onglet Réglages de l'appli)."},
-      {"id": "mrl-inmoov2", "title": "Démarrer InMoov2 et ouvrir l'interface web",
-       "details": "L'interface de MyRobotLab répond sur le port 8888. L'onglet Tableau de bord de cette appli doit afficher « MyRobotLab : connecté »."}
+      {
+        "id": "mrl-java",
+        "title": "Installer Java 11 (64 bits)",
+        "details": "MyRobotLab Nixie demande Java 11. Vérifiez avec java -version."
+      },
+      {
+        "id": "mrl-install",
+        "title": "Installer MyRobotLab Nixie",
+        "details": "Téléchargez la version Nixie sur myrobotlab.org, décompressez-la (par exemple dans /home/pi/mrl), puis lancez myrobotlab.sh. Renseignez ce dossier dans « mrl_dir » (onglet Réglages de l'appli)."
+      },
+      {
+        "id": "mrl-inmoov2",
+        "title": "Démarrer InMoov2 et ouvrir l'interface web",
+        "details": "L'interface de MyRobotLab répond sur le port 8888. L'onglet Tableau de bord de cette appli doit afficher « MyRobotLab : connecté »."
+      }
     ]
   },
   {
-    "phase": "3. Arduino du haut du corps",
+    "phase": "3. Électronique du haut du corps",
     "steps": [
-      {"id": "ard-tools", "title": "Installer les outils Arduino",
-       "details": "Installez arduino-cli sur le Pi, puis cliquez « Installer cœur et bibliothèques » dans l'onglet Arduino.",
-       "commands": ["curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR=$HOME/.local/bin sh"]},
-      {"id": "ard-left", "title": "Téléverser MrlComm sur la Mega gauche (i01.left)",
-       "details": "Une seule carte branchée à la fois pour ne pas se tromper. MyRobotLab ne doit pas utiliser le port pendant le téléversement."},
-      {"id": "ard-right", "title": "Téléverser MrlComm sur la Mega droite (i01.right)"},
-      {"id": "ard-ports", "title": "Associer les ports dans MyRobotLab",
-       "details": "Dans InMoov2, indiquez le port de i01.left et de i01.right (de préférence les chemins stables /dev/serial/by-id/... affichés dans l'onglet Arduino)."},
-      {"id": "ard-power", "title": "Alimentation des servos séparée",
-       "details": "Alimentation 6 V de forte puissance pour les servos, séparée de celle des Arduino, masses reliées entre elles."}
+      {
+        "id": "ard-tools",
+        "title": "Installer les outils Arduino",
+        "details": "Installez arduino-cli sur le Pi, puis cliquez « Installer cœur et bibliothèques » dans l'onglet Arduino.",
+        "commands": [
+          "curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR=$HOME/.local/bin sh"
+        ]
+      },
+      {
+        "id": "ard-left",
+        "title": "Téléverser MrlComm sur l'Arduino Mega (i01.left)",
+        "details": "Onglet Arduino. MyRobotLab ne doit pas utiliser le port pendant le téléversement."
+      },
+      {
+        "id": "pca-address",
+        "title": "Régler l'adresse des 3 cartes PCA9685",
+        "details": "Carte A (tête et ventre) : 0x40, rien à souder. Carte B (gauche) : 0x41, souder le pont A0. Carte C (droite) : 0x42, souder le pont A1."
+      },
+      {
+        "id": "pca-i2c",
+        "title": "Câbler le bus I2C",
+        "details": "Mega SDA 20, SCL 21, 5 V et GND vers la carte A, puis de carte en carte (connecteurs latéraux). Câbles courts."
+      },
+      {
+        "id": "ard-power",
+        "title": "Câbler l'alimentation des servos",
+        "details": "Alimentation 6 V forte puissance vers un bornier avec un fusible par carte. Gros servos : + et − pris sur le bornier, signal seul sur la carte. Toutes les masses reliées. Jamais d'alimentation des servos par le 5 V de l'Arduino ou du Pi."
+      },
+      {
+        "id": "pca-servos",
+        "title": "Brancher chaque servo sur sa carte et son canal",
+        "details": "Onglet Schémas : un schéma par partie (tête, bras, mains, bassin) indique la carte et le canal de chaque servo."
+      },
+      {
+        "id": "pca-mrl",
+        "title": "Rattacher les servos aux cartes dans MyRobotLab",
+        "details": "Onglet Schémas → « Appliquer à MyRobotLab » (ou coller le script dans l'onglet Python de MyRobotLab), puis onglet Servos → « Enregistrer la config MyRobotLab »."
+      }
     ]
   },
   {
     "phase": "4. Servos tête et cou",
     "steps": [
-      {"id": "head-rest", "title": "Tout mettre au repos",
-       "details": "Onglet Servos → Tête et cou → « Repos » sur chaque servo. Vérifiez qu'aucun ne force ni ne grogne."},
-      {"id": "head-limits", "title": "Régler min / max de rothead, neck et rollNeck",
-       "details": "Avancez le curseur doucement jusqu'à la butée mécanique, reculez de quelques degrés, notez la valeur comme min ou max. Ne laissez jamais un servo forcer en butée."},
-      {"id": "head-eyes", "title": "Régler les yeux et la mâchoire",
-       "details": "eyeX, eyeY et jaw ont de petites courses : allez-y degré par degré."},
-      {"id": "head-invert", "title": "Vérifier le sens de chaque servo",
-       "details": "Si un mouvement part à l'envers, cochez « inversé »."},
-      {"id": "head-save", "title": "Appliquer et enregistrer dans MyRobotLab",
-       "details": "« Appliquer tout à MyRobotLab », puis « Enregistrer la config MyRobotLab » pour que les réglages survivent au redémarrage."}
+      {
+        "id": "head-rest",
+        "title": "Tout mettre au repos",
+        "details": "Onglet Servos → Tête et cou → « Repos » sur chaque servo. Vérifiez qu'aucun ne force ni ne grogne."
+      },
+      {
+        "id": "head-limits",
+        "title": "Régler min / max de rothead, neck et rollNeck",
+        "details": "Avancez le curseur doucement jusqu'à la butée mécanique, reculez de quelques degrés, notez la valeur comme min ou max. Ne laissez jamais un servo forcer en butée."
+      },
+      {
+        "id": "head-eyes",
+        "title": "Régler les yeux et la mâchoire",
+        "details": "eyeX, eyeY et jaw ont de petites courses : allez-y degré par degré."
+      },
+      {
+        "id": "head-invert",
+        "title": "Vérifier le sens de chaque servo",
+        "details": "Si un mouvement part à l'envers, cochez « inversé »."
+      },
+      {
+        "id": "head-save",
+        "title": "Appliquer et enregistrer dans MyRobotLab",
+        "details": "« Appliquer tout à MyRobotLab », puis « Enregistrer la config MyRobotLab » pour que les réglages survivent au redémarrage."
+      }
     ]
   },
   {
     "phase": "5. Bras, mains et torse",
     "steps": [
-      {"id": "arms-cal", "title": "Calibrer bras gauche et droit",
-       "details": "Même méthode que la tête. L'omoplate et l'épaule portent du poids : vitesse basse pendant les essais."},
-      {"id": "hands-cal", "title": "Calibrer les mains (doigts et poignet)",
-       "details": "Vérifiez que les doigts ferment sans tirer trop fort sur les fils."},
-      {"id": "torso-cal", "title": "Calibrer le torse (topStom, midStom, lowStom)"}
+      {
+        "id": "arms-cal",
+        "title": "Calibrer bras gauche et droit",
+        "details": "Même méthode que la tête. L'omoplate et l'épaule portent du poids : vitesse basse pendant les essais."
+      },
+      {
+        "id": "hands-cal",
+        "title": "Calibrer les mains (doigts et poignet)",
+        "details": "Vérifiez que les doigts ferment sans tirer trop fort sur les fils."
+      },
+      {
+        "id": "torso-cal",
+        "title": "Calibrer le torse (topStom, midStom, lowStom)"
+      }
     ]
   },
   {
     "phase": "6. Vision",
     "steps": [
-      {"id": "vis-coral", "title": "Installer le pilote Coral et Python 3.9",
-       "details": "Voir README section 2. Le Tableau de bord doit afficher « Coral USB : détecté »."},
-      {"id": "vis-model", "title": "Télécharger le modèle de visage",
-       "commands": ["cd /home/pi/inmoov && mkdir -p models && wget -P models https://raw.githubusercontent.com/google-coral/test_data/master/ssd_mobilenet_v2_face_quant_postprocess_edgetpu.tflite"]},
-      {"id": "vis-test", "title": "Tester le suivi de visage puis l'activer",
-       "details": "Test avec --dry-run, puis démarrez le service inmoov-vision depuis l'onglet Services. Désactivez le suivi intégré d'InMoov2."}
+      {
+        "id": "vis-coral",
+        "title": "Installer le pilote Coral et Python 3.9",
+        "details": "Voir README section 2. Le Tableau de bord doit afficher « Coral USB : détecté »."
+      },
+      {
+        "id": "vis-model",
+        "title": "Télécharger le modèle de visage",
+        "commands": [
+          "cd /home/pi/inmoov && mkdir -p models && wget -P models https://raw.githubusercontent.com/google-coral/test_data/master/ssd_mobilenet_v2_face_quant_postprocess_edgetpu.tflite"
+        ]
+      },
+      {
+        "id": "vis-test",
+        "title": "Tester le suivi de visage puis l'activer",
+        "details": "Test avec --dry-run, puis démarrez le service inmoov-vision depuis l'onglet Services. Désactivez le suivi intégré d'InMoov2."
+      }
     ]
   },
   {
     "phase": "7. Voix et IA",
     "steps": [
-      {"id": "voice-install", "title": "Installer la reconnaissance vocale",
-       "details": "README section 3. Choisissez le bon micro avec --list-devices."},
-      {"id": "voice-key", "title": "Clé API Claude",
-       "details": "Créez /home/pi/inmoov/anthropic.env avec ANTHROPIC_API_KEY=... (chmod 600). Sans clé, le robot utilise le chatbot d'InMoov2."},
-      {"id": "voice-test", "title": "Tester puis activer le service inmoov-voice"}
+      {
+        "id": "voice-install",
+        "title": "Installer la reconnaissance vocale",
+        "details": "README section 3. Choisissez le bon micro avec --list-devices."
+      },
+      {
+        "id": "voice-key",
+        "title": "Clé API Claude",
+        "details": "Créez /home/pi/inmoov/anthropic.env avec ANTHROPIC_API_KEY=... (chmod 600). Sans clé, le robot utilise le chatbot d'InMoov2."
+      },
+      {
+        "id": "voice-test",
+        "title": "Tester puis activer le service inmoov-voice"
+      }
     ]
   },
   {
     "phase": "8. Jambes",
     "steps": [
-      {"id": "legs-weigh", "title": "Peser le haut du corps",
-       "details": "C'est la donnée qui décide des moteurs. Mesurez aussi cuisse et tibia."},
-      {"id": "legs-torque", "title": "Calculer les moteurs",
-       "commands": ["cd /home/pi/inmoov/legs && python3 torque_calc.py --masse 18 --reduction 4"]},
-      {"id": "legs-gantry", "title": "Construire le portique et l'arrêt d'urgence",
-       "details": "Sangle au bassin + bouton qui coupe l'alimentation des servos. Aucun essai sans les deux."},
-      {"id": "legs-ids", "title": "Programmer les ID des servos (1-6 gauche, 11-16 droite)",
-       "details": "Un servo à la fois avec le logiciel FD de Feetech, puis calibrer le milieu (2048) jambe tendue."},
-      {"id": "legs-flash", "title": "Téléverser le firmware des jambes",
-       "details": "Onglet Arduino → « Jambes (inmoov_legs) » sur la troisième Mega."},
-      {"id": "legs-direction", "title": "Vérifier le sens de chaque articulation",
-       "details": "Onglet Jambes → RESET → pose test_genoux_5deg. Corrigez les « direction » dans la config des jambes si besoin."},
-      {"id": "legs-first", "title": "Premières flexions sur le portique",
-       "details": "flexion_legere, puis séquence flexions, puis balancement. Surveillez températures et charges."}
+      {
+        "id": "legs-weigh",
+        "title": "Peser le haut du corps",
+        "details": "C'est la donnée qui décide des moteurs. Mesurez aussi cuisse et tibia."
+      },
+      {
+        "id": "legs-torque",
+        "title": "Calculer les moteurs",
+        "commands": [
+          "cd /home/pi/inmoov/legs && python3 torque_calc.py --masse 18 --reduction 4"
+        ]
+      },
+      {
+        "id": "legs-gantry",
+        "title": "Construire le portique et l'arrêt d'urgence",
+        "details": "Sangle au bassin + bouton qui coupe l'alimentation des servos. Aucun essai sans les deux."
+      },
+      {
+        "id": "legs-ids",
+        "title": "Programmer les ID des servos (1-6 gauche, 11-16 droite)",
+        "details": "Un servo à la fois avec le logiciel FD de Feetech, puis calibrer le milieu (2048) jambe tendue."
+      },
+      {
+        "id": "legs-flash",
+        "title": "Téléverser le firmware des jambes",
+        "details": "Onglet Arduino → « Jambes (inmoov_legs) » sur la troisième Mega."
+      },
+      {
+        "id": "legs-direction",
+        "title": "Vérifier le sens de chaque articulation",
+        "details": "Onglet Jambes → RESET → pose test_genoux_5deg. Corrigez les « direction » dans la config des jambes si besoin."
+      },
+      {
+        "id": "legs-first",
+        "title": "Premières flexions sur le portique",
+        "details": "flexion_legere, puis séquence flexions, puis balancement. Surveillez températures et charges."
+      }
     ]
   },
   {
     "phase": "9. Mise en service",
     "steps": [
-      {"id": "svc-enable", "title": "Démarrage automatique",
-       "commands": ["sudo cp /home/pi/inmoov/systemd/inmoov-*.service /etc/systemd/system/", "sudo systemctl daemon-reload", "sudo systemctl enable --now inmoov-app inmoov-vision inmoov-voice"]},
-      {"id": "svc-sudo", "title": "Autoriser l'appli à démarrer/arrêter les services",
-       "details": "Voir README (règle sudoers limitée à systemctl pour les services inmoov)."}
+      {
+        "id": "svc-enable",
+        "title": "Démarrage automatique",
+        "commands": [
+          "sudo cp /home/pi/inmoov/systemd/inmoov-*.service /etc/systemd/system/",
+          "sudo systemctl daemon-reload",
+          "sudo systemctl enable --now inmoov-app inmoov-vision inmoov-voice"
+        ]
+      },
+      {
+        "id": "svc-sudo",
+        "title": "Autoriser l'appli à démarrer/arrêter les services",
+        "details": "Voir README (règle sudoers limitée à systemctl pour les services inmoov)."
+      }
     ]
   }
 ]

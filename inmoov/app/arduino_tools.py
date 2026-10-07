@@ -22,8 +22,9 @@ def sketches(settings):
             "path": mrlcomm,
             "fqbn": FQBN_MEGA,
             "description": (
-                "Programme officiel de MyRobotLab. À téléverser sur les DEUX Arduino Mega "
-                "du haut du corps (i01.left et i01.right). Il est fourni avec MyRobotLab : "
+                "Programme officiel de MyRobotLab, à téléverser sur l'Arduino Mega du haut du corps "
+                "(i01.left). Avec les 3 cartes PCA9685 (onglet Schémas), une seule Mega suffit ; "
+                "sans elles, il en faut deux (i01.left et i01.right). Il est fourni avec MyRobotLab : "
                 "il doit correspondre à la version de MyRobotLab installée."
             ),
             "before": "Arrêtez MyRobotLab ou déconnectez la carte dans MyRobotLab avant de téléverser (port occupé).",

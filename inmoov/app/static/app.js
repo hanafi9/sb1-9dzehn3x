@@ -119,6 +119,182 @@ $("#guide-phases").addEventListener("click", async (e) => {
   catch (_) { toast("Copie impossible : sélectionnez le texte à la main", true); }
 });
 
+// ------------------------------------------------------------ schémas
+const SVG_NS = "http://www.w3.org/2000/svg";
+function svgEl(tag, attrs = {}, text) {
+  const el = document.createElementNS(SVG_NS, tag);
+  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+  if (text !== undefined) el.textContent = text;
+  return el;
+}
+function svgBox(svg, x, y, w, h, cls, title, sub) {
+  svg.appendChild(svgEl("rect", { x, y, width: w, height: h, rx: 8, class: cls }));
+  svg.appendChild(svgEl("text", { x: x + 10, y: y + (sub ? 20 : h / 2 + 5), class: "sv-b" }, title));
+  if (sub) svg.appendChild(svgEl("text", { x: x + 10, y: y + 38, class: "sv-s" }, sub));
+}
+const svgLine = (svg, d, cls) => svg.appendChild(svgEl("path", { d, class: cls }));
+
+// Vue d'ensemble : Pi 5, Mega + 3 PCA9685, Mega des jambes, alimentations.
+function drawOverview(boards, arduino) {
+  const svg = svgEl("svg", { viewBox: "0 0 900 470", role: "img", "aria-label": "Architecture électronique" });
+  svgBox(svg, 20, 190, 150, 56, "sv-ctrl", "Raspberry Pi 5", "MyRobotLab, Atelier");
+  svgBox(svg, 240, 90, 190, 56, "sv-ctrl", "Arduino Mega", arduino + " · MrlComm");
+  svgBox(svg, 240, 300, 190, 56, "sv-ctrl", "Arduino Mega n°2", "jambes · inmoov_legs");
+  svgLine(svg, "M170 205 H205 V118 H240", "sv-bus");
+  svgLine(svg, "M170 232 H205 V328 H240", "sv-bus");
+  svg.appendChild(svgEl("text", { x: 178, y: 160, class: "sv-s" }, "USB"));
+  svg.appendChild(svgEl("text", { x: 178, y: 290, class: "sv-s" }, "USB"));
+  // trois cartes PCA9685
+  boards.forEach((b, i) => {
+    const y = 20 + i * 76;
+    svgBox(svg, 520, y, 220, 56, "sv-board", `PCA9685 ${b.address}`, b.label.replace(/^Carte \w : /, ""));
+    svgLine(svg, `M430 118 H475 V${y + 28} H520`, "sv-i2c");
+  });
+  svg.appendChild(svgEl("text", { x: 438, y: 108, class: "sv-s" }, "I2C"));
+  // jambes : bus chaîné
+  svgBox(svg, 520, 300, 220, 56, "sv-box", "12 servos bus Feetech", "6 par jambe, 1 seul câble chaîné");
+  svgLine(svg, "M430 328 H520", "sv-bus");
+  svg.appendChild(svgEl("text", { x: 440, y: 318, class: "sv-s" }, "bus série"));
+  // alimentations
+  svgBox(svg, 762, 20, 128, 56, "sv-power", "6 V 20 A", "+ fusibles");
+  svgLine(svg, `M762 48 H752 V${48 + (boards.length - 1) * 76}`, "sv-pwr");
+  boards.forEach((b, i) => svgLine(svg, `M752 ${48 + i * 76} H740`, "sv-pwr"));
+  svgBox(svg, 762, 300, 128, 56, "sv-power", "12 V", "servos jambes");
+  svgBox(svg, 762, 395, 128, 56, "sv-power", "Arrêt urgence", "coupe le 12 V");
+  svgLine(svg, "M762 328 H740", "sv-pwr");
+  svgLine(svg, "M826 395 V356", "sv-pwr");
+  svgBox(svg, 20, 395, 380, 56, "sv-box", "Masses (GND) toutes reliées", "Pi, Arduino, cartes PCA9685, alimentations");
+  const wrap = document.createElement("div");
+  wrap.appendChild(svg);
+  wrap.insertAdjacentHTML("beforeend", `<div class="legend"><span class="l-i2c">I2C (4 fils)</span><span class="l-pwr">alimentation servos</span><span class="l-bus">USB / bus série</span></div>`);
+  return wrap;
+}
+
+// Schéma d'une partie : chaque carte, ses canaux, et les servos branchés dessus.
+function drawPart(view) {
+  const wrap = document.createElement("div");
+  if (view.leg_servos) {
+    const legs = view.leg_servos;
+    const rows = Math.ceil(legs.length / 2);
+    const h = 110 + rows * 46;
+    const svg = svgEl("svg", { viewBox: `0 0 900 ${h}`, role: "img", "aria-label": "Câblage des jambes" });
+    svgBox(svg, 20, 20, 200, 56, "sv-ctrl", "Arduino Mega n°2", "Serial1 TX18 / RX19");
+    svgBox(svg, 260, 20, 200, 56, "sv-box", "Adaptateur bus", "half-duplex / RS485");
+    svgLine(svg, "M220 48 H260", "sv-bus");
+    svgBox(svg, 640, 20, 240, 56, "sv-power", "12 V via arrêt d'urgence", "+ et − sur le même câble bus");
+    [0, 1].forEach((col) => {
+      const x = col === 0 ? 120 : 520;
+      const items = legs.filter((_, i) => (i < rows) === (col === 0));
+      svgLine(svg, `M360 76 V96 H${x + 20} V${110 + (items.length - 1) * 46 + 18}`, "sv-bus");
+      items.forEach((l, i) => {
+        const y = 110 + i * 46;
+        svgBox(svg, x, y, 300, 36, "sv-box", `ID ${l.id} · ${l.name}`);
+      });
+    });
+    wrap.appendChild(svg);
+    wrap.insertAdjacentHTML("beforeend", `<div class="legend"><span class="l-bus">bus chaîné : signal + alimentation, de servo en servo</span></div>`);
+    return wrap;
+  }
+  if (!view.servos.length) return wrap;
+  const ROW = 34, top = 80, HEAD = 56;
+  let y0 = top;
+  const blocks = view.boards.map((b) => {
+    const servos = view.servos.filter((s) => s.board === b.name);
+    const blk = { b, servos, y: y0, h: HEAD + servos.length * ROW + 6 };
+    y0 += blk.h + 30;
+    return blk;
+  });
+  const svg = svgEl("svg", { viewBox: `0 0 900 ${y0}`, role: "img", "aria-label": "Câblage de la partie" });
+  svgBox(svg, 40, 10, 230, 50, "sv-ctrl", "Arduino Mega (i01.left)", "I2C : SDA 20 / SCL 21");
+  svgBox(svg, 620, 10, 260, 50, "sv-power", "Bornier 6 V + fusible", "+ et − de chaque servo");
+  blocks.forEach(({ b, servos, y, h }) => {
+    svgBox(svg, 40, y, 230, h, "sv-board", `PCA9685 ${b.address}`, `${b.name} · ${b.jumpers}`);
+    svgLine(svg, `M40 35 H20 V${y + 28} H40`, "sv-i2c");
+    servos.forEach((s, i) => {
+      const ry = y + HEAD + i * ROW + 12;
+      svg.appendChild(svgEl("text", { x: 222, y: ry + 4, class: "sv-t" }, "CH" + s.channel));
+      svgLine(svg, `M270 ${ry} H520`, "sv-sig");
+      svgLine(svg, `M560 ${ry} H520`, "sv-pwr-thin");
+      svg.appendChild(svgEl("circle", { cx: 560, cy: ry, r: 3, class: "sv-dot" }));
+      svg.appendChild(svgEl("rect", { x: 300, y: ry - 13, width: 210, height: 26, rx: 6, class: "sv-box" }));
+      svg.appendChild(svgEl("text", { x: 308, y: ry + 4, class: "sv-t" }, s.label.length > 30 ? s.label.slice(0, 29) + "…" : s.label));
+      svg.appendChild(svgEl("text", { x: 590, y: ry + 4, class: "sv-s" }, s.model.length > 45 ? s.model.slice(0, 44) + "…" : s.model));
+    });
+    svgLine(svg, `M560 60 V${y + HEAD + (servos.length - 1) * ROW + 12}`, "sv-pwr");
+  });
+  wrap.appendChild(svg);
+  wrap.insertAdjacentHTML("beforeend", `<div class="legend"><span class="l-i2c">I2C</span><span class="l-sig">signal (canal de la carte)</span><span class="l-pwr">+ / − depuis le bornier 6 V</span></div>`);
+  return wrap;
+}
+
+let schemaPart = "tete";
+loaders.schema = async () => {
+  const o = await api("GET", "/api/schema");
+  const ov = $("#schema-overview");
+  ov.innerHTML = "";
+  ov.appendChild(drawOverview(o.boards, o.arduino));
+  const script = await fetch("/api/schema/mrl_script").then((r) => r.text());
+  $("#schema-script").textContent = script;
+  $("#schema-parts").innerHTML = o.parts.map((p) =>
+    `<button data-part="${esc(p.key)}" class="${p.key === schemaPart ? "active" : ""}">${esc(p.label)}</button>`).join("");
+  schemaStlViewer = o.stl_viewer;
+  await renderSchemaPart();
+};
+let schemaStlViewer = "";
+
+async function renderSchemaPart() {
+  const v = await api("GET", `/api/schema/${schemaPart}`);
+  document.querySelectorAll("#schema-parts button").forEach((b) => b.classList.toggle("active", b.dataset.part === schemaPart));
+  const servoRows = v.servos.map((s) => `<tr><td>${esc(s.label)}</td><td>${esc(s.service)}</td><td>${esc(s.model)}</td>
+      <td>${esc(s.address)}</td><td>CH${s.channel}</td></tr>`).join("");
+  const legRows = (v.leg_servos || []).map((l) => `<tr><td>${esc(l.name)}</td><td>ID ${l.id}</td><td>${esc(l.model)}</td></tr>`).join("");
+  const printed = (v.note ? `<p>${esc(v.note)}</p>` : "") + v.printed.map((g) => {
+    const n = g.done.filter(Boolean).length;
+    return `<div class="parts-group"><div class="row between"><h3>${esc(g.group)}</h3><span class="pill ${n === g.items.length ? "ok" : ""}">${n}/${g.items.length}</span></div>
+      <div class="parts-list">${g.items.map((it, i) => `<label class="${g.done[i] ? "done" : ""}">
+        <input type="checkbox" data-group="${esc(g.group)}" data-item="${esc(it)}" ${g.done[i] ? "checked" : ""}> ${esc(it)}</label>`).join("")}</div></div>`;
+  }).join("");
+  const hardware = v.hardware.map((h) => `<tr><td>${esc(h.item)}</td><td>${esc(h.qty)}</td></tr>`).join("");
+  const links = [...v.pages, ["Galerie STL officielle (liste complète)", schemaStlViewer]]
+    .map(([t, u]) => `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(t)}</a>`).join(" · ");
+  const el = $("#schema-part");
+  el.innerHTML = `
+    <div class="card"><h2>${esc(v.label)}</h2><p>${esc(v.summary)}</p><div class="diagram" id="schema-diagram"></div></div>
+    ${servoRows ? `<div class="card"><h2>Servos et branchements</h2><div class="table-wrap"><table>
+      <tr><th>Servo</th><th>Service MyRobotLab</th><th>Modèle d'origine</th><th>Carte</th><th>Canal</th></tr>${servoRows}</table></div></div>` : ""}
+    ${legRows ? `<div class="card"><h2>Servos des jambes</h2><div class="table-wrap"><table>
+      <tr><th>Articulation</th><th>Identifiant bus</th><th>Modèle</th></tr>${legRows}</table></div></div>` : ""}
+    <div class="card"><h2>Pièces imprimées</h2>
+      <p class="muted">Liste principale relevée dans la documentation InMoov : vérifiez les versions à jour dans la galerie officielle. Cochez au fur et à mesure.</p>
+      ${printed}<p>${links}</p></div>
+    <div class="card"><h2>Matériel</h2><div class="table-wrap"><table><tr><th>Élément</th><th>Quantité</th></tr>${hardware}</table></div></div>`;
+  $("#schema-diagram").appendChild(drawPart(v));
+}
+
+$("#schema-parts").addEventListener("click", (e) => {
+  const key = e.target.dataset.part;
+  if (!key) return;
+  schemaPart = key;
+  renderSchemaPart().catch((err) => toast(err.message, true));
+});
+$("#schema-part").addEventListener("change", async (e) => {
+  const { group, item } = e.target.dataset;
+  if (!item) return;
+  try {
+    await api("POST", `/api/schema/${schemaPart}/printed`, { group, item, done: e.target.checked });
+    await renderSchemaPart();
+  } catch (err) { toast(err.message, true); }
+});
+$("#schema-copy").addEventListener("click", async () => {
+  try { await navigator.clipboard.writeText($("#schema-script").textContent); toast("Script copié"); }
+  catch (_) { toast("Copie impossible : sélectionnez le texte à la main", true); }
+});
+$("#schema-apply").addEventListener("click", (e) => withButton(e.target, async () => {
+  if (!confirm("Rattacher tous les servos du haut du corps aux cartes PCA9685 dans MyRobotLab ?\nLes cartes doivent être câblées et l'Arduino i01.left connectée.")) return;
+  const r = await api("POST", "/api/schema/apply", { confirm: true });
+  toast(`Câblage appliqué (${r.calls} commandes). Pensez à « Enregistrer la config MyRobotLab ».`);
+}));
+
 // ------------------------------------------------------------ servos
 let servoGroups = [];
 loaders.servos = async () => {
@@ -138,7 +314,8 @@ function renderServos() {
   $("#servo-list").innerHTML = g.servos.map((s) => `
     <div class="card servo" data-service="${esc(s.service)}">
       <div class="row between"><h3>${esc(s.label)}</h3><span class="pos">${s.rest}</span></div>
-      <div class="meta">${esc(s.service)} · broche ${esc(s.pin)} · carte ${esc(s.board)}</div>
+      <div class="meta">${esc(s.service)} · ${esc(s.pca.model)}<br>PCA9685 ${esc(s.pca.address)} canal ${s.pca.channel}
+        <span title="câblage d'origine sans carte PCA9685">(sans PCA : broche ${esc(s.pin)} de ${esc(s.board)})</span></div>
       <input type="range" min="0" max="180" step="1" value="${s.rest}" aria-label="position">
       <div class="row wrap">
         <button class="ghost" data-act="rest">Repos</button>

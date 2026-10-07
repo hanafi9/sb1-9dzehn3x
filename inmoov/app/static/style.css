@@ -130,3 +130,33 @@ td.hot { color: var(--bad); font-weight: 700; }
 .form { display: grid; gap: .6rem; margin-bottom: .8rem; }
 .form label { display: flex; flex-direction: column; font-size: .85rem; color: var(--muted); }
 .form input { width: 100%; }
+
+/* ---------- schémas */
+.chips { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: 1rem; }
+.chips button { background: var(--card); color: var(--text); border-color: var(--border); }
+.chips button.active { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+.diagram { overflow-x: auto; margin: .5rem 0; }
+.diagram svg { display: block; width: 100%; min-width: 560px; height: auto; font-family: inherit; }
+.sv-box { fill: var(--card); stroke: var(--border); stroke-width: 1.5; }
+.sv-board { fill: var(--bg); stroke: var(--accent); stroke-width: 2; }
+.sv-ctrl { fill: var(--bg); stroke: var(--text); stroke-width: 1.5; }
+.sv-power { fill: var(--bg); stroke: var(--warn); stroke-width: 2; }
+.sv-t { fill: var(--text); font-size: 13px; }
+.sv-s { fill: var(--muted); font-size: 11px; }
+.sv-b { fill: var(--text); font-size: 14px; font-weight: 700; }
+.sv-sig { stroke: var(--accent); stroke-width: 1.6; fill: none; }
+.sv-i2c { stroke: var(--ok); stroke-width: 2.5; fill: none; }
+.sv-pwr { stroke: var(--warn); stroke-width: 2.5; fill: none; }
+.sv-pwr-thin { stroke: var(--warn); stroke-width: 1.4; fill: none; stroke-dasharray: 4 3; }
+.sv-bus { stroke: var(--text); stroke-width: 2; fill: none; }
+.sv-dot { fill: var(--warn); }
+.legend { display: flex; flex-wrap: wrap; gap: 1rem; font-size: .8rem; color: var(--muted); }
+.legend span::before { content: ""; display: inline-block; width: 18px; height: 3px; margin-right: .35rem; vertical-align: middle; background: currentColor; }
+.legend .l-sig { color: var(--accent); } .legend .l-i2c { color: var(--ok); } .legend .l-pwr { color: var(--warn); } .legend .l-bus { color: var(--text); }
+.tips { margin: .5rem 0 1rem; padding-left: 1.2rem; font-size: .9rem; }
+.tips li { margin: .25rem 0; }
+.parts-group { margin: .6rem 0; }
+.parts-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: .2rem .8rem; }
+.parts-list label { display: flex; gap: .4rem; align-items: center; font-size: .88rem; }
+.parts-list label.done { color: var(--muted); text-decoration: line-through; }
+.table-wrap { overflow-x: auto; }

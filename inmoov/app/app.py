@@ -28,6 +28,7 @@ sys.path[:0] = [ROOT, os.path.join(ROOT, "legs")]
 import arduino_tools  # noqa: E402
 import servo_inventory  # noqa: E402
 import system_tools  # noqa: E402
+import wiring  # noqa: E402
 from jobs import JobRunner  # noqa: E402
 from mrl_client import MrlClient  # noqa: E402
 
@@ -103,6 +104,7 @@ def create_app(data_dir=None, run=None, mrl=None):
     calib_store = JsonStore(os.path.join(data_dir, "servo_calibration.json"),
                             servo_inventory.default_calibration())
     progress_store = JsonStore(os.path.join(data_dir, "guide_progress.json"), {})
+    parts_store = JsonStore(os.path.join(data_dir, "parts_progress.json"), {})
     jobs = JobRunner()
     legs = LegsManager()
 
@@ -194,7 +196,13 @@ def create_app(data_dir=None, run=None, mrl=None):
 
     @app.get("/api/servos")
     def get_servos():
-        return jsonify({"groups": servo_inventory.groups_with(calib_store.load())})
+        groups = servo_inventory.groups_with(calib_store.load())
+        for g in groups:
+            for s in g["servos"]:
+                board, channel, model = wiring.SERVO_PLAN[s["service"]]
+                s["pca"] = {"board": board, "address": wiring.board_by_name(board)["address"],
+                            "channel": channel, "model": model}
+        return jsonify({"groups": groups})
 
     @app.post("/api/servos/<service>/move")
     @api
@@ -269,6 +277,58 @@ def create_app(data_dir=None, run=None, mrl=None):
             raise ValueError("nom de configuration invalide")
         saved = mrl_call("runtime", "saveConfig", name)
         return jsonify({"ok": saved is not False, "result": saved})
+
+    # ---------------------------------------------------------- schémas
+    part_keys = {p["key"] for p in wiring.PARTS}
+
+    @app.get("/api/schema")
+    def schema_overview():
+        return jsonify({
+            "parts": [{"key": p["key"], "label": p["label"]} for p in wiring.PARTS],
+            "boards": wiring.BOARDS,
+            "arduino": wiring.ARDUINO,
+            "stl_viewer": wiring.STL_VIEWER,
+        })
+
+    @app.get("/api/schema/<part_key>")
+    @api
+    def schema_part(part_key):
+        part = next((p for p in wiring.PARTS if p["key"] == part_key), None)
+        if part is None:
+            raise ValueError("partie inconnue")
+        groups = servo_inventory.groups_with(calib_store.load())
+        view = wiring.part_view(part, groups, legs_cfg() if part.get("legs") else None)
+        done = parts_store.load()
+        for g in view["printed"]:
+            g["done"] = [bool(done.get("%s|%s|%s" % (part_key, g["group"], i))) for i in g["items"]]
+        return jsonify(view)
+
+    @app.post("/api/schema/<part_key>/printed")
+    @api
+    def mark_printed(part_key):
+        if part_key not in part_keys:
+            raise ValueError("partie inconnue")
+        data = body()
+        key = "%s|%s|%s" % (part_key, data["group"], data["item"])
+        done = parts_store.load()
+        done[key] = bool(data.get("done"))
+        parts_store.save(done)
+        return jsonify({"ok": True})
+
+    @app.get("/api/schema/mrl_script")
+    def schema_script():
+        return Response(wiring.mrl_script(), mimetype="text/plain; charset=utf-8")
+
+    @app.post("/api/schema/apply")
+    @api
+    def schema_apply():
+        if not body().get("confirm"):
+            raise ValueError("confirmation requise")
+        done = 0
+        for service, method, params in wiring.mrl_calls():
+            mrl_call(service, method, *params)
+            done += 1
+        return jsonify({"ok": True, "calls": done})
 
     # ---------------------------------------------------------- arduino
     def sketch_or_404(sketch_id):

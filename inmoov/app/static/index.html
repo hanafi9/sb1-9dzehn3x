@@ -19,6 +19,7 @@
   <nav class="tabs" role="tablist">
     <button data-tab="dashboard" class="active">Tableau de bord</button>
     <button data-tab="guide">Guide de montage</button>
+    <button data-tab="schema">Schémas</button>
     <button data-tab="servos">Servos</button>
     <button data-tab="arduino">Arduino</button>
     <button data-tab="legs">Jambes</button>
@@ -65,6 +66,37 @@
         </div>
       </div>
       <div id="servo-list" class="grid"></div>
+    </section>
+
+    <!-- Schémas -->
+    <section id="tab-schema" class="tab">
+      <div class="card">
+        <h2>Électronique simplifiée</h2>
+        <p class="muted">
+          Une seule Arduino Mega pour tout le haut du corps : elle pilote 3 cartes <b>PCA9685</b>
+          (16 servos chacune) par un simple bus I2C à 4 fils. Les jambes utilisent des servos « bus »
+          chaînés sur un seul câble.
+        </p>
+        <div id="schema-overview" class="diagram"></div>
+        <ul class="tips">
+          <li><b>Adresse de chaque carte</b> : 0x40 sans soudure, 0x41 en soudant le pont A0, 0x42 en soudant A1.</li>
+          <li><b>I2C</b> : Mega SDA 20 / SCL 21 / 5 V / GND vers la 1ʳᵉ carte, puis carte à carte. Câbles courts.</li>
+          <li><b>Alimentation</b> : 6 V forte puissance → bornier avec un fusible par carte. Pour les gros servos
+            (HS-805BB), prenez le + et le − directement sur le bornier et seulement le signal sur la carte.
+            Toutes les masses (GND) reliées entre elles.</li>
+          <li><b>Ne jamais</b> alimenter les servos par le 5 V de l'Arduino ou du Raspberry Pi.</li>
+        </ul>
+        <div class="row between wrap">
+          <h3>Script MyRobotLab (rattache chaque servo à sa carte et à son canal)</h3>
+          <div class="row wrap">
+            <button id="schema-copy" class="ghost">Copier le script</button>
+            <button id="schema-apply">Appliquer à MyRobotLab</button>
+          </div>
+        </div>
+        <pre id="schema-script" class="code"></pre>
+      </div>
+      <div class="chips" id="schema-parts" role="tablist"></div>
+      <div id="schema-part"></div>
     </section>
 
     <!-- Arduino -->

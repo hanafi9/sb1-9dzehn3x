@@ -28,7 +28,8 @@ tablette ou un PC du même réseau : `http://<adresse-du-pi>:8090`.
 | Onglet | Ce qu'il fait |
 |---|---|
 | **Tableau de bord** | État de MyRobotLab, du Coral, des ports série, des services, avancement du montage |
-| **Guide de montage** | 34 étapes en 9 phases (Pi, MyRobotLab, Arduino, tête et cou, bras/mains/torse, vision, voix et IA, jambes, mise en service), à cocher, avec les commandes à copier |
+| **Guide de montage** | 36 étapes en 9 phases (Pi, MyRobotLab, Arduino, tête et cou, bras/mains/torse, vision, voix et IA, jambes, mise en service), à cocher, avec les commandes à copier |
+| **Schémas** | Un schéma de câblage par partie (tête, torse, bras, mains, bassin, jambes) généré automatiquement, la liste des servos (modèle, carte, canal), les **pièces imprimées à cocher**, le matériel, et l'**électronique simplifiée** : une seule Arduino Mega + 3 cartes PCA9685, avec le script MyRobotLab qui rattache chaque servo à sa carte |
 | **Servos** | Les 31 servos d'InMoov2 (tête et cou, torse, bras, mains) : curseur pour bouger, repos, activer/désactiver, lire la position, **calibration** (min, max, repos, vitesse, sens), envoi à MyRobotLab et enregistrement de sa configuration |
 | **Arduino** | Voir le code, **compiler et téléverser** MrlComm (les deux Mega du haut du corps) et le firmware des jambes, installer le cœur AVR et les bibliothèques, détecter les cartes branchées |
 | **Jambes** | Connexion à l'Arduino des jambes, état de chaque servo (position, charge, température, tension), RESET, FIGER, couple, poses (mouvement seulement si « robot sur portique » est coché) |
@@ -36,6 +37,29 @@ tablette ou un PC du même réseau : `http://<adresse-du-pi>:8090`.
 | **Réglages** | Adresse et dossier de MyRobotLab, arduino-cli, édition **vérifiée** de `config.json` et de la config des jambes (copie `.bak` à chaque enregistrement) |
 
 ![Servos de la tête et du cou](app/docs/servos.png)
+
+### Électronique simplifiée (onglet Schémas)
+
+Au lieu de brancher chaque servo sur deux Arduino Mega, on utilise **une seule Mega** (i01.left,
+programme MrlComm) et **3 cartes PCA9685** de 16 voies reliées par un bus I2C à 4 fils
+(service MyRobotLab `Adafruit16CServoDriver`) :
+
+| Carte | Adresse | Pont à souder | Servos |
+|---|---|---|---|
+| A | 0x40 | aucun | tête (8) + ventre (3) |
+| B | 0x41 | A0 | bras gauche (4) + main gauche (6) |
+| C | 0x42 | A1 | bras droit (4) + main droite (6) |
+
+Le bouton **« Appliquer à MyRobotLab »** (ou le script à coller dans l'onglet Python de MyRobotLab)
+crée les 3 cartes, les attache à `i01.left` en I2C (`attach("i01.left", "0", "0x40")`, comme dans
+l'exemple officiel de MyRobotLab) puis fait pour chaque servo `detach()`, `setPin(canal)`, `attach(carte)`.
+Enregistrez ensuite la config MyRobotLab (onglet Servos).
+
+Pourquoi passer par l'Arduino et pas directement par le Raspberry Pi 5 ? Le service RasPi de
+MyRobotLab repose sur Pi4J 1.x / wiringPi, qui ne gère pas le Pi 5.
+
+Alimentation : 6 V forte puissance → bornier avec un fusible par carte ; pour les gros servos,
++ et − pris directement sur le bornier et seulement le signal sur la carte ; masses toutes reliées.
 
 ### Installation
 
