@@ -340,6 +340,13 @@ def create_app(data_dir=None, run=None, mrl=None):
             raise ValueError("schéma inconnu : %s" % sheet_id)
         return jsonify(sheet)
 
+    @app.get("/api/electrical/kicad.zip")
+    def electrical_kicad():
+        import kicad_export
+
+        return Response(kicad_export.zip_bytes(), mimetype="application/zip",
+                        headers={"Content-Disposition": "attachment; filename=inmoov-kicad.zip"})
+
     @app.get("/api/electrical/<sheet_id>.svg")
     def electrical_svg(sheet_id):
         sheet = electrical.get_sheet(sheet_id)

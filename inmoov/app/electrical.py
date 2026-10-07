@@ -484,28 +484,35 @@ def sheet_torso():
     s.wire("amp.R", "hp.R", "audio")
     # I2C de la Mega vers les PCA9685
     y = 560
-    s.text(30, y, "Mega i01.left → 3 cartes PCA9685 (bus I2C chaîné, câbles courts)")
+    s.text(30, y, "Mega i01.left → 3 cartes PCA9685 (bus I2C : câbler de carte en carte, câbles courts)")
     s.add(Comp("mega", 30, y + 20, 250, "Arduino Mega i01.left", "alimentée par l'USB",
                right=[("5V", "5 V"), ("SDA", "SDA (broche 20)"), ("SCL", "SCL (broche 21)"), ("GND", "GND"),
                       ("D23", "broche 23 (PIR)")]))
-    xs = [400, 600, 800]
-    for i, b in enumerate(wiring.BOARDS):
+    bus = (("m5", 340, "v5", "5 V", "5V", "VCC"), ("msda", 375, "sda", "SDA", "SDA", "SDA"),
+           ("mscl", 410, "scl", "SCL", "SCL", "SCL"), ("mgnd", 445, "gnd", "GND", "GND", "GND"))
+    yy = y + 20
+    for b in wiring.BOARDS:
         letter = BOARD_RAIL[b["name"]][0]
-        s.add(Comp("p" + letter, xs[i], y + 20, 180, "PCA9685 %s" % b["address"], "carte %s · %s" % (letter, b["jumpers"]),
-                   left=[("VCC", "VCC"), ("SDA", "SDA"), ("SCL", "SCL"), ("GND", "GND")],
-                   right=[("VCC", ""), ("SDA", ""), ("SCL", ""), ("GND", "")] if i < 2 else []))
-    nets = (("VCC", "v5", "5V"), ("SDA", "sda", "SDA"), ("SCL", "scl", "SCL"), ("GND", "gnd", "GND"))
-    for pin, net, mega_pin in nets:
-        s.wire("mega.%s" % mega_pin, "pA.%s" % pin, net)
-    # chaînage : la sortie droite de chaque carte est la même broche que l'entrée (connecteur double)
-    for a, b in (("A", "B"), ("B", "C")):
-        for pin, net, _ in nets:
-            s.wire("p%s.%s" % (a, pin), "p%s.%s" % (b, pin), net)
-    s.add(Comp("pir", 400, y + 180, 250, "Capteur PIR (HC-SR501)", "présence, réglé dans MyRobotLab",
+        c = s.add(Comp("p" + letter, 520, yy, 300, "PCA9685 %s · carte %s" % (b["address"], letter), b["jumpers"],
+                       left=[("VCC", "VCC (logique)"), ("SDA", "SDA"), ("SCL", "SCL"), ("GND", "GND")]))
+        yy += c.h + 20
+    for rid, x, net, label, _, _ in bus:
+        s.rail(rid, x, y + 50, yy - 40, net, label)
+    for rid, x, net, label, mega_pin, _ in bus:
+        s.wire("mega." + mega_pin, "rail:" + rid, net)
+    for b in wiring.BOARDS:
+        letter = BOARD_RAIL[b["name"]][0]
+        for rid, x, net, label, _, pin in bus:
+            s.wire("rail:" + rid, "p%s.%s" % (letter, pin), net)
+    s.add(Comp("pir", 520, yy + 10, 300, "Capteur PIR (HC-SR501)", "présence, réglé dans MyRobotLab",
                left=[("OUT", "OUT"), ("VCC", "VCC 5 V"), ("GND", "GND")]))
-    s.wire("mega.D23", "pir.OUT", "sig", note="broche au choix : l'indiquer dans le service Pir de MyRobotLab")
+    s.wire("mega.D23", "pir.OUT", "sig", lane=300,
+           note="broche au choix : l'indiquer dans le service Pir de MyRobotLab")
+    s.wire("rail:m5", "pir.VCC", "v5")
+    s.wire("rail:mgnd", "pir.GND", "gnd")
+    yy += 140
     # départs 6 V
-    y = 900
+    y = yy + 30
     s.text(30, y, "Bornier 6 V → un départ protégé et mesuré par carte")
     s.add(Comp("b6", 30, y + 20, 220, "Bornier 6 V", "depuis le convertisseur 6 V",
                right=[("A", "+6 V départ A"), ("B", "+6 V départ B"), ("C", "+6 V départ C")], kind="power"))
@@ -523,7 +530,7 @@ def sheet_torso():
         s.wire("in%s.IN-" % letter, "in%s.VBS" % letter, "v6", lane=830, section="0,25 mm²",
                note="VBUS mesure la tension de la carte")
     # bus I2C du Pi : capteurs
-    y = 1280
+    y = s.bottom + 70
     s.text(30, y, "Bus I2C n°1 du Raspberry Pi : capteurs (3,3 V)")
     s.add(Comp("gpio", 30, y + 20, 250, "Raspberry Pi 5 · GPIO", "connecteur 40 broches",
                right=[("1", "broche 1 · 3,3 V"), ("3", "broche 3 · SDA"), ("5", "broche 5 · SCL"),

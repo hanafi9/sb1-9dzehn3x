@@ -236,3 +236,6 @@ code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .85em; 
   .el-page + .el-page { break-before: page; }
   .el-page svg { max-height: 250mm; }
 }
+a.button { display: inline-block; padding: .4rem .7rem; border: 1px solid var(--accent); border-radius: 8px;
+  text-decoration: none; font: inherit; }
+a.button.ghost { background: transparent; color: var(--accent); }

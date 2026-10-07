@@ -113,10 +113,14 @@
       <div class="card">
         <div class="row between wrap">
           <h2>Schémas électriques détaillés</h2>
-          <button id="el-print" class="ghost">Imprimer tous les schémas / PDF</button>
+          <div class="row wrap">
+            <a class="button ghost" href="/api/electrical/kicad.zip" download>Projet KiCad (.zip)</a>
+            <button id="el-print" class="ghost">Imprimer tous les schémas / PDF</button>
+          </div>
         </div>
         <p class="muted">Chaque fil, chaque broche, chaque fusible, section par section, avec la liste de câblage à suivre.
-          Le PDF prêt à imprimer est aussi dans <code>docs/schemas-electriques.pdf</code>.</p>
+          Le PDF prêt à imprimer est aussi dans <code>docs/schemas-electriques.pdf</code>, et le projet KiCad
+          (à ouvrir avec KiCad 7, 8 ou 9) dans le dossier <code>kicad/</code>.</p>
         <div class="chips" id="el-sheets" role="tablist"></div>
         <div id="el-sheet"></div>
       </div>
