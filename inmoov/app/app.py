@@ -38,9 +38,18 @@ from memory_store import MemoryStore  # noqa: E402
 from jobs import JobRunner  # noqa: E402
 from mrl_client import MrlClient  # noqa: E402
 
+def default_mrl_dir():
+    """Dossier de MyRobotLab le plus récent dans le dossier personnel (~/myrobotlab-1.1.xxxx), sinon ~/mrl."""
+    home = os.path.expanduser("~")
+    found = [os.path.join(home, d) for d in os.listdir(home)
+             if d.startswith("myrobotlab-") and os.path.isdir(os.path.join(home, d))] if os.path.isdir(home) else []
+    return max(found, key=lambda p: [int(x) if x.isdigit() else 0 for x in p.rsplit("-", 1)[-1].split(".")],
+               default=os.path.join(home, "mrl"))
+
+
 DEFAULT_SETTINGS = {
     "mrl_url": "http://127.0.0.1:8888",
-    "mrl_dir": "/home/pi/mrl",
+    "mrl_dir": default_mrl_dir(),
     "arduino_cli": "arduino-cli",
     "robot_config": os.path.join(ROOT, "config.json"),
     "legs_config": os.path.join(ROOT, "legs", "legs_config.json"),

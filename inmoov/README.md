@@ -69,10 +69,10 @@ Alimentation : 6 V forte puissance → bornier avec un fusible par carte ; pour 
 ### Installation
 
 ```bash
-cd /home/pi/inmoov
+cd ~/domokami/inmoov
 python3 -m venv .venv-app
 .venv-app/bin/pip install -r app/requirements.txt
-sudo usermod -aG dialout pi            # accès aux ports série (Arduino), puis se reconnecter
+sudo usermod -aG dialout $USER         # accès aux ports série (Arduino), puis redémarrer
 
 # arduino-cli (compilation et téléversement depuis l'appli)
 curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR=$HOME/.local/bin sh
@@ -84,10 +84,11 @@ cd app && set -a && . ../app.env && set +a && ../.venv-app/bin/python app.py
 ```
 
 Pour que les boutons Démarrer / Arrêter de l'onglet Services fonctionnent, autorisez **uniquement**
-ces commandes sans mot de passe (`sudo visudo -f /etc/sudoers.d/inmoov`) :
+ces commandes sans mot de passe (`sudo visudo -f /etc/sudoers.d/inmoov`), en remplaçant
+`VOTRE_UTILISATEUR` par votre nom d'utilisateur (la commande `whoami` l'affiche) :
 
 ```
-pi ALL=(root) NOPASSWD: /usr/bin/systemctl start inmoov-vision, /usr/bin/systemctl stop inmoov-vision, /usr/bin/systemctl restart inmoov-vision, /usr/bin/systemctl start inmoov-voice, /usr/bin/systemctl stop inmoov-voice, /usr/bin/systemctl restart inmoov-voice, /usr/bin/systemctl start inmoov-sensors, /usr/bin/systemctl stop inmoov-sensors, /usr/bin/systemctl restart inmoov-sensors
+VOTRE_UTILISATEUR ALL=(root) NOPASSWD: /usr/bin/systemctl start inmoov-vision, /usr/bin/systemctl stop inmoov-vision, /usr/bin/systemctl restart inmoov-vision, /usr/bin/systemctl start inmoov-voice, /usr/bin/systemctl stop inmoov-voice, /usr/bin/systemctl restart inmoov-voice, /usr/bin/systemctl start inmoov-sensors, /usr/bin/systemctl stop inmoov-sensors, /usr/bin/systemctl restart inmoov-sensors
 ```
 
 Démarrage automatique : service `systemd/inmoov-app.service` (voir section 5).
@@ -107,19 +108,24 @@ Démarrage automatique : service `systemd/inmoov-app.service` (voir section 5).
 
 ## 1. Préparer le Raspberry Pi 5
 
-- Raspberry Pi OS **64 bits** (Bookworm), alimentation officielle **5 V / 5 A**
+- Raspberry Pi OS **64 bits** (Bookworm ou Trixie), alimentation officielle **5 V / 5 A**
   (sinon les ports USB sont limités à 600 mA, insuffisant pour Coral + caméra + micro).
 - Brancher le **Coral USB sur un port USB 3 (bleu)**.
 - MyRobotLab Nixie installé et InMoov2 démarré (WebGui sur le port 8888).
 - **Désactiver le suivi de visage intégré d'InMoov2** pour ne pas avoir deux programmes qui
   bougent la tête en même temps.
 
-Copier ce dossier sur le Pi, par exemple dans `/home/pi/inmoov`, puis :
+Télécharger le projet sur le Pi (il arrive dans `~/domokami/inmoov`, quel que soit votre nom
+d'utilisateur), puis :
 
 ```bash
-cd /home/pi/inmoov
+sudo apt install -y git python3-venv
+git clone --branch claude/inspiring-fermi-0kap3c https://github.com/hanafi9/sb1-9dzehn3x.git ~/domokami
+cd ~/domokami/inmoov
 cp config.example.json config.json   # puis l'adapter à votre robot
 ```
+
+Mettre à jour plus tard : `cd ~/domokami && git pull` (config.json et les fichiers .env sont conservés).
 
 ## 2. Vision : Coral USB + suivi de visage
 
@@ -246,8 +252,8 @@ commandes locales partent vers **Claude** (API Anthropic) au lieu du chatbot AIM
 1. Créer une clé API sur <https://platform.claude.com> (l'usage est payant, au nombre de mots traités).
 2. Sur le Pi :
    ```bash
-   echo 'ANTHROPIC_API_KEY=sk-ant-...' > /home/pi/inmoov/anthropic.env
-   chmod 600 /home/pi/inmoov/anthropic.env      # ce fichier ne doit jamais aller sur GitHub
+   echo 'ANTHROPIC_API_KEY=sk-ant-...' > ~/domokami/inmoov/anthropic.env
+   chmod 600 ~/domokami/inmoov/anthropic.env      # ce fichier ne doit jamais aller sur GitHub
    ```
 3. Dans `config.json` → `brain` : mettre votre prénom dans `owner_name`, le nom du robot dans
    `robot_name`, et éventuellement des consignes dans `extra_instructions`
@@ -265,8 +271,8 @@ commandes locales partent vers **Claude** (API Anthropic) au lieu du chatbot AIM
 ## 5. Démarrage automatique
 
 ```bash
-sudo cp systemd/inmoov-*.service /etc/systemd/system/
-sudo systemctl daemon-reload
+cd ~/domokami/inmoov
+bash systemd/install.sh            # adapte l'utilisateur et les chemins, puis copie les services
 sudo systemctl enable --now inmoov-app inmoov-vision inmoov-voice inmoov-sensors
 journalctl -u inmoov-voice -f      # voir ce que le robot entend
 ```

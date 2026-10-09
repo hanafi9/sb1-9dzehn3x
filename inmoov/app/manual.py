@@ -459,17 +459,20 @@ CHAPTERS = [
         "id": "logiciel", "title": "Logiciel (Raspberry Pi, MyRobotLab, Atelier)", "blocks": [
             ("h", "Raspberry Pi 5"),
             ("steps", [
-                "Installer Raspberry Pi OS 64 bits (Bookworm) avec Raspberry Pi Imager ; activer SSH et le Wi-Fi.",
+                "Installer Raspberry Pi OS 64 bits (Bookworm ou Trixie) avec Raspberry Pi Imager ; activer SSH et le Wi-Fi.",
                 "Utiliser l'alimentation officielle 5 V / 5 A.",
-                "Copier le dossier inmoov dans le dossier personnel, puis créer config.json à partir de l'exemple.",
+                "Télécharger le projet avec git (il arrive dans ~/domokami/inmoov), puis créer config.json à partir de l'exemple.",
             ]),
-            ("cmd", ["sudo apt update && sudo apt full-upgrade -y", "cd ~/inmoov && cp config.example.json config.json"]),
+            ("cmd", ["sudo apt update && sudo apt full-upgrade -y", "sudo apt install -y git python3-venv",
+                     "git clone --branch claude/inspiring-fermi-0kap3c https://github.com/hanafi9/sb1-9dzehn3x.git ~/domokami",
+                     "cd ~/domokami/inmoov && cp config.example.json config.json"]),
             ("h", "MyRobotLab (Nixie) et InMoov2"),
             ("steps", [
                 "Installer Java 11 ou plus récent (MyRobotLab demande « Java 11 or newer »). Raspberry Pi OS ne "
                 "propose plus le paquet openjdk-11 : installer le Java par défaut du système (Java 17 sur Bookworm, "
                 "Java 21 sur Trixie), puis vérifier avec java -version.",
-                "Télécharger MyRobotLab Nixie, le décompresser (par exemple ~/mrl) et lancer myrobotlab.sh.",
+                "Télécharger MyRobotLab Nixie, le décompresser (par exemple ~/myrobotlab-1.1.1612), entrer dans ce dossier "
+                "et lancer ./myrobotlab.sh (le premier lancement télécharge ses bibliothèques : plusieurs minutes).",
                 "Démarrer InMoov2 ; l'interface de MyRobotLab répond sur le port 8888.",
                 "Indiquer le dossier de MyRobotLab dans l'onglet Réglages de l'Atelier.",
             ]),
@@ -477,7 +480,7 @@ CHAPTERS = [
             L("mrl_start", "nixie"),
             ("h", "L'Atelier (cette application)"),
             ("cmd", [
-                "cd ~/inmoov && python3 -m venv .venv-app && .venv-app/bin/pip install -r app/requirements.txt",
+                "cd ~/domokami/inmoov && python3 -m venv .venv-app && .venv-app/bin/pip install -r app/requirements.txt",
                 "sudo usermod -aG dialout $USER",
                 "cd app && ../.venv-app/bin/python app.py --port 8090",
             ]),
@@ -489,16 +492,14 @@ CHAPTERS = [
             ]),
             ("h", "Démarrage automatique"),
             ("cmd", [
-                "sudo cp ~/inmoov/systemd/inmoov-*.service /etc/systemd/system/",
-                "sudo systemctl daemon-reload",
+                "cd ~/domokami/inmoov && bash systemd/install.sh",
                 "sudo systemctl enable --now inmoov-app inmoov-vision inmoov-voice inmoov-sensors",
             ]),
-            ("tip", "Si votre nom d'utilisateur n'est pas « pi », adaptez les fichiers .service avant de les copier "
-                    "(chemins /home/pi et ligne User=pi)."),
+            ("tip", "systemd/install.sh adapte les services à votre nom d'utilisateur et à votre dossier "
+                    "avant de les copier : rien à modifier à la main."),
             ("h", "Mettre à jour l'Atelier"),
             ("steps", [
-                "Retélécharger le ZIP de la branche sur GitHub.",
-                "Le décompresser au même endroit en remplaçant les fichiers : config.json et le dossier data sont conservés.",
+                "cd ~/domokami && git pull : config.json, les fichiers .env et les dossiers data sont conservés.",
                 "Relancer l'Atelier et faire Ctrl + F5 dans le navigateur.",
             ]),
             ("h", "Sauvegarder"),
@@ -520,7 +521,7 @@ CHAPTERS = [
             ("h", "Mise en route de l'IA"),
             ("steps", [
                 "Créer une clé API sur platform.claude.com (usage payant).",
-                "La mettre dans ~/inmoov/anthropic.env (ANTHROPIC_API_KEY=...), puis chmod 600.",
+                "La mettre dans ~/domokami/inmoov/anthropic.env (ANTHROPIC_API_KEY=...), puis chmod 600.",
                 "Dans config.json → brain : votre prénom (owner_name) et le nom du robot.",
                 "Tester sans bouger le robot : speech_listener.py avec --dry-run.",
             ]),
@@ -535,7 +536,7 @@ CHAPTERS = [
             ("h", "Apprendre un geste en le montrant"),
             ("cmd", [
                 "sudo systemctl stop inmoov-vision",
-                "cd ~/inmoov/vision && ../.venv-mirror/bin/python mirror.py --config ../config.json --dry-run -v",
+                "cd ~/domokami/inmoov/vision && ../.venv-mirror/bin/python mirror.py --config ../config.json --dry-run -v",
                 "../.venv-mirror/bin/python mirror.py --config ../config.json --record salut",
             ]),
             ("tab", "ai", "Gérer les souvenirs et les gestes appris"),

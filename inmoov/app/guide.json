@@ -4,7 +4,7 @@
     "steps": [
       {
         "id": "pi-os",
-        "title": "Installer Raspberry Pi OS 64 bits (Bookworm)",
+        "title": "Installer Raspberry Pi OS 64 bits (Bookworm ou Trixie)",
         "details": "Avec Raspberry Pi Imager, sur un SSD NVMe ou une carte SD rapide. Activez SSH et le Wi-Fi dans les réglages de l'Imager.",
         "commands": [
           "sudo apt update && sudo apt full-upgrade -y"
@@ -17,10 +17,12 @@
       },
       {
         "id": "pi-copy",
-        "title": "Copier le dossier inmoov sur le Pi",
-        "details": "Par exemple dans /home/pi/inmoov, puis créer config.json à partir de l'exemple.",
+        "title": "Télécharger le projet sur le Pi",
+        "details": "Il arrive dans ~/domokami/inmoov (quel que soit votre nom d'utilisateur), puis créer config.json à partir de l'exemple.",
         "commands": [
-          "cd /home/pi/inmoov && cp config.example.json config.json"
+          "sudo apt install -y git python3-venv",
+          "git clone --branch claude/inspiring-fermi-0kap3c https://github.com/hanafi9/sb1-9dzehn3x.git ~/domokami",
+          "cd ~/domokami/inmoov && cp config.example.json config.json"
         ]
       }
     ]
@@ -30,13 +32,17 @@
     "steps": [
       {
         "id": "mrl-java",
-        "title": "Installer Java 11 (64 bits)",
-        "details": "MyRobotLab Nixie demande Java 11. Vérifiez avec java -version."
+        "title": "Installer Java (11 ou plus récent)",
+        "details": "MyRobotLab Nixie demande Java 11 ou plus récent. Raspberry Pi OS ne propose plus openjdk-11 : installez le Java par défaut (17 sur Bookworm, 21 sur Trixie).",
+        "commands": [
+          "sudo apt install -y default-jre",
+          "java -version"
+        ]
       },
       {
         "id": "mrl-install",
         "title": "Installer MyRobotLab Nixie",
-        "details": "Téléchargez la version Nixie sur myrobotlab.org, décompressez-la (par exemple dans /home/pi/mrl), puis lancez myrobotlab.sh. Renseignez ce dossier dans « mrl_dir » (onglet Réglages de l'appli)."
+        "details": "Téléchargez la version Nixie sur myrobotlab.org, décompressez-la dans votre dossier personnel (par exemple ~/myrobotlab-1.1.1612), entrez dans ce dossier puis lancez ./myrobotlab.sh. Renseignez ce dossier dans « mrl_dir » (onglet Réglages de l'appli)."
       },
       {
         "id": "mrl-inmoov2",
@@ -149,7 +155,7 @@
         "id": "vis-model",
         "title": "Télécharger le modèle de visage",
         "commands": [
-          "cd /home/pi/inmoov && mkdir -p models && wget -P models https://raw.githubusercontent.com/google-coral/test_data/master/ssd_mobilenet_v2_face_quant_postprocess_edgetpu.tflite"
+          "cd ~/domokami/inmoov && mkdir -p models && wget -P models https://raw.githubusercontent.com/google-coral/test_data/master/ssd_mobilenet_v2_face_quant_postprocess_edgetpu.tflite"
         ]
       },
       {
@@ -170,7 +176,7 @@
       {
         "id": "voice-key",
         "title": "Clé API Claude",
-        "details": "Créez /home/pi/inmoov/anthropic.env avec ANTHROPIC_API_KEY=... (chmod 600). Sans clé, le robot utilise le chatbot d'InMoov2."
+        "details": "Créez ~/domokami/inmoov/anthropic.env avec ANTHROPIC_API_KEY=... (chmod 600). Sans clé, le robot utilise le chatbot d'InMoov2."
       },
       {
         "id": "voice-test",
@@ -190,7 +196,7 @@
         "id": "legs-torque",
         "title": "Calculer les moteurs",
         "commands": [
-          "cd /home/pi/inmoov/legs && python3 torque_calc.py --masse 18 --reduction 4"
+          "cd ~/domokami/inmoov/legs && python3 torque_calc.py --masse 18 --reduction 4"
         ]
       },
       {
@@ -227,8 +233,7 @@
         "id": "svc-enable",
         "title": "Démarrage automatique",
         "commands": [
-          "sudo cp /home/pi/inmoov/systemd/inmoov-*.service /etc/systemd/system/",
-          "sudo systemctl daemon-reload",
+          "cd ~/domokami/inmoov && bash systemd/install.sh",
           "sudo systemctl enable --now inmoov-app inmoov-vision inmoov-voice"
         ]
       },
@@ -257,7 +262,7 @@
         "title": "Lancer la centrale des capteurs",
         "details": "Essayez d'abord en simulation, puis avec les vrais capteurs. Réglez les shunts et les limites de courant dans config.json (section sensors).",
         "commands": [
-          "cd /home/pi/inmoov && python3 -m venv .venv-sensors && .venv-sensors/bin/pip install -r sensors/requirements.txt",
+          "cd ~/domokami/inmoov && python3 -m venv .venv-sensors && .venv-sensors/bin/pip install -r sensors/requirements.txt",
           "cd sensors && ../.venv-sensors/bin/python sensor_hub.py --config ../config.json --simulate"
         ]
       },
@@ -266,7 +271,7 @@
         "title": "Voix française hors ligne (Piper)",
         "details": "Puis mettez \"tts\": \"piper\" dans la section voice de config.json.",
         "commands": [
-          "cd /home/pi/inmoov && .venv-voice/bin/pip install piper-tts",
+          "cd ~/domokami/inmoov && .venv-voice/bin/pip install piper-tts",
           "mkdir -p models && .venv-voice/bin/python -m piper.download_voices --download-dir models fr_FR-tom-medium"
         ]
       },
@@ -280,7 +285,7 @@
         "title": "Mode imitation et gestes appris",
         "details": "Arrêtez le suivi de visage (la caméra ne sert qu'à un programme), testez sans bouger le robot, puis enregistrez un geste.",
         "commands": [
-          "cd /home/pi/inmoov && python3 -m venv .venv-mirror && .venv-mirror/bin/pip install -r vision/requirements-mirror.txt",
+          "cd ~/domokami/inmoov && python3 -m venv .venv-mirror && .venv-mirror/bin/pip install -r vision/requirements-mirror.txt",
           "cd vision && ../.venv-mirror/bin/python mirror.py --config ../config.json --dry-run -v",
           "../.venv-mirror/bin/python mirror.py --config ../config.json --record salut"
         ]
