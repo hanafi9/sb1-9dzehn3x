@@ -40,6 +40,11 @@ else
     echo "    https://github.com/feranick/libedgetpu/releases puis relancer ce script." >&2
     exit 1
 fi
+# la règle d'accès (groupe plugdev) du pilote ne vaut que pour les Coral branchés après son
+# installation : on l'applique tout de suite au Coral déjà branché
+sudo udevadm control --reload-rules
+sudo udevadm trigger --subsystem-match=usb --attr-match=idVendor=1a6e
+sudo udevadm trigger --subsystem-match=usb --attr-match=idVendor=18d1
 if [ -f /etc/apt/sources.list.d/coral-edgetpu.list ]; then
     echo "    retrait de l'ancien dépôt Google (403) : /etc/apt/sources.list.d/coral-edgetpu.list"
     sudo rm -f /etc/apt/sources.list.d/coral-edgetpu.list /etc/apt/keyrings/coral.gpg
@@ -83,3 +88,8 @@ fi
 echo
 echo "Vérification : Coral vu par PyCoral ?"
 "$DIR/.venv-vision/bin/python" -c "from pycoral.utils.edgetpu import list_edge_tpus; t = list_edge_tpus(); print(t if t else 'AUCUN Coral trouvé : rebrancher le Coral (port bleu) puis relancer ce script')"
+echo "Vérification : modèle chargé sur le Coral ?"
+"$DIR/.venv-vision/bin/python" -c "
+from pycoral.utils.edgetpu import make_interpreter
+i = make_interpreter('$MODEL'); i.allocate_tensors(); print('OK : le Coral exécute le modèle')
+" || echo "ÉCHEC : débrancher/rebrancher le Coral (port bleu) ; si cela persiste, voir sudo dmesg | tail -15"
