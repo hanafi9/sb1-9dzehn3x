@@ -551,7 +551,7 @@ CHAPTERS = [
                 ["Un servo ne bouge pas", "Schémas → carte et canal", "Câble sur le bon canal, carte alimentée, câblage appliqué à MyRobotLab"],
                 ["Tous les servos d'une carte sont coupés", "Onglet Capteurs", "Surintensité : chercher le servo bloqué, puis « Réarmer »"],
                 ["Servos qui tremblent", "Multimètre sur le bornier", "Alimentation trop faible ou masses non reliées"],
-                ["« Coral : absent »", "lsusb", "Rebrancher sur un port USB 3 (bleu), vérifier le pilote libedgetpu"],
+                ["« Coral : absent »", "lsusb", "Rebrancher sur un port USB 3 (bleu), câble de données ; pilote : bash vision/install_coral.sh"],
                 ["Le robot n'entend pas", "journal de inmoov-voice", "Choisir le bon micro (--list-devices), baisser vad_aggressiveness"],
                 ["Le robot répond à côté", "journal de inmoov-voice", "Ajouter les mots difficiles dans « vocabulary »"],
                 ["Pas de réponse de l'IA", "journal de inmoov-voice", "Clé ANTHROPIC_API_KEY, connexion Internet ; sinon IA locale ou chatbot"],

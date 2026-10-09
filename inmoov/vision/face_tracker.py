@@ -4,7 +4,7 @@
 Le Coral détecte les visages, et le programme tourne la tête (rothead)
 et le cou (neck) pour garder le visage le plus proche au centre de l'image.
 
-Nécessite Python 3.9 (PyCoral ne supporte pas 3.11), voir inmoov/README.md.
+Nécessite Python 3.12 au plus (PyCoral n'existe pas pour 3.13) : bash vision/install_coral.sh
 
     python face_tracker.py --config ../config.json
 """

@@ -148,8 +148,11 @@
     "steps": [
       {
         "id": "vis-coral",
-        "title": "Installer le pilote Coral et Python 3.9",
-        "details": "Voir README section 2. Le Tableau de bord doit afficher « Coral USB : détecté »."
+        "title": "Installer le pilote Coral et Python 3.12",
+        "details": "Un seul script installe le pilote, Python 3.12, pycoral et le modèle (voir README section 2). Le Tableau de bord doit afficher « Coral USB : détecté ».",
+        "commands": [
+          "cd ~/domokami/inmoov && bash vision/install_coral.sh"
+        ]
       },
       {
         "id": "vis-model",

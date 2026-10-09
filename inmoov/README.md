@@ -5,7 +5,7 @@ et lui parlent par son API REST (`http://127.0.0.1:8888/api/service/...`) :
 
 | Programme | Rôle | Python |
 |---|---|---|
-| `vision/face_tracker.py` | Caméra USB → Coral USB → tourne `rothead` / `neck` vers le visage le plus proche | **3.9** (obligatoire pour PyCoral) |
+| `vision/face_tracker.py` | Caméra USB → Coral USB → tourne `rothead` / `neck` vers le visage le plus proche | **3.12** (PyCoral n'existe pas pour 3.13 ; installé par `vision/install_coral.sh`) |
 | `voice/speech_listener.py` | Micro → détection de voix → Whisper → commandes locales, **IA Claude** ou chatbot `i01.chatBot` | 3.11 (celui du système) |
 | `voice/llm_brain.py` | IA conversationnelle (Claude) qui remplace le chatbot AIML et peut bouger la tête et les mains | 3.11 |
 | `legs/` | Jambes motorisées : firmware Arduino Mega, pilotage depuis le Pi, calcul des moteurs | Arduino + 3.11 |
@@ -129,37 +129,35 @@ Mettre à jour plus tard : `cd ~/domokami && git pull` (config.json et les fichi
 
 ## 2. Vision : Coral USB + suivi de visage
 
-### Pilote Edge TPU
+### Installation (pilote + Python + modèle) : un seul script
 
 ```bash
-sudo mkdir -p /etc/apt/keyrings
-curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo gpg --dearmor -o /etc/apt/keyrings/coral.gpg
-echo "deb [signed-by=/etc/apt/keyrings/coral.gpg] https://packages.cloud.google.com/apt coral-edgetpu-stable main" \
-  | sudo tee /etc/apt/sources.list.d/coral-edgetpu.list
-sudo apt update
-sudo apt install libedgetpu1-std     # libedgetpu1-max = plus rapide mais chauffe beaucoup
+cd ~/domokami/inmoov
+bash vision/install_coral.sh        # sans sudo ; redémarrer le Pi s'il le demande
 ```
 
-Débrancher puis rebrancher le Coral. `lsusb` doit afficher `1a6e:089a Global Unichip`
-(ou `18d1:9302 Google` une fois initialisé).
+Le script installe :
+1. le pilote **libedgetpu** ;
+2. **Python 3.12** (avec [uv](https://docs.astral.sh/uv/), à côté du Python du système) ;
+3. **pycoral**, **tflite-runtime** et OpenCV dans `.venv-vision` ;
+4. le modèle de détection de visage.
 
-### Python 3.9 avec pyenv
+Il vérifie l'empreinte SHA-256 de chaque fichier téléchargé et finit par afficher le Coral vu
+par PyCoral.
 
-```bash
-sudo apt install -y build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev \
-  libsqlite3-dev libffi-dev liblzma-dev tk-dev
-curl https://pyenv.run | bash
-# suivre les instructions affichées pour ajouter pyenv au ~/.bashrc, puis :
-pyenv install 3.9.19
-~/.pyenv/versions/3.9.19/bin/python -m venv .venv-vision
-.venv-vision/bin/pip install -r vision/requirements.txt
-```
+> Pourquoi pas les paquets de Google ? Le dépôt apt Coral de Google répond « 403 Forbidden »
+> depuis fin septembre 2026, et le PyCoral officiel s'arrête à Python 3.9. Le script prend les
+> versions recompilées par la communauté : [feranick/libedgetpu](https://github.com/feranick/libedgetpu/releases)
+> (paquet Debian 13 « trixie »), [feranick/pycoral](https://github.com/feranick/pycoral/releases) et
+> [feranick/TFlite-builds](https://github.com/feranick/TFlite-builds/releases).
 
-> Si `pip` ne trouve pas de paquet `pycoral` pour votre système, l'autre solution
-> fiable est de lancer `face_tracker.py` dans un conteneur Docker Debian 10 (Python 3.7),
-> comme expliqué par Jeff Geerling.
+`lsusb` affiche `1a6e:089a Global Unichip` tant que le Coral n'a pas servi, puis
+`18d1:9302 Google` une fois initialisé par le suivi de visage (il passe alors en USB 3).
+⚠️ Le Coral peut consommer jusqu'à 900 mA : alimentation officielle 27 W (5 A) ou hub USB alimenté.
 
 ### Modèle de détection de visage
+
+Déjà téléchargé par `install_coral.sh` dans `models/`. À la main :
 
 ```bash
 mkdir -p models
