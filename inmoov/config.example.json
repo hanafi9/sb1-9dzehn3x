@@ -1,0 +1,289 @@
+{
+  "mrl": {
+    "url": "http://127.0.0.1:8888",
+    "timeout_s": 2.0
+  },
+  "vision": {
+    "camera_index": 0,
+    "frame_width": 640,
+    "frame_height": 480,
+    "model": "models/ssd_mobilenet_v2_face_quant_postprocess_edgetpu.tflite",
+    "score_threshold": 0.6,
+    "max_command_rate_hz": 10,
+    "lost_face_timeout_s": 3.0,
+    "show_window": false,
+    "pan": {
+      "service": "i01.head.rothead",
+      "min": 30,
+      "max": 150,
+      "rest": 90,
+      "gain": 12.0,
+      "deadband": 0.08,
+      "max_step": 4.0,
+      "invert": false
+    },
+    "tilt": {
+      "service": "i01.head.neck",
+      "min": 60,
+      "max": 120,
+      "rest": 90,
+      "gain": 8.0,
+      "deadband": 0.1,
+      "max_step": 3.0,
+      "invert": true
+    },
+    "share_frame_path": "/dev/shm/inmoov_frame.jpg",
+    "share_frame_period_s": 1.0
+  },
+  "brain": {
+    "enabled": true,
+    "model": "claude-opus-5-5",
+    "effort": "low",
+    "max_tokens": 4096,
+    "timeout_s": 30,
+    "max_tool_rounds": 4,
+    "reset_after_idle_s": 600,
+    "max_history_messages": 60,
+    "robot_name": "InMoov",
+    "owner_name": "son créateur",
+    "extra_instructions": "",
+    "robot_service": "i01",
+    "rothead_service": "i01.head.rothead",
+    "neck_service": "i01.head.neck",
+    "left_hand_service": "i01.leftHand",
+    "right_hand_service": "i01.rightHand",
+    "rothead_min": 30,
+    "rothead_max": 150,
+    "neck_min": 60,
+    "neck_max": 120,
+    "camera_frame_path": "/dev/shm/inmoov_frame.jpg",
+    "camera_frame_max_age_s": 5,
+    "memory_path": "data/memory.json",
+    "gestures": [],
+    "_gestures_aide": "Noms des gestes InMoov2 autorisés pour l'IA (fichiers du dossier gestures de MyRobotLab), ex. [\"daVinci\"]. Vide = outil désactivé.",
+    "recorded_gestures_dir": "data/gestures"
+  },
+  "voice": {
+    "input_device": null,
+    "tts": "mrl",
+    "_tts_aide": "\"mrl\" = voix de MyRobotLab ; \"piper\" = voix française hors ligne (voir README)",
+    "piper_model": "models/fr_FR-tom-medium.onnx",
+    "piper_length_scale": null,
+    "whisper_model": "base",
+    "whisper_compute_type": "int8",
+    "whisper_threads": 4,
+    "beam_size": 2,
+    "language": "fr",
+    "vad_aggressiveness": 2,
+    "start_speech_ratio": 0.6,
+    "padding_ms": 300,
+    "end_silence_ms": 700,
+    "min_utterance_ms": 400,
+    "max_utterance_s": 12,
+    "max_no_speech_prob": 0.6,
+    "min_avg_logprob": -1.0,
+    "wake_words": [
+      "inmoov",
+      "robot"
+    ],
+    "wake_window_s": 8,
+    "vocabulary": "InMoov, MyRobotLab, Raspberry, bonjour, au revoir, regarde, gauche, droite, haut, bas, main, bras, tête",
+    "chatbot_service": "i01.chatBot",
+    "chatbot_method": "getResponse",
+    "mouth_service": "i01.mouth",
+    "seconds_per_char": 0.07,
+    "fuzzy_threshold": 0.8,
+    "commands": {
+      "regarde à gauche": [
+        [
+          "i01.head.rothead",
+          "moveTo",
+          140
+        ]
+      ],
+      "regarde à droite": [
+        [
+          "i01.head.rothead",
+          "moveTo",
+          40
+        ]
+      ],
+      "regarde devant": [
+        [
+          "i01.head.rothead",
+          "moveTo",
+          90
+        ],
+        [
+          "i01.head.neck",
+          "moveTo",
+          90
+        ]
+      ],
+      "regarde en haut": [
+        [
+          "i01.head.neck",
+          "moveTo",
+          70
+        ]
+      ],
+      "regarde en bas": [
+        [
+          "i01.head.neck",
+          "moveTo",
+          110
+        ]
+      ],
+      "ouvre la main droite": [
+        [
+          "i01.rightHand",
+          "open"
+        ]
+      ],
+      "ferme la main droite": [
+        [
+          "i01.rightHand",
+          "close"
+        ]
+      ],
+      "ouvre la main gauche": [
+        [
+          "i01.leftHand",
+          "open"
+        ]
+      ],
+      "ferme la main gauche": [
+        [
+          "i01.leftHand",
+          "close"
+        ]
+      ],
+      "position de repos": [
+        [
+          "i01",
+          "rest"
+        ]
+      ]
+    }
+  },
+  "local_llm": {
+    "enabled": false,
+    "url": "http://127.0.0.1:11434",
+    "model": "qwen2.5:1.5b",
+    "timeout_s": 60,
+    "max_turns": 6,
+    "_aide": "IA de secours sans Internet : Ollama sur le Pi, ou hailo-ollama avec le Raspberry Pi AI HAT+ 2. Le nom du modèle dépend de ce qui est installé."
+  },
+  "leds": {
+    "enabled": false,
+    "service": "i01.neoPixel",
+    "_aide": "LED d'état NeoPixel d'InMoov2 : bleu = écoute, violet = réfléchit, vert = parle"
+  },
+  "sensors": {
+    "_aide": "Capteurs sur le bus I2C n°1 du Raspberry Pi 5 (broches 3 SDA / 5 SCL). Adresses : INA226 0x40-0x45, ADS1115 0x48-0x4A, VL53L1X 0x29.",
+    "i2c_bus": 1,
+    "port": 8095,
+    "rate_hz": 10,
+    "boards": [
+      {
+        "name": "pca_tete",
+        "ina226": "0x41",
+        "shunt_ohm": 0.002,
+        "max_current_a": 8,
+        "max_overcurrent_s": 1.5
+      },
+      {
+        "name": "pca_gauche",
+        "ina226": "0x44",
+        "shunt_ohm": 0.002,
+        "max_current_a": 10,
+        "max_overcurrent_s": 1.5
+      },
+      {
+        "name": "pca_droite",
+        "ina226": "0x45",
+        "shunt_ohm": 0.002,
+        "max_current_a": 10,
+        "max_overcurrent_s": 1.5
+      }
+    ],
+    "battery": {
+      "ina226": "0x40",
+      "shunt_ohm": 0.001,
+      "cells": 4,
+      "chemistry": "lifepo4",
+      "low_percent": 20
+    },
+    "fingertips": {
+      "left": {
+        "thumb": [
+          "0x48",
+          0
+        ],
+        "index": [
+          "0x48",
+          1
+        ],
+        "majeure": [
+          "0x48",
+          2
+        ],
+        "ringFinger": [
+          "0x48",
+          3
+        ],
+        "pinky": [
+          "0x4A",
+          0
+        ]
+      },
+      "right": {
+        "thumb": [
+          "0x49",
+          0
+        ],
+        "index": [
+          "0x49",
+          1
+        ],
+        "majeure": [
+          "0x49",
+          2
+        ],
+        "ringFinger": [
+          "0x49",
+          3
+        ],
+        "pinky": [
+          "0x4A",
+          1
+        ]
+      }
+    },
+    "fsr_vref": 3.3,
+    "grip_threshold": 0.35,
+    "vl53l1x": "0x29",
+    "presence_mm": 1200,
+    "greet_text": "",
+    "greet_cooldown_s": 120,
+    "mouth_service": "i01.mouth",
+    "leds_service": ""
+  },
+  "mirror": {
+    "_aide": "Mode imitation (vision/mirror.py). Commencez en --dry-run, vitesse basse, personne à portée des bras.",
+    "mirror": true,
+    "gestures_dir": "data/gestures",
+    "joints": {
+      "fingers": true,
+      "bicep": true,
+      "shoulder": true,
+      "omoplate": false
+    },
+    "alpha": 0.35,
+    "deadband": 2.0,
+    "max_speed": 60.0,
+    "min_visibility": 0.6,
+    "elbow_max": 130.0,
+    "abduction_max": 90.0
+  }
+}

@@ -1,0 +1,4 @@
+# Python 3.11 ou 3.12 (pas de MediaPipe pour Python 3.9)
+mediapipe==0.10.18
+opencv-python>=4.8,<4.11
+numpy<2
