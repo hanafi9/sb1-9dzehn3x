@@ -466,11 +466,14 @@ CHAPTERS = [
             ("cmd", ["sudo apt update && sudo apt full-upgrade -y", "cd ~/inmoov && cp config.example.json config.json"]),
             ("h", "MyRobotLab (Nixie) et InMoov2"),
             ("steps", [
-                "Installer Java 11 (64 bits).",
+                "Installer Java 11 ou plus récent (MyRobotLab demande « Java 11 or newer »). Raspberry Pi OS ne "
+                "propose plus le paquet openjdk-11 : installer le Java par défaut du système (Java 17 sur Bookworm, "
+                "Java 21 sur Trixie), puis vérifier avec java -version.",
                 "Télécharger MyRobotLab Nixie, le décompresser (par exemple ~/mrl) et lancer myrobotlab.sh.",
                 "Démarrer InMoov2 ; l'interface de MyRobotLab répond sur le port 8888.",
                 "Indiquer le dossier de MyRobotLab dans l'onglet Réglages de l'Atelier.",
             ]),
+            ("cmd", ["sudo apt install -y default-jre", "java -version"]),
             L("mrl_start", "nixie"),
             ("h", "L'Atelier (cette application)"),
             ("cmd", [
