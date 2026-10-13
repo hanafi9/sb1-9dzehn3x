@@ -1,0 +1,18 @@
+[Unit]
+Description=InMoov - Atelier (application web de montage et de réglage)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=pi
+WorkingDirectory=/home/pi/inmoov/app
+# mot de passe de l'appli (fortement conseillé) : ligne INMOOV_APP_PASSWORD=... dans ce fichier
+EnvironmentFile=-/home/pi/inmoov/app.env
+# arduino-cli installé dans ~/.local/bin
+Environment=PATH=/home/pi/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/home/pi/inmoov/.venv-app/bin/python app.py --port 8090
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

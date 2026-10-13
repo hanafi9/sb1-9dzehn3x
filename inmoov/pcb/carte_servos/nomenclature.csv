@@ -1,0 +1,42 @@
+Repère;Valeur;Empreinte KiCad;Composant;LCSC;Référence fabricant;Soudé par
+J1;6V entrée;TerminalBlock_Phoenix:TerminalBlock_Phoenix_MKDS-3-2-5.08_1x02_P5.08mm_Horizontal;Bornier à vis 2 points pas 5,08 mm, 24 A (Phoenix MKDS 3/2-5,08 ou équivalent);;;vous
+F1;Fusible ATO;Fuse:FuseHolder_Blade_ATO_Littelfuse_FLR_178.6165;Porte-fusible ATO pour circuit imprimé 30 A (Littelfuse 178.6165) + fusible lame ATO 10 ou 15 A;;;vous
+RS1;2mR;Resistor_SMD:R_2512_6332Metric;Résistance de mesure 2 mΩ 2 W 2512;C2904228;HoJLR2512-2W-2mR-1%;JLCPCB
+U2;INA226;Package_SO:VSSOP-10_3x3mm_P0.5mm;INA226 mesure de courant;C49851;INA226AIDGSR;JLCPCB
+C3;100nF;Capacitor_SMD:C_0603_1608Metric;100 nF;C14663;CC0603KRX7R9BB104;JLCPCB
+R21;10k;Resistor_SMD:R_0603_1608Metric;10 kΩ;C25804;0603WAF1002T5E;JLCPCB
+R22;10k;Resistor_SMD:R_0603_1608Metric;10 kΩ;C25804;0603WAF1002T5E;JLCPCB
+R25;1k;Resistor_SMD:R_0603_1608Metric;1 kΩ;C21190;0603WAF1001T5E;JLCPCB
+D1;LED;LED_SMD:LED_0603_1608Metric;LED verte 0603;C12624;KT-0603G;JLCPCB
+C4;1000uF;Capacitor_THT:CP_Radial_D10.0mm_P5.00mm;Condensateur électrolytique 1000 µF 10 V, Ø 10 mm, pas 5 mm;;;vous
+J10;Servos 0-3;DomokamiConnect:Servo_4x3_P2.54mm;Barrette mâle 2,54 mm : 4 morceaux de 3 broches (sécable);;;vous
+J11;Servos 4-7;DomokamiConnect:Servo_4x3_P2.54mm;Barrette mâle 2,54 mm : 4 morceaux de 3 broches (sécable);;;vous
+J12;Servos 8-11;DomokamiConnect:Servo_4x3_P2.54mm;Barrette mâle 2,54 mm : 4 morceaux de 3 broches (sécable);;;vous
+J13;Servos 12-15;DomokamiConnect:Servo_4x3_P2.54mm;Barrette mâle 2,54 mm : 4 morceaux de 3 broches (sécable);;;vous
+R1;220;Resistor_SMD:R_0603_1608Metric;220 Ω;C22962;0603WAF2200T5E;JLCPCB
+R2;220;Resistor_SMD:R_0603_1608Metric;220 Ω;C22962;0603WAF2200T5E;JLCPCB
+R3;220;Resistor_SMD:R_0603_1608Metric;220 Ω;C22962;0603WAF2200T5E;JLCPCB
+R4;220;Resistor_SMD:R_0603_1608Metric;220 Ω;C22962;0603WAF2200T5E;JLCPCB
+R5;220;Resistor_SMD:R_0603_1608Metric;220 Ω;C22962;0603WAF2200T5E;JLCPCB
+R6;220;Resistor_SMD:R_0603_1608Metric;220 Ω;C22962;0603WAF2200T5E;JLCPCB
+R7;220;Resistor_SMD:R_0603_1608Metric;220 Ω;C22962;0603WAF2200T5E;JLCPCB
+R8;220;Resistor_SMD:R_0603_1608Metric;220 Ω;C22962;0603WAF2200T5E;JLCPCB
+R9;220;Resistor_SMD:R_0603_1608Metric;220 Ω;C22962;0603WAF2200T5E;JLCPCB
+R10;220;Resistor_SMD:R_0603_1608Metric;220 Ω;C22962;0603WAF2200T5E;JLCPCB
+R11;220;Resistor_SMD:R_0603_1608Metric;220 Ω;C22962;0603WAF2200T5E;JLCPCB
+R12;220;Resistor_SMD:R_0603_1608Metric;220 Ω;C22962;0603WAF2200T5E;JLCPCB
+R13;220;Resistor_SMD:R_0603_1608Metric;220 Ω;C22962;0603WAF2200T5E;JLCPCB
+R14;220;Resistor_SMD:R_0603_1608Metric;220 Ω;C22962;0603WAF2200T5E;JLCPCB
+R15;220;Resistor_SMD:R_0603_1608Metric;220 Ω;C22962;0603WAF2200T5E;JLCPCB
+R16;220;Resistor_SMD:R_0603_1608Metric;220 Ω;C22962;0603WAF2200T5E;JLCPCB
+U1;PCA9685;Package_SO:TSSOP-28_4.4x9.7mm_P0.65mm;PCA9685 16 voies PWM;C2678753;PCA9685PW,118;JLCPCB
+C1;10uF;Capacitor_SMD:C_0603_1608Metric;10 µF;C19702;CL10A106KP8NNNC;JLCPCB
+C2;100nF;Capacitor_SMD:C_0603_1608Metric;100 nF;C14663;CC0603KRX7R9BB104;JLCPCB
+R17;10k;Resistor_SMD:R_0603_1608Metric;10 kΩ;C25804;0603WAF1002T5E;JLCPCB
+R18;10k;Resistor_SMD:R_0603_1608Metric;10 kΩ;C25804;0603WAF1002T5E;JLCPCB
+R19;10k;Resistor_SMD:R_0603_1608Metric;10 kΩ;C25804;0603WAF1002T5E;JLCPCB
+R20;10k;Resistor_SMD:R_0603_1608Metric;10 kΩ;C25804;0603WAF1002T5E;JLCPCB
+J2;Mega entrée;Connector_JST:JST_XH_B4B-XH-A_1x04_P2.50mm_Vertical;JST-XH 4 broches droit (B4B-XH-A) + câble;;;vous
+J3;Mega sortie;Connector_JST:JST_XH_B4B-XH-A_1x04_P2.50mm_Vertical;JST-XH 4 broches droit (B4B-XH-A) + câble;;;vous
+J4;Pi entrée;Connector_JST:JST_XH_B4B-XH-A_1x04_P2.50mm_Vertical;JST-XH 4 broches droit (B4B-XH-A) + câble;;;vous
+J5;Pi sortie;Connector_JST:JST_XH_B4B-XH-A_1x04_P2.50mm_Vertical;JST-XH 4 broches droit (B4B-XH-A) + câble;;;vous
