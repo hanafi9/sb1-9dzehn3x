@@ -59,6 +59,32 @@ for _side, _board in (("left", "pca_gauche"), ("right", "pca_droite")):
     ]):
         SERVO_PLAN["i01.%s%s" % (_side, _key)] = (_board, _ch, _model)
 
+# Montage provisoire à 2 cartes (32 voies pour 31 servos), en attendant la 3e carte :
+# tête, ventre, bras et main gauche gardent leur voie définitive ; seul le côté droit
+# prend les voies libres. À l'arrivée de la carte C, déplacer ces 10 câbles vers C (voies 0 à 9).
+LAYOUTS = {"3": "3 cartes PCA9685 (montage définitif)", "2": "2 cartes PCA9685 (montage provisoire)"}
+PROVISIONAL_2 = {}
+for _ch, _key in enumerate(("Arm.omoplate", "Arm.shoulder", "Arm.rotate", "Arm.bicep")):
+    PROVISIONAL_2["i01.right" + _key] = ("pca_tete", 11 + _ch)
+for _ch, _key in enumerate(("Hand.thumb", "Hand.index", "Hand.majeure", "Hand.ringFinger", "Hand.pinky",
+                            "Hand.wrist")):
+    PROVISIONAL_2["i01.right" + _key] = ("pca_gauche", 10 + _ch)
+
+
+def servo_plan(layout="3"):
+    """Plan servo -> (carte, canal, modèle) pour le montage choisi (« 3 » ou « 2 » cartes)."""
+    plan = dict(SERVO_PLAN)
+    if str(layout) == "2":
+        for service, (board, channel) in PROVISIONAL_2.items():
+            plan[service] = (board, channel, SERVO_PLAN[service][2])
+    return plan
+
+
+def boards(layout="3"):
+    used = {b for b, _c, _m in servo_plan(layout).values()}
+    return [b for b in BOARDS if b["name"] in used]
+
+
 LEG_SERVO_MODEL = "servo bus Feetech (voir calcul de couple)"
 
 STL_VIEWER = "https://inmoov.fr/inmoov-stl-parts-viewer/"
@@ -261,7 +287,7 @@ def board_by_name(name):
     raise KeyError(name)
 
 
-def part_view(part, groups, legs_cfg=None):
+def part_view(part, groups, legs_cfg=None, layout="3"):
     """Assemble les données d'une partie : servos avec leur carte et leur canal."""
     labels = {}
     for g in groups:
@@ -269,7 +295,7 @@ def part_view(part, groups, legs_cfg=None):
             labels[s["service"]] = s["label"] + (" (gauche)" if "left" in g["key"]
                                                  else " (droite)" if "right" in g["key"] else "")
     servos = []
-    for service, (board, channel, model) in SERVO_PLAN.items():
+    for service, (board, channel, model) in servo_plan(layout).items():
         if any(service.startswith(p) for p in part["servo_prefixes"]):
             b = board_by_name(board)
             servos.append({"service": service, "label": labels.get(service, service), "model": model,
@@ -286,22 +312,23 @@ def part_view(part, groups, legs_cfg=None):
     view["printed"] = [{"group": g, "items": items} for g, items in part["printed"]]
     view["hardware"] = [{"item": i, "qty": q} for i, q in part["hardware"]]
     view["servos"] = servos
-    view["boards"] = [b for b in BOARDS if any(s["board"] == b["name"] for s in servos)]
+    view["boards"] = [b for b in boards(layout) if any(s["board"] == b["name"] for s in servos)]
     if part.get("legs") and legs_cfg:
         view["leg_servos"] = sorted(({"name": n, "id": j["id"], "model": LEG_SERVO_MODEL}
                                      for n, j in legs_cfg["joints"].items()), key=lambda x: x["id"])
     return view
 
 
-def mrl_script():
+def mrl_script(layout="3"):
     """Script Python à coller dans le service Python de MyRobotLab."""
+    bl = boards(layout)
     lines = [
-        "# InMoov : servos du haut du corps sur 3 cartes PCA9685 (généré par l'Atelier InMoov)",
+        "# InMoov : servos du haut du corps sur %d cartes PCA9685 (généré par l'Atelier InMoov)" % len(bl),
         "# À exécuter dans l'onglet Python de MyRobotLab, InMoov2 démarré, %s connectée." % ARDUINO,
         "",
         "cartes = [",
     ]
-    for b in BOARDS:
+    for b in bl:
         lines.append('    ("%s", "%s"),  # %s' % (b["name"], b["address"], b["label"]))
     lines += [
         "]",
@@ -311,7 +338,7 @@ def mrl_script():
         "",
         "servos = [",
     ]
-    for service, (board, channel, _model) in sorted(SERVO_PLAN.items(), key=lambda kv: (kv[1][0], kv[1][1])):
+    for service, (board, channel, _model) in sorted(servo_plan(layout).items(), key=lambda kv: (kv[1][0], kv[1][1])):
         lines.append('    ("%s", "%s", %d),' % (service, board, channel))
     lines += [
         "]",
@@ -330,13 +357,13 @@ def mrl_script():
     return "\n".join(lines) + "\n"
 
 
-def mrl_calls():
+def mrl_calls(layout="3"):
     """Les mêmes opérations sous forme d'appels REST (service, méthode, paramètres)."""
     calls = []
-    for b in BOARDS:
+    for b in boards(layout):
         calls.append(("runtime", "start", [b["name"], "Adafruit16CServoDriver"]))
         calls.append((b["name"], "attach", [ARDUINO, I2C_BUS, b["address"]]))
-    for service, (board, channel, _m) in sorted(SERVO_PLAN.items(), key=lambda kv: (kv[1][0], kv[1][1])):
+    for service, (board, channel, _m) in sorted(servo_plan(layout).items(), key=lambda kv: (kv[1][0], kv[1][1])):
         calls.append((service, "detach", []))
         calls.append((service, "setPin", [channel]))
         calls.append((service, "attach", [board]))

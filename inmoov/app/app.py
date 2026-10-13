@@ -53,6 +53,7 @@ DEFAULT_SETTINGS = {
     "arduino_cli": "arduino-cli",
     "robot_config": os.path.join(ROOT, "config.json"),
     "legs_config": os.path.join(ROOT, "legs", "legs_config.json"),
+    "pca_cartes": "3",
 }
 EDITABLE_CONFIGS = {"robot": "robot_config", "legs": "legs_config"}
 
@@ -242,7 +243,7 @@ def create_app(data_dir=None, run=None, mrl=None):
         groups = servo_inventory.groups_with(calib_store.load())
         for g in groups:
             for s in g["servos"]:
-                board, channel, model = wiring.SERVO_PLAN[s["service"]]
+                board, channel, model = wiring.servo_plan(settings()["pca_cartes"])[s["service"]]
                 s["pca"] = {"board": board, "address": wiring.board_by_name(board)["address"],
                             "channel": channel, "model": model}
         return jsonify({"groups": groups})
@@ -328,7 +329,8 @@ def create_app(data_dir=None, run=None, mrl=None):
     def schema_overview():
         return jsonify({
             "parts": [{"key": p["key"], "label": p["label"]} for p in wiring.PARTS],
-            "boards": wiring.BOARDS,
+            "boards": wiring.boards(settings()["pca_cartes"]),
+            "layout": settings()["pca_cartes"],
             "arduino": wiring.ARDUINO,
             "stl_viewer": wiring.STL_VIEWER,
         })
@@ -370,7 +372,7 @@ def create_app(data_dir=None, run=None, mrl=None):
         if part is None:
             raise ValueError("partie inconnue")
         groups = servo_inventory.groups_with(calib_store.load())
-        view = wiring.part_view(part, groups, legs_cfg() if part.get("legs") else None)
+        view = wiring.part_view(part, groups, legs_cfg() if part.get("legs") else None, settings()["pca_cartes"])
         done = parts_store.load()
         for g in view["printed"]:
             g["done"] = [bool(done.get("%s|%s|%s" % (part_key, g["group"], i))) for i in g["items"]]
@@ -390,7 +392,7 @@ def create_app(data_dir=None, run=None, mrl=None):
 
     @app.get("/api/schema/mrl_script")
     def schema_script():
-        return Response(wiring.mrl_script(), mimetype="text/plain; charset=utf-8")
+        return Response(wiring.mrl_script(settings()["pca_cartes"]), mimetype="text/plain; charset=utf-8")
 
     @app.post("/api/schema/apply")
     @api
@@ -398,7 +400,7 @@ def create_app(data_dir=None, run=None, mrl=None):
         if not body().get("confirm"):
             raise ValueError("confirmation requise")
         done = 0
-        for service, method, params in wiring.mrl_calls():
+        for service, method, params in wiring.mrl_calls(settings()["pca_cartes"]):
             mrl_call(service, method, *params)
             done += 1
         return jsonify({"ok": True, "calls": done})
@@ -551,7 +553,7 @@ def create_app(data_dir=None, run=None, mrl=None):
         if part is None:
             raise ValueError("partie inconnue : %s" % key)
         groups = servo_inventory.groups_with(calib_store.load())
-        return wiring.part_view(part, groups, legs_cfg() if part.get("legs") else None)
+        return wiring.part_view(part, groups, legs_cfg() if part.get("legs") else None, settings()["pca_cartes"])
 
     @app.get("/api/manual")
     def manual_index():
@@ -695,6 +697,8 @@ def create_app(data_dir=None, run=None, mrl=None):
         new = {k: str(data[k]).strip() for k in DEFAULT_SETTINGS if k in data}
         if "mrl_url" in new and not new["mrl_url"].startswith(("http://", "https://")):
             raise ValueError("l'adresse de MyRobotLab doit commencer par http://")
+        if "pca_cartes" in new and new["pca_cartes"] not in wiring.LAYOUTS:
+            raise ValueError("nombre de cartes PCA9685 : 2 ou 3")
         current = settings()
         current.update(new)
         settings_store.save(current)

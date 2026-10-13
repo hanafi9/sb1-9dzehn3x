@@ -508,7 +508,10 @@ $("#schema-copy").addEventListener("click", async () => {
   catch (_) { toast("Copie impossible : sélectionnez le texte à la main", true); }
 });
 $("#schema-apply").addEventListener("click", (e) => withButton(e.target, async () => {
-  if (!confirm("Rattacher tous les servos du haut du corps aux cartes PCA9685 dans MyRobotLab ?\nLes cartes doivent être câblées et l'Arduino i01.left connectée.")) return;
+  const sc = await api("GET", "/api/schema");
+  if (!confirm(`Rattacher tous les servos du haut du corps aux ${sc.boards.length} cartes PCA9685 dans MyRobotLab ?\n` +
+               `(${sc.boards.map((b) => b.address).join(", ")} — modifiable dans Réglages)\n` +
+               "Les cartes doivent être câblées et l'Arduino i01.left connectée.")) return;
   const r = await api("POST", "/api/schema/apply", { confirm: true });
   toast(`Câblage appliqué (${r.calls} commandes). Pensez à « Enregistrer la config MyRobotLab ».`);
 }));
@@ -962,8 +965,11 @@ const SETTING_LABELS = {
 };
 loaders.settings = async () => {
   const s = await api("GET", "/api/settings");
+  const cards = [["3", "3 cartes (montage définitif)"], ["2", "2 cartes (montage provisoire : côté droit sur les voies libres)"]];
   $("#settings-form").innerHTML = Object.entries(SETTING_LABELS).map(([k, label]) =>
-    `<label>${esc(label)}<input name="${k}" value="${esc(s[k])}"></label>`).join("");
+    `<label>${esc(label)}<input name="${k}" value="${esc(s[k])}"></label>`).join("") +
+    `<label>Cartes PCA9685 branchées<select name="pca_cartes">${cards.map(([v, t]) =>
+      `<option value="${v}"${String(s.pca_cartes) === v ? " selected" : ""}>${esc(t)}</option>`).join("")}</select></label>`;
   loadConfig();
 };
 $("#settings-save").addEventListener("click", (e) => withButton(e.target, async () => {

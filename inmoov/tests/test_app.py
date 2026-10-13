@@ -331,6 +331,32 @@ class SchemaTest(unittest.TestCase):
         addresses = [b["address"] for b in wiring.BOARDS]
         self.assertEqual(len(addresses), len(set(addresses)))
 
+    def test_provisional_two_boards(self):
+        plan2 = wiring.servo_plan("2")
+        self.assertEqual(set(plan2), servo_inventory.all_services())
+        used = {}
+        for service, (board, channel, _m) in plan2.items():
+            self.assertIn(board, ("pca_tete", "pca_gauche"), service)
+            self.assertTrue(0 <= channel <= 15, service)
+            self.assertNotIn((board, channel), used, "%s et %s" % (service, used.get((board, channel))))
+            used[(board, channel)] = service
+        moved = [s for s in plan2 if plan2[s][:2] != wiring.SERVO_PLAN[s][:2]]
+        self.assertEqual(len(moved), 10)                         # seul le côté droit change de voie
+        self.assertTrue(all(s.startswith("i01.right") for s in moved))
+        self.assertEqual([b["address"] for b in wiring.boards("2")], ["0x40", "0x41"])
+        self.assertEqual(self.c.put("/api/settings", json={"pca_cartes": "4"}).status_code, 400)
+        self.assertEqual(self.c.put("/api/settings", json={"pca_cartes": "2"}).status_code, 200)
+        o = self.c.get("/api/schema").get_json()
+        self.assertEqual((o["layout"], [b["address"] for b in o["boards"]]), ("2", ["0x40", "0x41"]))
+        script = self.c.get("/api/schema/mrl_script").get_data(as_text=True)
+        self.assertIn('("i01.rightHand.wrist", "pca_gauche", 15)', script)
+        self.assertNotIn("pca_droite", script)
+        compile(script, "mrl_script", "exec")
+        servos = self.c.get("/api/servos").get_json()
+        omo = next(s for g in servos["groups"] for s in g["servos"] if s["service"] == "i01.rightArm.omoplate")
+        self.assertEqual((omo["pca"]["address"], omo["pca"]["channel"]), ("0x40", 11))
+        self.assertTrue(self.c.post("/api/schema/apply", json={"confirm": True}).get_json()["ok"])
+
     def test_overview_and_parts(self):
         o = self.c.get("/api/schema").get_json()
         self.assertEqual([p["key"] for p in o["parts"]], ["tete", "torse", "bras", "mains", "bassin", "jambes", "capteurs"])
