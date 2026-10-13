@@ -1,0 +1,316 @@
+{
+  "name": "Detection anomalie impression 3D",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      },
+      "id": "trigger-1",
+      "name": "Toutes les 5 min",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        400,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "http://192.168.1.41:7125/printer/objects/query?print_stats",
+        "options": {}
+      },
+      "id": "state-1",
+      "name": "Etat impression",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        600,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.result.status.print_stats.state }}",
+              "rightValue": "printing",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-printing",
+      "name": "Impression en cours ?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        800,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "http://192.168.1.41/webcam/?action=snapshot",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data"
+            }
+          }
+        }
+      },
+      "id": "snap-1",
+      "name": "Snapshot camera",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1020,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Le binaire peut etre stocke EN MEMOIRE (item.binary.data.data contient\n// deja le base64) ou SUR DISQUE (il faut alors le relire via le helper).\n// On gere les deux cas, sinon l'image part vide et OpenAI renvoie 400.\nconst bin = $input.first().binary?.data;\nlet b64 = bin?.data;\nif (!b64 || b64.length < 100) {\n  const buf = await this.helpers.getBinaryDataBuffer(0, 'data');\n  b64 = buf.toString('base64');\n}\nif (!b64) throw new Error(\"Image vide : le noeud Snapshot n'a rien renvoye\");\n\nconst mime = bin?.mimeType || 'image/jpeg';\n\n// Payload OpenAI complet — inspectable ici avant envoi.\nreturn [{ json: {\n  model: 'gpt-4o-mini',\n  max_tokens: 300,\n  response_format: { type: 'json_object' },\n  messages: [\n    { role: 'system', content: \"Tu inspectes des photos d'impression 3D FDM en cours. Reponds UNIQUEMENT en JSON strict : {\\\"anomalie\\\": true|false, \\\"confiance\\\": 0.0-1.0, \\\"type\\\": \\\"spaghetti|decollement|sous_extrusion|blob|aucune\\\", \\\"description\\\": \\\"une phrase\\\"}. anomalie=true SEULEMENT si le defaut est net et certain.\" },\n    { role: 'user', content: [\n      { type: 'text', text: 'Cette impression 3D presente-t-elle une anomalie ?' },\n      { type: 'image_url', image_url: { url: `data:${mime};base64,${b64}`, detail: 'low' } }\n    ] }\n  ]\n} }];"
+      },
+      "id": "prep-1",
+      "name": "Preparer l'image",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1130,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "gpt-1",
+      "name": "Analyse GPT-4o Vision",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1330,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// La reponse du modele est une chaine JSON : on la parse proprement.\nconst brut = $input.first().json.choices?.[0]?.message?.content ?? '{}';\nlet verdict;\ntry {\n  verdict = JSON.parse(brut);\n} catch (e) {\n  // Si le modele derape, on considere qu'il n'y a PAS d'anomalie :\n  // mieux vaut rater une detection que mettre en pause a tort.\n  verdict = { anomalie: false, confiance: 0, type: 'aucune', description: 'reponse illisible: ' + brut.slice(0, 120) };\n}\n\nreturn [{\n  json: {\n    anomalie: verdict.anomalie === true,\n    confiance: Number(verdict.confiance ?? 0),\n    type: verdict.type ?? 'aucune',\n    description: verdict.description ?? ''\n  },\n  binary: $('Snapshot camera').first().binary\n}];"
+      },
+      "id": "parse-1",
+      "name": "Lire le verdict",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1660,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.anomalie }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            },
+            {
+              "leftValue": "={{ $json.confiance }}",
+              "rightValue": 0.8,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-anomalie",
+      "name": "Anomalie confirmee ?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1880,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://192.168.1.41:7125/printer/print/pause",
+        "options": {}
+      },
+      "id": "pause-1",
+      "name": "Pause Klipper",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2100,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "894962403",
+        "operation": "sendPhoto",
+        "binaryData": true,
+        "binaryPropertyName": "data",
+        "additionalFields": {
+          "caption": "=⚠️ Anomalie detectee ({{ $('Lire le verdict').item.json.type }}, confiance {{ Math.round($('Lire le verdict').item.json.confiance * 100) }}%)\n{{ $('Lire le verdict').item.json.description }}\n\n⏸️ Impression mise en pause."
+        }
+      },
+      "id": "tg-1",
+      "name": "Notification Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2320,
+        160
+      ]
+    }
+  ],
+  "connections": {
+    "Toutes les 5 min": {
+      "main": [
+        [
+          {
+            "node": "Etat impression",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Etat impression": {
+      "main": [
+        [
+          {
+            "node": "Impression en cours ?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Impression en cours ?": {
+      "main": [
+        [
+          {
+            "node": "Snapshot camera",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Snapshot camera": {
+      "main": [
+        [
+          {
+            "node": "Preparer l'image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyse GPT-4o Vision": {
+      "main": [
+        [
+          {
+            "node": "Lire le verdict",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lire le verdict": {
+      "main": [
+        [
+          {
+            "node": "Anomalie confirmee ?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anomalie confirmee ?": {
+      "main": [
+        [
+          {
+            "node": "Pause Klipper",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Pause Klipper": {
+      "main": [
+        [
+          {
+            "node": "Notification Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparer l'image": {
+      "main": [
+        [
+          {
+            "node": "Analyse GPT-4o Vision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}
