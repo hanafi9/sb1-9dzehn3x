@@ -544,7 +544,7 @@ const QUICK_ACTIONS = [
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function PrinterDiagnostic({ config, onChange }: { config: PrinterConfig; onChange?: (p: Partial<PrinterConfig>) => void }) {
-  const [ip, setIp]     = useState('192.168.1.41');
+  const [ip, setIp]     = useState('192.168.1.40');
   const [port, setPort] = useState('80');
   const [connected, setConnected]   = useState(false);
   const [loading, setLoading]       = useState(false);
@@ -927,7 +927,7 @@ export function PrinterDiagnostic({ config, onChange }: { config: PrinterConfig;
           <div className="flex-1 min-w-[160px]">
             <label className="block text-xs text-gray-400 mb-1">IP Imprimante</label>
             <input type="text" value={ip} onChange={e => { setIp(e.target.value); setConnected(false); }}
-              placeholder="192.168.1.41"
+              placeholder="192.168.1.40"
               className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-orange-500" />
           </div>
           <div className="w-20">
@@ -1706,7 +1706,7 @@ export function PrinterDiagnostic({ config, onChange }: { config: PrinterConfig;
                         github.com/Cartographer3D/cartographer-klipper/releases ↗
                       </a>
                       <p className="text-gray-500">Copier le .bin sur le Pi avec SCP depuis votre PC :</p>
-                      <CmdLine cmd="scp cartographer-firmware.bin pi@192.168.1.41:~/" />
+                      <CmdLine cmd="scp cartographer-firmware.bin pi@192.168.1.40:~/" />
                     </FlashStep>
 
                     <FlashStep n={2} title="Arrêter Klipper">

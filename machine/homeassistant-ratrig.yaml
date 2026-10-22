@@ -147,8 +147,8 @@ cards:
 #      camera:
 #        - platform: mjpeg
 #          name: RatRig Webcam
-#          mjpeg_url: http://192.168.1.41/webcam/?action=stream
-#          still_image_url: http://192.168.1.41/webcam/?action=snapshot
+#          mjpeg_url: http://192.168.1.40/webcam/?action=stream
+#          still_image_url: http://192.168.1.40/webcam/?action=snapshot
 #
 #  Le nom « RatRig Webcam » produit l'entité camera.ratrig_webcam, celle que
 #  la carte ci-dessus attend. Puis Outils de développement → YAML →
@@ -169,8 +169,8 @@ cards:
 #  conséquence en réseau local pour surveiller une impression.
 #
 #  Si le flux reste noir, l'URL est à ajuster : tester dans un navigateur
-#  http://192.168.1.41/webcam/?action=stream puis, à défaut,
-#  http://192.168.1.41:8080/?action=stream
+#  http://192.168.1.40/webcam/?action=stream puis, à défaut,
+#  http://192.168.1.40:8080/?action=stream
 # ═══════════════════════════════════════════════════════════════════════════
 
 

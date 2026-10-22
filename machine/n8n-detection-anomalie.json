@@ -23,7 +23,7 @@
     },
     {
       "parameters": {
-        "url": "http://192.168.1.41:7125/printer/objects/query?print_stats",
+        "url": "http://192.168.1.40:7125/printer/objects/query?print_stats",
         "options": {}
       },
       "id": "state-1",
@@ -67,7 +67,7 @@
     },
     {
       "parameters": {
-        "url": "http://192.168.1.41/webcam/?action=snapshot",
+        "url": "http://192.168.1.40/webcam/?action=snapshot",
         "options": {
           "response": {
             "response": {
@@ -174,7 +174,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://192.168.1.41:7125/printer/print/pause",
+        "url": "http://192.168.1.40:7125/printer/print/pause",
         "options": {}
       },
       "id": "pause-1",

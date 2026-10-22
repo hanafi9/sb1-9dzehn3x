@@ -81,7 +81,7 @@ Moonraker renvoie simplement une erreur, sans conséquence.
 | Seuil de confiance | nœud *Anomalie confirmee ?* | `0.8` | Plus haut = moins de fausses pauses |
 | Modèle | nœud *Analyse GPT-4o Vision* | `gpt-4o-mini` | `gpt-4o` = plus fin, plus cher |
 | Détail image | idem, champ `detail` | `low` | `high` = plus précis, plus de tokens |
-| IP imprimante | 3 nœuds HTTP | `192.168.1.41` | À changer si l'IP bouge |
+| IP imprimante | 3 nœuds HTTP | `192.168.1.40` | À changer si l'IP bouge |
 
 ---
 
@@ -92,7 +92,7 @@ Moonraker renvoie simplement une erreur, sans conséquence.
 - **Sortie JSON stricte du modèle** — la première version testait
   `contains "anomalie"` sur du texte libre : la réponse « **aucune** anomalie »
   contient le mot et déclenchait une pause à **chaque** image saine.
-- **Image en base64** — l'image ne peut pas être passée par URL : `192.168.1.41`
+- **Image en base64** — l'image ne peut pas être passée par URL : `192.168.1.40`
   est une adresse du réseau local, inatteignable depuis les serveurs d'OpenAI.
 - **Fail-safe** — si la réponse du modèle est illisible, le workflow conclut
   « pas d'anomalie ». Mieux vaut rater une détection que stopper une impression

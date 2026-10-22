@@ -11,7 +11,7 @@ const LS_PORT = 'ratos.moonraker.port';
 /** Connexion Moonraker partagée entre les onglets (persistée en localStorage). */
 export function useMoonrakerConnection() {
   const [ip, setIpState] = useState<string>(() => {
-    try { return localStorage.getItem(LS_IP) ?? '192.168.1.41'; } catch { return '192.168.1.41'; }
+    try { return localStorage.getItem(LS_IP) ?? '192.168.1.40'; } catch { return '192.168.1.40'; }
   });
   const [port, setPortState] = useState<string>(() => {
     try { return localStorage.getItem(LS_PORT) ?? '80'; } catch { return '80'; }

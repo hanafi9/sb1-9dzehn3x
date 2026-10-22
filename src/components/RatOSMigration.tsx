@@ -210,7 +210,7 @@ export function RatOSMigration({ config }: { config: PrinterConfig }) {
           Il ne modifie rien.
         </p>
         <Cmd cmd="bash migration-backup.sh" />
-        <Cmd cmd="scp pi@192.168.1.41:~/backup-migration-*.tar.gz ." />
+        <Cmd cmd="scp pi@192.168.1.40:~/backup-migration-*.tar.gz ." />
         <div className="space-y-1.5 mt-2">
           <StepCheck id="bk1" checked={!!checked['bk1']} onToggle={toggle}>Script exécuté sans erreur — le manifeste affiche les 2 patchs « présents »</StepCheck>
           <StepCheck id="bk2" checked={!!checked['bk2']} onToggle={toggle}>Archive copiée sur le PC et ouverte pour vérification (elle contient printer.cfg)</StepCheck>
