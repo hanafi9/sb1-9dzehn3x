@@ -226,6 +226,11 @@ class Listener:
         resp = self._call(self.cfg["chatbot_service"], self.cfg["chatbot_method"], text)
         reply = resp.get("msg") if isinstance(resp, dict) else None
         log.info("Réponse du chatbot : %s", reply)
+        if reply and self.tts is not None and not self.dry_run:
+            # avec Piper, la réponse sort par les haut-parleurs du robot comme celle de Claude
+            # (la voix de MyRobotLab peut être muette ou envoyée vers le HDMI)
+            self.say(reply)
+            return
         self._mute_for(reply)
 
     # --- boucle principale -------------------------------------------------
