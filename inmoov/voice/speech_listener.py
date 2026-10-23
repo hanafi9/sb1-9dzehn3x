@@ -139,7 +139,10 @@ class Listener:
             # un seul essai : les nouveaux essais « à température » de Whisper sur du bruit
             # prenaient jusqu'à 55 s, pendant lesquelles le robot n'entendait plus rien
             temperature=self.cfg.get("temperature", 0.0),
-            max_new_tokens=self.cfg.get("max_new_tokens", 128),
+            # au plus ~8 mots-morceaux par seconde d'audio : sur du bruit, Whisper peut
+            # « inventer » des centaines de mots et bloquer l'écoute de longues secondes
+            max_new_tokens=min(self.cfg.get("max_new_tokens", 128), 16 + int(8 * len(audio) / SAMPLE_RATE)),
+            without_timestamps=True,
             vad_filter=False,  # déjà fait par WebRTC VAD
         )
         parts = []
@@ -299,8 +302,11 @@ class Listener:
                     continue
                 t0 = time.monotonic()
                 text = self.transcribe(pcm)
-                log.info("Entendu (%.1f s audio, %.1f s calcul) : %s",
-                         len(pcm) / 2 / SAMPLE_RATE, time.monotonic() - t0, text)
+                spent = time.monotonic() - t0
+                log.info("Entendu (%.1f s audio, %.1f s calcul) : %s", len(pcm) / 2 / SAMPLE_RATE, spent, text)
+                if spent > 8:
+                    log.warning("Whisper très lent (%.0f s) : processeur surchargé ou trop chaud ? "
+                                "(vcgencmd measure_temp ; top)", spent)
                 if text and not is_hallucination(text):
                     self.handle(text)
                 # ce qui a été capté pendant le calcul est périmé

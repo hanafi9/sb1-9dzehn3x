@@ -370,6 +370,7 @@ class ClaudeBrain:
         spoken = []
         try:
             for _ in range(self.cfg["max_tool_rounds"]):
+                t0 = time.monotonic()
                 response = self._create_streaming() if self._streaming() else self._create()
                 if response.stop_reason == "refusal":
                     log.warning("Demande refusée par Claude : %s", getattr(response, "stop_details", None))
@@ -381,6 +382,7 @@ class ClaudeBrain:
                 self.messages.append({"role": "assistant", "content": response.content})
                 text_out = " ".join(b.text for b in response.content if b.type == "text").strip()
                 if text_out:
+                    log.info("Claude (%.1f s) : %s", time.monotonic() - t0, text_out)
                     spoken.append(text_out)
                     if not self._streaming():   # en direct, c'est déjà en train d'être dit
                         self.speak(text_out)
