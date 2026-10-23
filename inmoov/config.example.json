@@ -69,6 +69,13 @@
     "robot_name": "InMoov",
     "owner_name": "son créateur",
     "extra_instructions": "",
+    "home_assistant": {
+      "enabled": false,
+      "_aide": "Agir sur la maison : Kamil envoie des phrases simples à l'assistant Assist de Home Assistant. Jeton longue durée dans anthropic.env : HOME_ASSISTANT_TOKEN=… Seuls les appareils exposés à Assist (Paramètres → Assistants vocaux → Exposer) sont accessibles. Pour réserver la maison à votre voix : ajoutez \"home_assistant\" à voice.speaker_id.owner_only_tools.",
+      "url": "http://homeassistant.local:8123",
+      "language": "fr",
+      "agent_id": null
+    },
     "personality": {
       "humour": 2,
       "_aide": "humour : 0 = sérieux, 1 = léger, 2 = un peu taquin (une petite blague de temps en temps), 3 = farceur. Toujours bienveillant, sérieux quand la personne est triste ou inquiète."

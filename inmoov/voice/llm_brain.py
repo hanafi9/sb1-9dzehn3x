@@ -257,6 +257,24 @@ def gesture_names(cfg):
     return names
 
 
+HOME_TOOL = {
+    "name": "home_assistant",
+    "description": (
+        "Agir sur la maison ou connaître l'état d'un appareil grâce à Home Assistant : lumières, "
+        "volets, prises, chauffage, capteurs (température, portes…), musique. Écris une commande "
+        "courte en français, comme à un assistant vocal : « allume la lumière du salon », "
+        "« ferme les volets de la chambre », « quelle est la température du salon ? ». "
+        "Une commande par appel ; si la personne en demande plusieurs, appelle l'outil plusieurs fois. "
+        "La réponse dit ce qui a été fait ou la valeur demandée : redis-la simplement, à ta façon."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {"command": {"type": "string", "description": "la commande en français"}},
+        "required": ["command"],
+    },
+}
+
+
 def build_tools(cfg, memory, mind=None):
     tools = list(BASE_TOOLS)
     if cfg.get("camera_frame_path"):
@@ -270,6 +288,8 @@ def build_tools(cfg, memory, mind=None):
         tools.append(REMEMBER_TOOL)
     if mind is not None:
         tools.append(FEEL_TOOL)
+    if (cfg.get("home_assistant") or {}).get("enabled"):
+        tools.append(HOME_TOOL)
     return tools
 
 
@@ -290,6 +310,12 @@ class ClaudeBrain:
         self.speak = speak
         self.say_async = say_async
         self.wait_speech = wait_speech
+        ha = cfg.get("home_assistant") or {}
+        self.home = None
+        if ha.get("enabled"):
+            from home_assistant import HomeAssistant
+
+            self.home = HomeAssistant(ha["url"], language=ha.get("language", "fr"), agent_id=ha.get("agent_id"))
         self.memory = memory
         self.mind = mind
         self.sleep = sleep
@@ -558,6 +584,8 @@ class ClaudeBrain:
         if name == "feel" and self.mind is not None:
             self.mind.feel(args["emotion"], args["intensity"])
             return True, "émotion prise en compte"
+        if name == "home_assistant" and self.home is not None:
+            return self.home.ask(str(args["command"])[:200])
         if name == "remember" and self.memory is not None:
             added = self.memory.add(args["person"], args["fact"])
             return True, "retenu" if added else "je le savais déjà"

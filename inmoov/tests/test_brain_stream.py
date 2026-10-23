@@ -156,6 +156,22 @@ class StreamTest(unittest.TestCase):
         b.notice("Une personne vient d'apparaître.")
         self.assertEqual([e[1] for e in self.events if e[0] == "dit"], ["Oh, bonjour toi !"])
 
+    def test_home_assistant_tool(self):
+        self.cfg["home_assistant"] = {"enabled": True, "url": "http://ha.local:8123"}
+        b = self.make([
+            stream_body([("tool_use", "toolu_1", "home_assistant", {"command": "allume la lumière du salon"})],
+                        "tool_use"),
+            stream_body([("text", ["Et la lumière fut !"])], "end_turn"),
+        ])
+        sent = []
+        b.home = type("H", (), {"ask": lambda self, t: sent.append(t) or (True, "Lumière du salon allumée")})()
+        b.ask("allume le salon")
+        self.assertIn("home_assistant", [t["name"] for t in self.requests[0]["tools"]])
+        self.assertEqual(sent, ["allume la lumière du salon"])
+        result = self.requests[1]["messages"][-1]["content"][0]
+        self.assertEqual(result["content"], "Lumière du salon allumée")
+        self.assertNotIn("is_error", result)
+
     def test_without_pipeline_no_stream(self):
         self.cfg["stream"] = False
         b = self.make([])
