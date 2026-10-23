@@ -24,7 +24,8 @@ from pycoral.utils.edgetpu import list_edge_tpus, make_interpreter
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 from mrl_client import AsyncMrlClient, load_config  # noqa: E402
-from tracking import AxisController, normalized_error, pick_target  # noqa: E402
+from motion import MotionDetector  # noqa: E402
+from tracking import AxisController, normalized_error, person_head_target, pick_target  # noqa: E402
 from scene import summarize_objects, tracking_paused, write_state  # noqa: E402
 
 log = logging.getLogger("vision")
@@ -151,6 +152,12 @@ def main():
     state_path = vcfg.get("state_path")
     pause_path = vcfg.get("pause_path")
     objects, last_objects = [], 0.0
+    # sans visage visible (profil, de dos, tête baissée) : on suit la silhouette détectée par le Coral
+    person_ids = {i for i, name in (obj_labels or {}).items() if name == "person"} if obj_interpreter else set()
+    track_person = bool(person_ids) and vcfg.get("track_person", True)
+    person_target, person_time, last_person = None, 0.0, 0.0
+    motion0, motion2 = MotionDetector(), MotionDetector()
+    objects2, moving0, moving2 = [], {"level": 0.0, "boxes": []}, {"level": 0.0, "boxes": []}
     fps_t, fps_n = time.monotonic(), 0
 
     def send(axis_name, axis):
@@ -177,6 +184,16 @@ def main():
                 cam2.grab()   # garde l'image de la 2e caméra fraîche (décodée seulement au partage)
             target = pick_target(faces)
             now = time.monotonic()
+            tracked = "visage" if target is not None else None
+            if target is None and track_person:
+                if now - last_person >= vcfg.get("person_period_s", 0.2):
+                    last_person = now
+                    found = person_head_target(detect_objects(obj_interpreter, frame, 0.4), person_ids,
+                                               vcfg.get("person_min_score", 0.5))
+                    if found is not None:
+                        person_target, person_time = found, now
+                if person_target is not None and now - person_time < 0.6:
+                    target, tracked = person_target, "silhouette"
 
             paused = bool(pause_path) and tracking_paused(pause_path, time.time())
             if now - last_cmd >= period and not paused:
@@ -213,6 +230,17 @@ def main():
             if share_path and now - last_share >= share_period:
                 try:
                     share_frame(frame, share_path)
+                    moving0 = motion0.update(frame)
+                    if cam2 is not None:
+                        ok2, frame2 = cam2.retrieve()
+                        if ok2:
+                            share_frame(frame2, share2_path)
+                            moving2 = motion2.update(frame2)
+                            if obj_interpreter is not None:   # la 2e caméra voit aussi les objets
+                                h2, w2 = frame2.shape[:2]
+                                thr = ocfg.get("score_threshold", 0.5)
+                                objects2 = summarize_objects(detect_objects(obj_interpreter, frame2, thr),
+                                                             obj_labels, w2, h2, thr)
                     if state_path:
                         biggest = max(((f[3] - f[1]) / float(h) for f in faces), default=0.0)
                         write_state(state_path, {
@@ -223,19 +251,21 @@ def main():
                             # cadres des visages en fraction de l'image (dessinés dans l'Atelier)
                             "face_boxes": [[round(f[0] / w, 3), round(f[1] / h, 3), round(f[2] / w, 3),
                                             round(f[3] / h, 3), round(float(f[4]), 2)] for f in faces],
+                            # personnes vues (visage ou silhouette), et ce que suit la tête
+                            "people": max(len(faces), sum(1 for o in objects if o["label"] == "personne"),
+                                          1 if tracked else 0),
+                            "tracking": tracked,
+                            "motion": moving0,
+                            "camera2": {"objects": objects2, "motion": moving2} if cam2 is not None else None,
                         })
-                    if cam2 is not None:
-                        ok2, frame2 = cam2.retrieve()
-                        if ok2:
-                            share_frame(frame2, share2_path)
                 except OSError as e:
                     log.warning("Image non partagée : %s", e)
                 last_share = now
 
             fps_n += 1
             if now - fps_t >= 5.0:
-                log.info("%.1f images/s, %d visage(s), rothead=%.0f neck=%.0f",
-                         fps_n / (now - fps_t), len(faces), pan.position, tilt.position)
+                log.info("%.1f images/s, %d visage(s), suivi : %s, rothead=%.0f neck=%.0f",
+                         fps_n / (now - fps_t), len(faces), tracked or "personne", pan.position, tilt.position)
                 fps_t, fps_n = now, 0
     except KeyboardInterrupt:
         pass
@@ -243,7 +273,8 @@ def main():
         cam.release()
         if cam2 is not None:
             cam2.release()
-        cv2.destroyAllWindows()
+        if vcfg.get("show_window"):
+            cv2.destroyAllWindows()
     return 0
 
 

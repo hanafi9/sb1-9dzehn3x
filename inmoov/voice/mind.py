@@ -67,7 +67,7 @@ class Mind:
         if self.cfg.get("sensors_url"):
             self.sensors = self.sensors_reader(self.cfg["sensors_url"])
         battery = ((self.sensors or {}).get("battery") or {}).get("percent")
-        present = bool(vision and vision.get("faces")) or bool(((self.sensors or {}).get("presence") or {}).get("present"))
+        present = bool(vision and (vision.get("faces") or vision.get("people"))) or bool(((self.sensors or {}).get("presence") or {}).get("present"))
         self.mood.tick(battery_percent=battery, hour=time.localtime(now).tm_hour, people_present=present)
 
     def start(self, period_s=2.0):

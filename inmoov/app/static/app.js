@@ -1026,9 +1026,15 @@ async function benchRefresh() {
     $("#bench-vision").textContent = "Lancez face_tracker.py (vision) pour voir les caméras et ce que détecte le Coral.";
   } else {
     const objs = (v.objects || []).map((o) => `${esc(o.label)} (${esc(o.side)}, ${Math.round(o.score * 100)} %)`).join(", ");
+    const objs2 = (v.camera2?.objects || []).map((o) => `${esc(o.label)} (${esc(o.side)})`).join(", ");
+    const move = (m) => (m && m.level > 0.01 ? `<b>oui</b> (${Math.round(m.level * 100)} % de l'image)` : "non");
+    const follow = { visage: "son visage", silhouette: "sa silhouette (visage pas visible)" }[v.tracking] || "personne";
     $("#bench-vision").innerHTML = `${v.fresh ? "" : "<b>Image figée</b> · "}Visages : <b>${v.faces || 0}</b>
-      · Tête : rothead ${esc(v.head?.rothead)}, neck ${esc(v.head?.neck)}${v.tracking_paused ? " (suivi en pause)" : ""}
-      <br>Objets vus : ${objs || "aucun"}`;
+      · Personnes : <b>${v.people ?? v.faces ?? 0}</b> · La tête suit : <b>${follow}</b>
+      · rothead ${esc(v.head?.rothead)}, neck ${esc(v.head?.neck)}${v.tracking_paused ? " (suivi en pause)" : ""}
+      <br>Caméra 1 — objets : ${objs || "aucun"} · mouvement : ${move(v.motion)}
+      ${v.camera2 ? `<br>Caméra 2 — objets : ${objs2 || "aucun"} · mouvement : ${move(v.camera2.motion)}` : ""}
+      <br><span class="muted">Cadres : vert = visage, bleu = objet, orange = mouvement</span>`;
   }
   if (s.second_camera_index === null || s.second_camera_index === undefined) {
     $('[data-cam="1"] .cam-off').textContent = "Réglez vision.second_camera_index dans config.json (ex. 2) puis relancez face_tracker.py";
@@ -1060,7 +1066,8 @@ function benchBoxes(fig, n, natW, natH) {
   const ctx = canvas.getContext("2d");
   ctx.clearRect(0, 0, w, h);
   const v = bench.state?.vision;
-  if (n !== "0" || !v || !$("#bench-boxes").checked || !natW) return;
+  if (!v || !$("#bench-boxes").checked || !natW) return;
+  const seen = n === "0" ? v : (v.camera2 || {});   // la 2e caméra a ses propres détections
   // l'image est centrée (object-fit: contain) : on calcule sa zone réelle
   const scale = Math.min(w / natW, h / natH);
   const iw = natW * scale, ih = natH * scale, ox = (w - iw) / 2, oy = (h - ih) / 2;
@@ -1075,8 +1082,9 @@ function benchBoxes(fig, n, natW, natH) {
     ctx.fillStyle = "#fff";
     ctx.fillText(label, tx + 3, ty + 12);
   };
-  (v.objects || []).filter((o) => o.box).forEach((o) => draw(o.box, "#3b82f6", o.label));
-  (v.face_boxes || []).forEach((b) => draw(b, "#22c55e", `visage ${Math.round(b[4] * 100)} %`));
+  ((seen.motion || {}).boxes || []).forEach((b) => draw(b, "#f97316", "mouvement"));
+  (seen.objects || []).filter((o) => o.box).forEach((o) => draw(o.box, "#3b82f6", o.label));
+  if (n === "0") (v.face_boxes || []).forEach((b) => draw(b, "#22c55e", `visage ${Math.round(b[4] * 100)} %`));
 }
 
 function benchGroupStatus(g) {

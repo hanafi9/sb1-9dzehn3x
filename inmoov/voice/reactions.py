@@ -90,7 +90,8 @@ class Reactions:
 
     # ------------------------------------------------------------ détection
     def _detect(self, vision, now):
-        faces = int(vision.get("faces") or 0)
+        # visage de face, ou silhouette quand la personne est de profil / de dos
+        faces = max(int(vision.get("faces") or 0), int(vision.get("people") or 0))
         height = float(vision.get("face_height") or 0)
         objects = {o["label"]: o for o in vision.get("objects") or []
                    if o.get("score", 0) >= self.cfg["object_min_score"]}

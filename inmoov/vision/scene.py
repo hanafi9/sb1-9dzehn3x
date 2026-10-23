@@ -64,7 +64,21 @@ def summarize_objects(objects, labels, width, height, min_score=0.5):
                     # cadre en fraction de l'image (dessiné dans l'Atelier)
                     "box": [round(x0 / W, 3), round(y0 / H, 3), round(x1 / W, 3), round(y1 / H, 3)]})
     out.sort(key=lambda o: -o["score"])
-    return out
+    # le modèle dessine souvent plusieurs cadres pour la même chose : on garde le plus sûr
+    kept = []
+    for o in out:
+        if not any(k["label"] == o["label"] and iou(k["box"], o["box"]) > 0.4 for k in kept):
+            kept.append(o)
+    return kept
+
+
+def iou(a, b):
+    """Recouvrement de deux cadres [x0, y0, x1, y1] : 0 = séparés, 1 = identiques."""
+    ix = max(0.0, min(a[2], b[2]) - max(a[0], b[0]))
+    iy = max(0.0, min(a[3], b[3]) - max(a[1], b[1]))
+    inter = ix * iy
+    union = (a[2] - a[0]) * (a[3] - a[1]) + (b[2] - b[0]) * (b[3] - b[1]) - inter
+    return inter / union if union > 0 else 0.0
 
 
 def write_state(path, state):

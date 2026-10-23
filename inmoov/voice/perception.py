@@ -99,7 +99,7 @@ class EnvironmentMemory:
             sides.setdefault(label, o.get("side", ""))
         with self.lock:
             self.current = vision
-            if vision.get("faces"):
+            if vision.get("faces") or vision.get("people"):
                 self.last_face_time = now
             for label, n in counts.items():
                 o = self.objects.setdefault(label, {"first": now, "last": now, "sightings": 0,
@@ -138,9 +138,12 @@ class EnvironmentMemory:
                                  for label, o in visible) or "rien de reconnaissable"
                 lines.append("Ce que tu vois en ce moment (Coral) : %s." % seen)
                 faces = int(cur.get("faces") or 0)
+                people = int(cur.get("people") or 0)
                 if faces:
                     lines.append("Visage(s) détecté(s) : %d, le plus proche %s." %
                                  (faces, face_distance(float(cur.get("face_height") or 0))))
+                elif people:
+                    lines.append("Personne(s) devant toi : %d, mais de profil ou de dos (visage pas visible)." % people)
                 elif self.last_face_time:
                     lines.append("Aucun visage en face de toi (dernier visage vu %s)." % ago(now - self.last_face_time))
                 else:
