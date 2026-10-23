@@ -2,6 +2,7 @@
 
 import os
 import sys
+import time
 import types
 import unittest
 
@@ -123,6 +124,52 @@ class ChatbotTest(unittest.TestCase):
         lst.segmenter.triggered = True
         lst._maybe_react()
         self.assertEqual(len(noticed), 1)
+
+
+class FakeWhisper:
+    def __init__(self, text, logprob, no_speech=0.0):
+        self.text, self.logprob, self.no_speech, self.calls = text, logprob, no_speech, 0
+
+    def transcribe(self, audio, **kw):
+        self.calls += 1
+        seg = types.SimpleNamespace(text=self.text, avg_logprob=self.logprob, no_speech_prob=self.no_speech)
+        return [seg], None
+
+
+@unittest.skipIf(speech_listener is None, "numpy absent")
+class FallbackModelTest(unittest.TestCase):
+    def make(self, first, second):
+        lst = listener(None, wake_words=["kamil"])
+        lst.cfg.update({"language": "fr", "beam_size": 1, "max_no_speech_prob": 0.6, "min_avg_logprob": -1.0,
+                        "fallback_below_confidence": -0.45})
+        lst.model, lst.fallback_model = first, second
+        return lst
+
+    def pcm(self):
+        import numpy as np
+        return (np.ones(16000, dtype=np.int16) * 3000).tobytes()
+
+    def test_sure_first_model_is_kept(self):
+        small = FakeWhisper("Kamil, quelle heure est-il ?", -0.1)
+        lst = self.make(FakeWhisper("Kamil, raconte-moi une histoire", -0.2), small)
+        self.assertEqual(lst.transcribe(self.pcm()), "Kamil, raconte-moi une histoire")
+        self.assertEqual(small.calls, 0)
+
+    def test_doubtful_phrase_for_the_robot_goes_to_second_model(self):
+        small = FakeWhisper("Kamil, quelle heure est-il ?", -0.15)
+        lst = self.make(FakeWhisper("Kamil, Calerity", -0.7), small)
+        self.assertEqual(lst.transcribe(self.pcm()), "Kamil, quelle heure est-il ?")
+        # même si le 1er modèle a jugé toute la phrase trop incertaine
+        lst = self.make(FakeWhisper("Kamil, Kelleurity", -1.3), small)
+        self.assertEqual(lst.transcribe(self.pcm()), "Kamil, quelle heure est-il ?")
+
+    def test_doubtful_noise_not_for_the_robot_is_not_retried(self):
+        small = FakeWhisper("peu importe", -0.1)
+        lst = self.make(FakeWhisper("à côté du sport loup", -0.8), small)
+        self.assertEqual(lst.transcribe(self.pcm()), "à côté du sport loup")
+        self.assertEqual(small.calls, 0)
+        lst.awake_until = time.monotonic() + 10      # en pleine conversation : on réessaie
+        self.assertEqual(lst.transcribe(self.pcm()), "peu importe")
 
 
 if __name__ == "__main__":

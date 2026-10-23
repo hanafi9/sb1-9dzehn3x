@@ -118,6 +118,13 @@ class Listener:
             compute_type=cfg["whisper_compute_type"],
             cpu_threads=cfg["whisper_threads"],
         )
+        self.fallback_model = None
+        if cfg.get("whisper_fallback_model"):
+            # 2e modèle plus juste (mais ~3 fois plus lent), utilisé seulement quand le 1er hésite
+            log.info("Chargement de Whisper « %s » (si le 1er n'est pas sûr de lui)...", cfg["whisper_fallback_model"])
+            self.fallback_model = WhisperModel(cfg["whisper_fallback_model"], device="cpu",
+                                               compute_type=cfg["whisper_compute_type"],
+                                               cpu_threads=cfg["whisper_threads"])
         self.frames = queue.Queue()
         self.awake_until = 0.0
         self.mute_until = 0.0
@@ -142,10 +149,29 @@ class Listener:
         if self.cfg.get("auto_gain", True):
             # micro trop faible : la phrase est remontée à un bon niveau avant Whisper
             audio = normalize_peak(audio, max_gain=self.cfg.get("auto_gain_max", 20.0))
-        segments, _ = self.model.transcribe(
+        text, confidence, doubtful = self._whisper(self.model, audio, self.cfg["beam_size"])
+        threshold = self.cfg.get("fallback_below_confidence", -0.45)
+        # le 2e modèle ne sert que pour une phrase adressée au robot (mot de réveil, ou conversation
+        # en cours) : inutile de perdre 5 s sur un bruit ou une discussion qui ne le concerne pas
+        heard = (text + " " + doubtful).strip()   # y compris ce que le 1er modèle a jugé trop incertain
+        for_robot = time.monotonic() < self.awake_until or strip_wake_word(heard, self.cfg["wake_words"])[0]
+        if (self.fallback_model is not None and for_robot and not is_hallucination(heard)
+                and (doubtful or (text and confidence < threshold))):
+            t0 = time.monotonic()
+            better, conf2, _ = self._whisper(self.fallback_model, audio, self.cfg.get("fallback_beam_size", 1))
+            log.info("1er modèle pas sûr (%.2f) : « %s » → 2e modèle (%.1f s, %.2f) : « %s »",
+                     confidence, text, time.monotonic() - t0, conf2, better)
+            if better:
+                text = better
+        return text
+
+    def _whisper(self, model, audio, beam_size):
+        """Renvoie (texte, confiance moyenne, texte écarté car trop incertain) ;
+        confiance = log-probabilité moyenne, 0 = certain, -1 = très incertain."""
+        segments, _ = model.transcribe(
             audio,
             language=self.cfg["language"],
-            beam_size=self.cfg["beam_size"],
+            beam_size=beam_size,
             initial_prompt=self.cfg.get("vocabulary") or None,
             condition_on_previous_text=False,
             # un seul essai : les nouveaux essais « à température » de Whisper sur du bruit
@@ -157,16 +183,20 @@ class Listener:
             without_timestamps=True,
             vad_filter=False,  # déjà fait par WebRTC VAD
         )
-        parts = []
+        parts, weighted, total, doubtful = [], 0.0, 0, ""
         for seg in segments:
             if seg.no_speech_prob > self.cfg["max_no_speech_prob"]:
                 log.debug("ignoré (no_speech %.2f) : %s", seg.no_speech_prob, seg.text)
                 continue
             if seg.avg_logprob < self.cfg["min_avg_logprob"]:
                 log.debug("ignoré (confiance %.2f) : %s", seg.avg_logprob, seg.text)
+                doubtful += " " + seg.text.strip()   # de la parole, mais incompréhensible pour ce modèle
                 continue
             parts.append(seg.text.strip())
-        return " ".join(parts).strip()
+            n = max(1, len(seg.text))
+            weighted += seg.avg_logprob * n
+            total += n
+        return " ".join(parts).strip(), (weighted / total if total else 0.0), doubtful.strip()
 
     # --- actions -----------------------------------------------------------
     def _call(self, service, method, *params):

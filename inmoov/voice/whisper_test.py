@@ -88,10 +88,13 @@ def main():
                                                initial_prompt=vcfg.get("vocabulary") or None,
                                                condition_on_previous_text=False, temperature=0.0,
                                                without_timestamps=True, vad_filter=True)
+                segments = list(segments)
                 text = " ".join(s.text.strip() for s in segments)
+                conf = min((s.avg_logprob for s in segments), default=0.0)
                 spent = time.monotonic() - t0
                 total += spent
-                print("  [%s, beam %d] %4.1f s  dit : %s\n%s reconnu : %s" % (name, beam, spent, phrase, " " * 22, text))
+                print("  [%s, beam %d] %4.1f s  dit : %s\n%s reconnu : %s   (confiance %.2f)"
+                      % (name, beam, spent, phrase, " " * 22, text, conf))
             print("  → %s beam %d : %.1f s en moyenne par phrase" % (name, beam, total / len(clips)))
 
 
