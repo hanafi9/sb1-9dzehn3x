@@ -20,6 +20,8 @@ import numpy as np
 import sounddevice as sd
 from faster_whisper import WhisperModel
 
+from audio_gain import normalize_peak
+
 RATE = 16000
 PHRASES = ["Kamil, quelle heure est-il ?", "Kamil, raconte-moi une histoire courte.",
            "Kamil, regarde à gauche puis lève la main droite.", "Kamil, comment s'appelle ton créateur ?"]
@@ -43,12 +45,19 @@ def main():
     parser.add_argument("--beams", nargs="+", type=int, default=[1])
     parser.add_argument("--phrases", type=int, default=3)
     parser.add_argument("--seconds", type=float, default=5)
+    parser.add_argument("--wav", nargs="+", help="réutiliser des enregistrements (ex. /tmp/kamil-essai-*.wav)")
+    parser.add_argument("--no-gain", action="store_true", help="sans l'amplification automatique")
     args = parser.parse_args()
     with open(args.config, encoding="utf-8") as f:
         vcfg = json.load(f)["voice"]
 
     clips = []
-    for i in range(args.phrases):
+    for i, path in enumerate(args.wav or []):
+        with wave.open(path, "rb") as w:
+            audio = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16)
+        print("%s : niveau %.0f %%" % (path, level(audio)))
+        clips.append((PHRASES[i % len(PHRASES)], audio.astype(np.float32) / 32768.0, path))
+    for i in range(0 if args.wav else args.phrases):
         phrase = PHRASES[i % len(PHRASES)]
         input("\nAppuyez sur Entrée puis dites : « %s » (%d s)" % (phrase, args.seconds))
         audio = record(args.seconds, vcfg.get("input_device"))
@@ -72,6 +81,8 @@ def main():
         for beam in args.beams:
             total = 0.0
             for phrase, audio, _ in clips:
+                if not args.no_gain and vcfg.get("auto_gain", True):
+                    audio = normalize_peak(audio, max_gain=vcfg.get("auto_gain_max", 20.0))
                 t0 = time.monotonic()
                 segments, _ = model.transcribe(audio, language=vcfg.get("language", "fr"), beam_size=beam,
                                                initial_prompt=vcfg.get("vocabulary") or None,

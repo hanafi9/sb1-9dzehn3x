@@ -29,6 +29,7 @@ import webrtcvad
 from faster_whisper import WhisperModel
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+from audio_gain import amplify_pcm16, normalize_peak  # noqa: E402
 from mrl_client import MrlClient, load_config  # noqa: E402
 from segmenter import UtteranceSegmenter  # noqa: E402
 from text_utils import clean_chatbot_reply, is_hallucination, match_command, strip_wake_word  # noqa: E402
@@ -138,6 +139,9 @@ class Listener:
     # --- reconnaissance ----------------------------------------------------
     def transcribe(self, pcm16):
         audio = np.frombuffer(pcm16, dtype=np.int16).astype(np.float32) / 32768.0
+        if self.cfg.get("auto_gain", True):
+            # micro trop faible : la phrase est remontée à un bon niveau avant Whisper
+            audio = normalize_peak(audio, max_gain=self.cfg.get("auto_gain_max", 20.0))
         segments, _ = self.model.transcribe(
             audio,
             language=self.cfg["language"],
@@ -304,6 +308,7 @@ class Listener:
                 frame = self.frames.get()
                 if len(frame) != FRAME_SAMPLES * 2:
                     continue
+                frame = amplify_pcm16(frame, self.cfg.get("input_gain", 1))
                 if time.monotonic() < self.mute_until:
                     self.segmenter.reset()
                     continue
