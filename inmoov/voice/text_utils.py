@@ -87,3 +87,34 @@ def match_command(text, commands, threshold=0.8):
     if best is not None and best_score >= threshold:
         return best, commands[best]
     return None, None
+
+
+class SentenceSplitter:
+    """Découpe un texte qui arrive par morceaux (réponse de Claude en direct) en phrases.
+
+    Le robot peut ainsi dire la première phrase pendant que Claude écrit la suite.
+    Une phrase se termine par . ! ? … ou : suivi d'un espace, ou par un retour à la ligne.
+    """
+
+    END = re.compile(r"(?<=[.!?…:])\s+|\n+")
+
+    def __init__(self, min_chars=12):
+        self.buffer = ""
+        self.min_chars = min_chars  # évite de dire « 3. » ou « M. » tout seuls
+
+    def feed(self, chunk):
+        """Ajoute un morceau ; renvoie la liste des phrases désormais complètes."""
+        self.buffer += chunk
+        sentences, start = [], 0
+        for m in self.END.finditer(self.buffer):
+            sentence = self.buffer[start:m.start()].strip()
+            if len(sentence) >= self.min_chars or (sentence and m.group().count("\n")):
+                sentences.append(sentence)
+                start = m.end()
+        self.buffer = self.buffer[start:]
+        return sentences
+
+    def flush(self):
+        """Fin du texte : renvoie ce qui reste (ou une chaîne vide)."""
+        rest, self.buffer = self.buffer.strip(), ""
+        return rest

@@ -29,6 +29,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 import gesture_player  # noqa: E402
 from mood import EMOTIONS  # noqa: E402
 from reasoning import choose_effort, thinking_phrase  # noqa: E402
+from text_utils import SentenceSplitter  # noqa: E402
 
 log = logging.getLogger("brain")
 
@@ -226,17 +227,22 @@ def build_tools(cfg, memory, mind=None):
 
 
 class ClaudeBrain:
-    def __init__(self, cfg, call, speak, client=None, memory=None, mind=None, sleep=time.sleep, rng=random):
+    def __init__(self, cfg, call, speak, client=None, memory=None, mind=None, sleep=time.sleep, rng=random,
+                 say_async=None, wait_speech=None):
         """
         cfg    : section "brain" de config.json
         call   : fonction (service, methode, *params) -> (succès, réponse) vers MyRobotLab
         speak  : fonction (texte) qui fait parler le robot
+        say_async, wait_speech : facultatifs (voix Piper) ; la réponse de Claude est alors reçue
+                 en direct et dite phrase par phrase, sans attendre la fin
         memory : MemoryStore facultatif (souvenirs entre les conversations)
         mind   : Mind facultatif (perception, humeur, souvenirs des conversations)
         """
         self.cfg = cfg
         self.call = call
         self.speak = speak
+        self.say_async = say_async
+        self.wait_speech = wait_speech
         self.memory = memory
         self.mind = mind
         self.sleep = sleep
@@ -293,8 +299,33 @@ class ClaudeBrain:
             betas.append("mid-conversation-system-clear-at-2026-08-21")
         return betas
 
+    def _streaming(self):
+        return self.say_async is not None and self.cfg.get("stream", True)
+
     def _create(self):
-        return self.client.beta.messages.create(
+        return self.client.beta.messages.create(**self._params())
+
+    def _create_streaming(self):
+        """Comme _create(), mais chaque phrase est dite dès que Claude l'a écrite."""
+        splitter = SentenceSplitter()
+
+        def say_sentences(sentences):
+            for sentence in sentences:
+                if sentence:
+                    self.say_async(sentence)
+
+        with self.client.beta.messages.stream(**self._params()) as stream:
+            for event in stream:
+                if event.type == "text":
+                    say_sentences(splitter.feed(event.text))
+                elif event.type == "content_block_stop":
+                    say_sentences([splitter.flush()])
+            response = stream.get_final_message()
+        say_sentences([splitter.flush()])
+        return response
+
+    def _params(self):
+        return dict(
             model=self.cfg["model"],
             max_tokens=self.cfg["max_tokens"],
             system=self.system,
@@ -313,6 +344,13 @@ class ClaudeBrain:
         Renvoie le texte prononcé, ou None si Claude est injoignable
         (l'appelant peut alors se rabattre sur le chatbot d'InMoov2).
         """
+        try:
+            return self._ask(text)
+        finally:
+            if self.wait_speech is not None:
+                self.wait_speech()   # tout est dit avant de réécouter
+
+    def _ask(self, text):
         self._maybe_reset()
         if self.cfg.get("adaptive_effort"):
             effort = choose_effort(text, self.cfg["effort"], self.cfg.get("effort_think", "high"))
@@ -321,7 +359,8 @@ class ClaudeBrain:
                 self.messages.append({"role": "system", "content": [], "output_config": {"effort": effort}})
                 self.effort = effort
             if effort != self.cfg["effort"] and self.cfg.get("say_thinking", True):
-                self.speak(thinking_phrase(self.rng))
+                # en direct : la phrase est dite pendant que la question part déjà vers Claude
+                (self.say_async if self._streaming() else self.speak)(thinking_phrase(self.rng))
         self.messages.append({"role": "user", "content": text})
         if self.mind is not None:
             self.mind.on_user_turn()
@@ -331,7 +370,7 @@ class ClaudeBrain:
         spoken = []
         try:
             for _ in range(self.cfg["max_tool_rounds"]):
-                response = self._create()
+                response = self._create_streaming() if self._streaming() else self._create()
                 if response.stop_reason == "refusal":
                     log.warning("Demande refusée par Claude : %s", getattr(response, "stop_details", None))
                     self.reset(summarize=False)
@@ -343,7 +382,8 @@ class ClaudeBrain:
                 text_out = " ".join(b.text for b in response.content if b.type == "text").strip()
                 if text_out:
                     spoken.append(text_out)
-                    self.speak(text_out)
+                    if not self._streaming():   # en direct, c'est déjà en train d'être dit
+                        self.speak(text_out)
 
                 tool_uses = [b for b in response.content if b.type == "tool_use"]
                 if response.stop_reason == "max_tokens" and tool_uses:

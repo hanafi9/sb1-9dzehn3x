@@ -57,10 +57,14 @@ class Listener:
         self.dry_run = dry_run
         self.leds = leds_cfg if leds_cfg and leds_cfg.get("enabled") else None
         self.tts = None
+        self.pipeline = None
         if cfg.get("tts") == "piper":
-            from tts_piper import PiperSpeaker  # importé seulement si utilisé
+            from tts_piper import PiperSpeaker, SpeechPipeline  # importé seulement si utilisé
 
             self.tts = PiperSpeaker(cfg["piper_model"], length_scale=cfg.get("piper_length_scale"))
+            if not dry_run:
+                # phrase par phrase : le robot parle pendant que Claude écrit la suite
+                self.pipeline = SpeechPipeline(self.tts, fallback=self._speak_mrl)
             log.info("Voix hors ligne Piper : %s", cfg["piper_model"])
         self.memory = None
         self.brain = None
@@ -79,7 +83,9 @@ class Listener:
                 self.mind = Mind(mind_cfg)
                 self.mind.start(mind_cfg.get("period_s", 2.0))   # étudie la pièce en continu (Coral)
                 log.info("Perception, humeur et souvenirs des conversations : activés")
-            self.brain = ClaudeBrain(brain_cfg, self._call_checked, self.say, memory=self.memory, mind=self.mind)
+            self.brain = ClaudeBrain(brain_cfg, self._call_checked, self.say, memory=self.memory, mind=self.mind,
+                                     say_async=self.say_async if self.pipeline else None,
+                                     wait_speech=self.wait_speech if self.pipeline else None)
             log.info("IA conversationnelle : Claude (%s)", brain_cfg["model"])
         self.local = None
         if local_cfg and local_cfg.get("enabled"):
@@ -159,6 +165,11 @@ class Listener:
 
     def say(self, text):
         self.status("speaking")
+        if self.pipeline is not None:
+            # même file que les phrases de Claude : jamais deux sons en même temps
+            self.pipeline.put(text)
+            self.wait_speech()
+            return
         if self.tts is not None and not self.dry_run:
             try:
                 self.tts.speak(text)  # bloquant : le micro est ignoré pendant ce temps
@@ -166,8 +177,21 @@ class Listener:
                 return
             except Exception:
                 log.exception("Voix Piper en échec, on utilise la voix de MyRobotLab")
+        self._speak_mrl(text)
+
+    def _speak_mrl(self, text):
         self._call(self.cfg["mouth_service"], "speak", text)
         self._mute_for(text)
+
+    def say_async(self, text):
+        """Phrase mise dans la file de Piper : rend la main tout de suite."""
+        self.status("speaking")
+        self.pipeline.put(text)
+
+    def wait_speech(self):
+        """Attend la fin de tout ce qui est dans la file de Piper."""
+        self.pipeline.wait()
+        self.mute_until = max(self.mute_until, time.monotonic() + 0.3)
 
     def status(self, state):
         """Couleur des LED d'état (facultatif, service NeoPixel d'InMoov2)."""

@@ -45,7 +45,7 @@ def listener(tts, dry_run=False, wake_words=()):
                "chatbot_method": "getResponse", "mouth_service": "i01.mouth", "seconds_per_char": 0.07,
                "wake_window_s": 8}
     lst.awake_until = lst.mute_until = 0.0
-    lst.brain = lst.local = lst.leds = None
+    lst.brain = lst.local = lst.leds = lst.pipeline = None
     lst.tts, lst.dry_run, lst.mrl = tts, dry_run, FakeMrl()
     return lst
 
