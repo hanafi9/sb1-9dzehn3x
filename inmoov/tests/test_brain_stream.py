@@ -172,6 +172,17 @@ class StreamTest(unittest.TestCase):
         self.assertEqual(result["content"], "Lumière du salon allumée")
         self.assertNotIn("is_error", result)
 
+    def test_surveillance_tool(self):
+        self.cfg["watch"] = {"enabled": True}
+        b = self.make([
+            stream_body([("tool_use", "toolu_1", "surveillance", {"action": "journal", "hours": 3})], "tool_use"),
+            stream_body([("text", ["Rien de spécial, à part toi à midi."])], "end_turn"),
+        ])
+        b.watcher = type("W", (), {"journal_text": lambda self, h: "12 h 00 : Arrivée : une personne devant moi"})()
+        b.ask("il s'est passé quoi ?")
+        self.assertIn("surveillance", [t["name"] for t in self.requests[0]["tools"]])
+        self.assertIn("12 h 00 : Arrivée", self.requests[1]["messages"][-1]["content"][0]["content"])
+
     def test_without_pipeline_no_stream(self):
         self.cfg["stream"] = False
         b = self.make([])

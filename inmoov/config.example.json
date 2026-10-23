@@ -69,6 +69,13 @@
     "robot_name": "InMoov",
     "owner_name": "son créateur",
     "extra_instructions": "",
+    "watch": {
+      "enabled": true,
+      "_aide": "Surveillance (voice/watch.py) : journal des arrivées, départs, mouvements et objets vus par les 2 caméras (data/journal.jsonl) avec photos (data/surveillance). Demandez « qu'est-ce qui s'est passé ? », « montre-moi qui est passé », « surveille la maison » (mode garde). notify_service : service Home Assistant qui prévient un téléphone en mode garde, ex. notify.mobile_app_mon_telephone.",
+      "motion_threshold": 0.03,
+      "max_snapshots": 300,
+      "notify_service": null
+    },
     "home_assistant": {
       "enabled": false,
       "_aide": "Agir sur la maison : Kamil envoie des phrases simples à l'assistant Assist de Home Assistant. Jeton longue durée dans anthropic.env : HOME_ASSISTANT_TOKEN=… Seuls les appareils exposés à Assist (Paramètres → Assistants vocaux → Exposer) sont accessibles. Pour réserver la maison à votre voix : ajoutez \"home_assistant\" à voice.speaker_id.owner_only_tools.",

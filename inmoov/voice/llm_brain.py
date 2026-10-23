@@ -111,6 +111,12 @@ Comment tu penses, comme une personne attentive :
 - ton humeur colore ta façon de parler (plus enjoué, plus calme, plus fatigué) sans jamais te rendre
   désagréable ; quand quelque chose te fait réagir, utilise l'outil feel ;
 - pour découvrir la pièce, utilise look_around ; pour une question précise sur une image, look ;
+- tu surveilles en permanence ce qui se passe autour de toi (outil surveillance) : quand on te demande
+  ce qui s'est passé, qui est venu, s'il y a eu du mouvement, consulte ton journal et réponds
+  simplement, sans tout réciter ;
+- un message « [Alerte du mode garde] » signale une arrivée ou un mouvement pendant la garde :
+  interpelle la personne poliment mais fermement (« Bonjour, qui êtes-vous ? Je préviens la
+  maison. »), regarde avec look si c'est utile, et ne dis jamais où sont les objets de valeur ;
 - un message qui commence par « [Tes caméras remarquent] » n'est pas une phrase entendue : c'est
   ce que tu viens de voir. Réagis spontanément, comme une personne qui lève les yeux : une ou deux
   phrases courtes, naturelles et chaleureuses, avec ta pointe d'humour quand ça s'y prête (saluer selon l'heure, appeler par son prénom quelqu'un que tu
@@ -279,6 +285,28 @@ HOME_TOOL = {
 }
 
 
+WATCH_TOOL = {
+    "name": "surveillance",
+    "description": (
+        "Ton journal de surveillance : tu notes en continu ce qui se passe devant tes deux caméras "
+        "(arrivées et départs de personnes, mouvements, objets apparus ou disparus), avec des photos. "
+        "action « journal » : ce qui s'est passé ces dernières heures (hours) ; « photo » : regarder une "
+        "photo du journal (index 1 = la plus récente) ; « garde_on » / « garde_off » : mode garde, où "
+        "chaque arrivée ou mouvement déclenche une alerte. Utilise-le quand on te demande ce qui s'est "
+        "passé, qui est venu, s'il y a eu du mouvement, ou de surveiller la maison."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "action": {"type": "string", "enum": ["journal", "photo", "garde_on", "garde_off"]},
+            "hours": {"type": "number", "description": "pour journal : nombre d'heures (défaut 24)"},
+            "index": {"type": "integer", "description": "pour photo : 1 = la plus récente"},
+        },
+        "required": ["action"],
+    },
+}
+
+
 def build_tools(cfg, memory, mind=None):
     tools = list(BASE_TOOLS)
     if cfg.get("camera_frame_path"):
@@ -294,6 +322,8 @@ def build_tools(cfg, memory, mind=None):
         tools.append(FEEL_TOOL)
     if (cfg.get("home_assistant") or {}).get("enabled"):
         tools.append(HOME_TOOL)
+    if (cfg.get("watch") or {}).get("enabled"):
+        tools.append(WATCH_TOOL)
     return tools
 
 
@@ -537,6 +567,26 @@ class ClaudeBrain:
             return None
         return " ".join(spoken)
 
+    def _surveillance(self, args):
+        w, action = self.watcher, args.get("action")
+        if action == "journal":
+            return True, w.journal_text(float(args.get("hours") or 24))
+        if action in ("garde_on", "garde_off"):
+            w.set_guard(action == "garde_on")
+            return True, "mode garde %s" % ("activé" if w.guard else "désactivé")
+        if action == "photo":
+            caption, path = w.photo(int(args.get("index") or 1))
+            if path is None:
+                return False, "pas de photo à cet index dans le journal"
+            with open(path, "rb") as f:
+                data = f.read()
+            return True, [
+                {"type": "text", "text": caption},
+                {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
+                                             "data": base64.standard_b64encode(data).decode("ascii")}},
+            ]
+        raise ValueError("action inconnue : %s" % action)
+
     def _tool_result(self, block):
         try:
             owner = getattr(self, "owner", None)
@@ -589,6 +639,8 @@ class ClaudeBrain:
         if name == "feel" and self.mind is not None:
             self.mind.feel(args["emotion"], args["intensity"])
             return True, "émotion prise en compte"
+        if name == "surveillance" and getattr(self, "watcher", None) is not None:
+            return self._surveillance(args)
         if name == "home_assistant" and self.home is not None:
             return self.home.ask(str(args["command"])[:200])
         if name == "remember" and self.memory is not None:

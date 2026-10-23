@@ -69,3 +69,16 @@ class HomeAssistant:
         if kind == "error":
             return False, speech or "Home Assistant n'a pas compris"
         return True, speech or "c'est fait"
+
+    def call_service(self, domain, service, data):
+        """Appelle un service Home Assistant (ex. notify / mobile_app_telephone) ; renvoie (succès, message)."""
+        req = urllib.request.Request(
+            "%s/api/services/%s/%s" % (self.url, domain, service), data=json.dumps(data).encode("utf-8"),
+            method="POST", headers={"Authorization": "Bearer " + self.token, "Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=self.timeout, context=self.context):
+                return True, "ok"
+        except urllib.error.HTTPError as e:
+            return False, "Home Assistant a répondu %d" % e.code
+        except (urllib.error.URLError, OSError) as e:
+            return False, "Home Assistant injoignable (%s)" % getattr(e, "reason", e)

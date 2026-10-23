@@ -22,6 +22,7 @@ import os
 import queue
 import random
 import sys
+import threading
 import time
 
 import numpy as np
@@ -127,6 +128,13 @@ class Listener:
                 # mouvements réservés à une voix (ex. move_head, hand, gesture)
                 self.brain.owner = spk["owner"]
                 self.brain.restricted_tools = set(spk["owner_only_tools"])
+            watch_cfg = brain_cfg.get("watch") or {}
+            if watch_cfg.get("enabled") and mind_cfg.get("vision_state_path"):
+                from watch import Watcher
+
+                self.watcher = Watcher(watch_cfg, mind_cfg["vision_state_path"])
+                self.brain.watcher = self.watcher
+                log.info("Surveillance : journal %s, photos %s", self.watcher.journal_path, self.watcher.snap_dir)
             react_cfg = brain_cfg.get("reactions") or {}
             if react_cfg.get("enabled") and mind_cfg.get("vision_state_path"):
                 from reactions import Reactions
@@ -467,12 +475,24 @@ class Listener:
         return name or ""
 
     def _maybe_react(self):
-        """Entre deux phrases : réagit à ce que les caméras viennent de remarquer."""
-        if self.reactions is None or self.brain is None or self.segmenter.triggered:
+        """Entre deux phrases : tient le journal de surveillance et réagit à ce que voient les caméras."""
+        watcher = getattr(self, "watcher", None)
+        if watcher is not None:
+            alert = watcher.poll()        # le journal est tenu en continu, même pendant qu'on parle
+            if alert:
+                self._pending_alert = alert
+                self._notify_phone(alert)
+        if self.brain is None or self.segmenter.triggered:
             return   # quelqu'un est en train de parler : on ne lui coupe pas la parole
         if time.monotonic() < self.mute_until:
             return
-        event = self.reactions.poll()
+        alert, self._pending_alert = getattr(self, "_pending_alert", None), None
+        if alert:
+            event = ("garde", "[Alerte du mode garde] " + alert)
+        elif self.reactions is not None:
+            event = self.reactions.poll()
+        else:
+            event = None
         if event is None:
             return
         self.status("thinking")
@@ -484,10 +504,20 @@ class Listener:
         finally:
             self.status("idle")
         if said is not None:
-            self.reactions.on_conversation()
+            if self.reactions is not None:
+                self.reactions.on_conversation()
             self._follow_up()   # la personne peut répondre sans dire « Kamil »
         self._flush_audio()
 
+    def _notify_phone(self, alert):
+        """Mode garde : prévient un téléphone par Home Assistant (service notify), sans bloquer l'écoute."""
+        service = (self.watcher.cfg.get("notify_service") or "") if getattr(self, "watcher", None) else ""
+        home = getattr(self.brain, "home", None) if self.brain is not None else None
+        if "." not in service or home is None:
+            return
+        domain, name = service.split(".", 1)
+        threading.Thread(target=lambda: log.info("Alerte envoyée au téléphone : %s", home.call_service(
+            domain, name, {"title": "Kamil – mode garde", "message": alert})[1]), daemon=True).start()
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -515,6 +545,10 @@ def main():
     for key in ("model", "db_path"):
         if spk_cfg.get(key) and not os.path.isabs(spk_cfg[key]):
             spk_cfg[key] = os.path.join(base, spk_cfg[key])
+    watch_cfg = cfg.get("brain", {}).get("watch") or {}
+    for key, default in (("journal_path", "data/journal.jsonl"), ("snapshots_dir", "data/surveillance")):
+        value = watch_cfg.get(key) or default    # dans le dossier inmoov, comme les autres données
+        watch_cfg[key] = value if os.path.isabs(value) else os.path.join(base, value)
     mind_cfg = cfg.get("brain", {}).get("mind") or {}
     for key in ("environment_path", "mood_path", "episodes_path"):
         if mind_cfg.get(key) and not os.path.isabs(mind_cfg[key]):
