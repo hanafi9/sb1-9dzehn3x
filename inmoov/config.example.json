@@ -137,6 +137,14 @@
     "input_gain": 1,
     "auto_gain": true,
     "auto_gain_max": 20,
+    "cloud_stt": {
+      "enabled": false,
+      "_aide": "Reconnaissance vocale en ligne, bien plus juste et rapide que Whisper sur le Pi. provider groq (modèle whisper-large-v3-turbo, clé GROQ_API_KEY) ou openai (gpt-4o-mini-transcribe, clé OPENAI_API_KEY) ; la clé va dans anthropic.env. Sans Internet : Whisper du Pi.",
+      "provider": "groq",
+      "model": null,
+      "language": "fr",
+      "timeout_s": 6
+    },
     "speaker_id": {
       "enabled": false,
       "_aide": "Reconnaître qui parle à sa voix (voice/enroll_voice.py pour enregistrer une voix ; pip install sherpa-onnx). threshold : score minimum (0 à 1) pour reconnaître. owner + owner_only_tools (ex. [\"move_head\", \"hand\", \"gesture\", \"rest_position\"]) : mouvements réservés à cette voix ; owner_only_commands : idem pour les commandes vocales directes.",

@@ -150,6 +150,13 @@ class Listener:
             compute_type=cfg["whisper_compute_type"],
             cpu_threads=cfg["whisper_threads"],
         )
+        self.cloud = None
+        if (cfg.get("cloud_stt") or {}).get("enabled"):
+            from cloud_stt import CloudTranscriber
+
+            self.cloud = CloudTranscriber(cfg["cloud_stt"])
+            log.info("Reconnaissance vocale en ligne : %s (%s), Whisper du Pi en secours",
+                     cfg["cloud_stt"].get("provider", "groq"), self.cloud.model)
         self.fallback_model = None
         if cfg.get("whisper_fallback_model"):
             # 2e modèle plus juste (mais ~3 fois plus lent), utilisé seulement quand le 1er hésite
@@ -182,6 +189,13 @@ class Listener:
             # micro trop faible : la phrase est remontée à un bon niveau avant Whisper
             audio = normalize_peak(audio, max_gain=self.cfg.get("auto_gain_max", 20.0))
         self._last_audio = audio   # pour reconnaître la voix si la phrase s'adresse au robot
+        if getattr(self, "cloud", None) is not None:
+            from cloud_stt import CloudError
+
+            try:
+                return self.cloud.transcribe(audio)
+            except CloudError as e:
+                log.warning("Reconnaissance en ligne impossible (%s) : Whisper du Pi", e)
         text, confidence, doubtful = self._whisper(self.model, audio, self.cfg["beam_size"])
         threshold = self.cfg.get("fallback_below_confidence", -0.45)
         # le 2e modèle ne sert que pour une phrase adressée au robot (mot de réveil, ou conversation
