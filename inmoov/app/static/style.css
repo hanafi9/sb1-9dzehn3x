@@ -277,3 +277,4 @@ a.button.ghost { background: transparent; color: var(--accent); }
 .bench-grid.wide-first { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); }
 @media (max-width: 760px) { .bench-grid.wide-first { grid-template-columns: minmax(0, 1fr); } }
 #bench-say { flex: 1; min-width: 0; }
+.bench-cams .cam:not(.live) img, .bench-cams .cam:not(.live) canvas { visibility: hidden; }
