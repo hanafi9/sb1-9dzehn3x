@@ -127,10 +127,12 @@ class BrainTest(unittest.TestCase):
         self.assertEqual(len(self.api.requests[2]["messages"]), 1)
 
     def test_tool_schemas_are_strict(self):
-        cfg = dict(self.cfg, camera_frame_path="/tmp/x.jpg", gestures=["salut"])
+        cfg = dict(self.cfg, camera_frame_path="/tmp/x.jpg", gestures=["salut"],
+                   home_assistant={"enabled": True, "url": "http://ha"}, watch={"enabled": True})
         tools = build_tools(cfg, MemoryStore("/tmp/nexiste-pas.json"))
         self.assertEqual([t["name"] for t in tools],
-                         ["move_head", "hand", "rest_position", "look", "look_around", "gesture", "remember"])
+                         ["move_head", "hand", "rest_position", "look", "look_around", "gesture", "remember",
+                          "home_assistant", "surveillance"])
         for t in tools:
             self.assertTrue(t["strict"])
             self.assertFalse(t["input_schema"]["additionalProperties"])

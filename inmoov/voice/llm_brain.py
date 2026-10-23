@@ -277,10 +277,12 @@ HOME_TOOL = {
         "Une commande par appel ; si la personne en demande plusieurs, appelle l'outil plusieurs fois. "
         "La réponse dit ce qui a été fait ou la valeur demandée : redis-la simplement, à ta façon."
     ),
+    "strict": True,
     "input_schema": {
         "type": "object",
         "properties": {"command": {"type": "string", "description": "la commande en français"}},
         "required": ["command"],
+        "additionalProperties": False,
     },
 }
 
@@ -295,14 +297,16 @@ WATCH_TOOL = {
         "chaque arrivée ou mouvement déclenche une alerte. Utilise-le quand on te demande ce qui s'est "
         "passé, qui est venu, s'il y a eu du mouvement, ou de surveiller la maison."
     ),
+    "strict": True,
     "input_schema": {
         "type": "object",
         "properties": {
             "action": {"type": "string", "enum": ["journal", "photo", "garde_on", "garde_off"]},
-            "hours": {"type": "number", "description": "pour journal : nombre d'heures (défaut 24)"},
-            "index": {"type": "integer", "description": "pour photo : 1 = la plus récente"},
+            "hours": {"type": "number", "description": "pour journal : nombre d'heures ; 0 = les dernières 24 h"},
+            "index": {"type": "integer", "description": "pour photo : 1 = la plus récente ; 0 sinon"},
         },
-        "required": ["action"],
+        "required": ["action", "hours", "index"],
+        "additionalProperties": False,
     },
 }
 
