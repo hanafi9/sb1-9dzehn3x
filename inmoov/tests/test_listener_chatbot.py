@@ -120,6 +120,15 @@ class ChatbotTest(unittest.TestCase):
         lst.handle("lève le bras")
         self.assertEqual(lst.mrl.calls, [("i01.rightArm.shoulder", "moveTo", 120)])
 
+    def test_longer_follow_up_after_a_question(self):
+        lst = listener(FakeTts())
+        lst._follow_up()
+        normal = lst.awake_until - time.monotonic()
+        lst._follow_up(question=True)
+        question = lst.awake_until - time.monotonic()
+        self.assertAlmostEqual(normal, 15, delta=0.5)
+        self.assertAlmostEqual(question, 25, delta=0.5)
+
     def test_response_delay_is_logged_by_step(self):
         lst = listener(FakeTts())
         lst.cfg["end_silence_ms"] = 700

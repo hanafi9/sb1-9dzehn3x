@@ -7,6 +7,7 @@ aucun appel réseau.
 import json
 import os
 import sys
+import time
 import unittest
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
@@ -56,10 +57,11 @@ class StreamTest(unittest.TestCase):
         self.events = []      # ordre des paroles et des gestes
         self.requests = []
 
-    def make(self, bodies):
+    def make(self, bodies, delay=0.0):
         bodies = list(bodies)
 
         def handler(request):
+            time.sleep(delay)   # Claude « réfléchit » avant d'envoyer sa réponse
             self.requests.append(json.loads(request.content))
             return httpx.Response(200, headers={"content-type": "text/event-stream"}, content=bodies.pop(0))
 
@@ -133,6 +135,26 @@ class StreamTest(unittest.TestCase):
         b.ask("tourne la tête", speaker="Hanafi")
         self.assertEqual(self.requests[0]["messages"][-1]["content"], "[Voix de Hanafi] tourne la tête")
         self.assertTrue(any(e[0] == "geste" for e in self.events))
+
+    def test_filler_when_claude_is_slow(self):
+        from reasoning import FILLERS
+        self.cfg["filler_after_s"] = 0.05
+        b = self.make([stream_body([("text", ["Il est midi pile."])], "end_turn")], delay=0.3)
+        b.ask("quelle heure est-il")
+        said = [e[1] for e in self.events if e[0] == "dit"]
+        self.assertIn(said[0], FILLERS)                       # « Alors… » pendant l'attente
+        self.assertEqual(said[1:], ["Il est midi pile."])
+
+    def test_no_filler_when_fast_or_for_camera_events(self):
+        self.cfg["filler_after_s"] = 0.2
+        b = self.make([stream_body([("text", ["Coucou !"])], "end_turn")])
+        b.ask("salut")
+        self.assertEqual([e[1] for e in self.events if e[0] == "dit"], ["Coucou !"])
+        self.events.clear()
+        self.cfg["filler_after_s"] = 0.05
+        b = self.make([stream_body([("text", ["Oh, bonjour toi !"])], "end_turn")], delay=0.3)
+        b.notice("Une personne vient d'apparaître.")
+        self.assertEqual([e[1] for e in self.events if e[0] == "dit"], ["Oh, bonjour toi !"])
 
     def test_without_pipeline_no_stream(self):
         self.cfg["stream"] = False

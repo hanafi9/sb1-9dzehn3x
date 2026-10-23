@@ -26,6 +26,8 @@ THINKING_PHRASES = ["Laisse-moi réfléchir.", "Bonne question, je réfléchis."
                     "Attention, ça chauffe là-dedans !", "Je consulte mon unique neurone, il est très occupé.",
                     "Pause réflexion… ne débranche rien surtout."]
 _last = {"phrase": None}
+# petits mots dits quand Claude met un peu de temps à commencer sa réponse
+FILLERS = ["Alors…", "Voyons voir…", "Ah !", "Hmm, attends…", "Oh, alors…", "Bon, bon, bon…"]
 
 
 def choose_effort(text, quick="low", think="high", long_words=22):

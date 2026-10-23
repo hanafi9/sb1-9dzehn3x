@@ -14,7 +14,7 @@ import os
 import threading
 import time
 
-BASE = {"energie": 0.7, "joie": 0.3, "curiosite": 0.5}
+BASE = {"energie": 0.75, "joie": 0.5, "curiosite": 0.6}   # d'un naturel joyeux et curieux
 LIMITS = {"energie": (0.0, 1.0), "joie": (-1.0, 1.0), "curiosite": (0.0, 1.0)}
 EMOTIONS = {
     # émotion -> effet par point d'intensité

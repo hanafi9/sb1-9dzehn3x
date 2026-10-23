@@ -20,6 +20,7 @@ import base64
 import logging
 import os
 import random
+import threading
 import time
 
 import anthropic
@@ -28,8 +29,9 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 import gesture_player  # noqa: E402
 from mood import EMOTIONS  # noqa: E402
-from reasoning import choose_effort, thinking_phrase  # noqa: E402
+from reasoning import FILLERS, choose_effort, thinking_phrase  # noqa: E402
 from text_utils import SentenceSplitter  # noqa: E402
+
 
 log = logging.getLogger("brain")
 
@@ -66,7 +68,11 @@ comme un assistant :
 - relance parfois la conversation par une question ou une idée, mais laisse-la parler ;
 - quand tu n'as pas compris, dis-le avec légèreté, et à chaque fois différemment (« Mes oreilles
   de robot ont grésillé, tu peux répéter ? ») ;
-- une histoire ou une explication peut être plus longue : raconte-la de façon vivante.
+- une histoire ou une explication peut être plus longue : raconte-la de façon vivante ;
+- tu es d'un naturel joyeux et enthousiaste : tu te réjouis des bonnes nouvelles, tu fais des
+  compliments sincères, tu t'émerveilles des petites choses ;
+- quand la conversation s'essouffle, propose une petite activité : une devinette, un quiz, un
+  « jacques a dit » avec tes bras, un pierre-feuille-ciseaux, une histoire à inventer à deux…
 {humour}
 """
 
@@ -348,13 +354,27 @@ class ClaudeBrain:
     def _create(self):
         return self.client.beta.messages.create(**self._params())
 
-    def _create_streaming(self):
-        """Comme _create(), mais chaque phrase est dite dès que Claude l'a écrite."""
+    def _create_streaming(self, filler=True):
+        """Comme _create(), mais chaque phrase est dite dès que Claude l'a écrite.
+
+        Si la 1re phrase tarde (filler_after_s), le robot dit un petit « Alors… » pour
+        montrer qu'il a entendu, comme une personne qui cherche ses mots.
+        """
         splitter = SentenceSplitter()
+        first = threading.Event()
+        timer = None
+        delay = self.cfg.get("filler_after_s", 1.3)
+        if filler and delay:
+            timer = threading.Timer(delay, lambda: first.is_set() or self.say_async(self.rng.choice(FILLERS)))
+            timer.daemon = True
+            timer.start()
 
         def say_sentences(sentences):
             for sentence in sentences:
                 if sentence:
+                    first.set()
+                    if timer is not None:
+                        timer.cancel()
                     self.say_async(sentence)
 
         with self.client.beta.messages.stream(**self._params()) as stream:
@@ -365,6 +385,9 @@ class ClaudeBrain:
                     say_sentences([splitter.flush()])
             response = stream.get_final_message()
         say_sentences([splitter.flush()])
+        first.set()
+        if timer is not None:
+            timer.cancel()
         return response
 
     def _params(self):
@@ -410,6 +433,7 @@ class ClaudeBrain:
 
     def _ask(self, text, adaptive=True):
         self._maybe_reset()
+        said_thinking = False
         if self.cfg.get("adaptive_effort"):
             # une réaction spontanée (adaptive=False) reste toujours rapide
             effort = (choose_effort(text, self.cfg["effort"], self.cfg.get("effort_think", "high"))
@@ -419,6 +443,7 @@ class ClaudeBrain:
                 self.messages.append({"role": "system", "content": [], "output_config": {"effort": effort}})
                 self.effort = effort
             if effort != self.cfg["effort"] and self.cfg.get("say_thinking", True):
+                said_thinking = True
                 # en direct : la phrase est dite pendant que la question part déjà vers Claude
                 (self.say_async if self._streaming() else self.speak)(thinking_phrase(self.rng))
         self.messages.append({"role": "user", "content": text})
@@ -431,7 +456,10 @@ class ClaudeBrain:
         try:
             for _ in range(self.cfg["max_tool_rounds"]):
                 t0 = time.monotonic()
-                response = self._create_streaming() if self._streaming() else self._create()
+                # pas de « Alors… » pour une réaction spontanée (adaptive=False) : personne n'attend
+                response = (self._create_streaming(filler=adaptive and not said_thinking and not spoken)
+                            if self._streaming()
+                            else self._create())
                 if response.stop_reason == "refusal":
                     log.warning("Demande refusée par Claude : %s", getattr(response, "stop_details", None))
                     self.reset(summarize=False)

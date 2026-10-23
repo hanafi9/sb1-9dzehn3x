@@ -76,11 +76,11 @@ class Listener:
                 self.pipeline = SpeechPipeline(self.tts, fallback=self._speak_mrl)
                 self.pipeline.on_play_start = self._on_first_sound
             log.info("Voix hors ligne Piper : %s", cfg["piper_model"])
-            from reasoning import THINKING_PHRASES
+            from reasoning import FILLERS, THINKING_PHRASES
 
             self.brain_cfg = brain_cfg
             self.tts.warm_up(list(cfg.get("wake_replies") or (WAKE_REPLIES_FUNNY if self._funny() else WAKE_REPLIES))
-                             + THINKING_PHRASES)
+                             + FILLERS + THINKING_PHRASES)
         self.memory = None
         self.brain = None
         self.reactions = None
@@ -345,11 +345,12 @@ class Listener:
             return
 
         self.status("thinking")
-        answered = False
+        answered, said = False, None
         try:
             if self.brain is not None:
                 try:
-                    answered = self.brain.ask(text, speaker=speaker) is not None
+                    said = self.brain.ask(text, speaker=speaker)
+                    answered = said is not None
                 except Exception:  # ex. clé API absente : le robot doit continuer d'écouter
                     log.exception("Erreur inattendue de l'IA")
                     self.brain.reset()
@@ -367,7 +368,7 @@ class Listener:
         finally:
             self.status("idle")
         if answered:
-            self._follow_up()
+            self._follow_up(question=isinstance(said, str) and said.rstrip().endswith("?"))
             return
 
         log.warning("On utilise le chatbot d'InMoov2")
@@ -384,9 +385,10 @@ class Listener:
         if reply:
             self._follow_up()
 
-    def _follow_up(self):
-        """Après une réponse, on peut continuer sans redire le mot de réveil pendant quelques secondes."""
-        window = self.cfg.get("follow_up_s", 10)
+    def _follow_up(self, question=False):
+        """Après une réponse, on peut continuer sans redire le mot de réveil pendant quelques secondes
+        (plus longtemps si le robot vient de poser une question : on a le temps de réfléchir)."""
+        window = self.cfg.get("follow_up_question_s", 25) if question else self.cfg.get("follow_up_s", 15)
         if window > 0:
             self.awake_until = max(time.monotonic(), self.mute_until) + window
             self.status("awake")
