@@ -2,7 +2,11 @@
 
 import json
 import os
+import shutil
+import ssl
+import subprocess
 import sys
+import tempfile
 import threading
 import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -76,6 +80,38 @@ class HomeAssistantTest(unittest.TestCase):
         os.environ.pop("HOME_ASSISTANT_TOKEN", None)
         ok, msg = HomeAssistant(self.url).ask("allume")
         self.assertEqual((ok, "jeton" in msg), (False, True))
+
+
+@unittest.skipIf(shutil.which("openssl") is None, "openssl absent")
+class SelfSignedHttpsTest(unittest.TestCase):
+    """Home Assistant en https avec un certificat auto-signé, comme sur le réseau local."""
+
+    @classmethod
+    def setUpClass(cls):
+        d = tempfile.mkdtemp()
+        cls.cert, key = os.path.join(d, "cert.pem"), os.path.join(d, "key.pem")
+        subprocess.run(["openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "1", "-subj",
+                        "/CN=127.0.0.1", "-addext", "subjectAltName=IP:127.0.0.1", "-keyout", key, "-out", cls.cert],
+                       check=True, capture_output=True)
+        cls.server = HTTPServer(("127.0.0.1", 0), FakeHA)
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        ctx.load_cert_chain(cls.cert, key)
+        cls.server.socket = ctx.wrap_socket(cls.server.socket, server_side=True)
+        threading.Thread(target=cls.server.serve_forever, daemon=True).start()
+        cls.url = "https://127.0.0.1:%d" % cls.server.server_port
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.server.shutdown()
+        cls.server.server_close()
+
+    def test_refused_by_default_then_accepted(self):
+        ok, msg = HomeAssistant(self.url, token="bon-jeton", timeout=3).ask("allume le salon")
+        self.assertFalse(ok)                                   # certificat inconnu : refusé
+        ok, msg = HomeAssistant(self.url, token="bon-jeton", verify_ssl=False).ask("allume le salon")
+        self.assertEqual((ok, msg), (True, "Lumière du salon allumée"))
+        ok, msg = HomeAssistant(self.url, token="bon-jeton", ca_file=self.cert).ask("allume le salon")
+        self.assertTrue(ok)                                    # certificat fourni : vérifié
 
 
 if __name__ == "__main__":

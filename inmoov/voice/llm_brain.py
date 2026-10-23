@@ -315,7 +315,8 @@ class ClaudeBrain:
         if ha.get("enabled"):
             from home_assistant import HomeAssistant
 
-            self.home = HomeAssistant(ha["url"], language=ha.get("language", "fr"), agent_id=ha.get("agent_id"))
+            self.home = HomeAssistant(ha["url"], language=ha.get("language", "fr"), agent_id=ha.get("agent_id"),
+                                      verify_ssl=ha.get("verify_ssl", True), ca_file=ha.get("ca_file"))
         self.memory = memory
         self.mind = mind
         self.sleep = sleep

@@ -14,6 +14,7 @@ d'environnement HOME_ASSISTANT_TOKEN (fichier anthropic.env, jamais envoyé sur 
 import json
 import logging
 import os
+import ssl
 import urllib.error
 import urllib.request
 
@@ -21,8 +22,18 @@ log = logging.getLogger("home")
 
 
 class HomeAssistant:
-    def __init__(self, url, token=None, language="fr", agent_id=None, timeout=8.0):
+    def __init__(self, url, token=None, language="fr", agent_id=None, timeout=8.0, verify_ssl=True, ca_file=None):
+        """verify_ssl=False : Home Assistant en https avec un certificat auto-signé (réseau local) ;
+        ca_file : ou bien le certificat lui-même, pour le vérifier quand même (plus sûr)."""
         self.url = url.rstrip("/")
+        self.context = None
+        if self.url.startswith("https://"):
+            if ca_file:
+                self.context = ssl.create_default_context(cafile=ca_file)
+            elif not verify_ssl:
+                self.context = ssl.create_default_context()
+                self.context.check_hostname = False
+                self.context.verify_mode = ssl.CERT_NONE
         self.token = token or os.environ.get("HOME_ASSISTANT_TOKEN", "")
         self.language = language
         self.agent_id = agent_id
@@ -42,7 +53,7 @@ class HomeAssistant:
             self.url + "/api/conversation/process", data=json.dumps(body).encode("utf-8"), method="POST",
             headers={"Authorization": "Bearer " + self.token, "Content-Type": "application/json"})
         try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+            with urllib.request.urlopen(req, timeout=self.timeout, context=self.context) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
         except urllib.error.HTTPError as e:
             if e.code == 401:
