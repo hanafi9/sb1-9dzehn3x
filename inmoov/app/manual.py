@@ -514,6 +514,7 @@ CHAPTERS = [
                 ["Suivi de visage (Coral)", "vision/face_tracker.py", "vision"],
                 ["Écoute (Whisper) et commandes", "voice/speech_listener.py", "voice"],
                 ["Conversation avec Claude, vision, gestes, mémoire", "voice/llm_brain.py", "brain"],
+                ["Perception (Coral), humeur, souvenirs des conversations", "voice/mind.py", "brain.mind, vision.objects"],
                 ["IA locale de secours", "voice/llm_local.py", "local_llm"],
                 ["Voix hors ligne Piper", "voice/tts_piper.py", "voice.tts = \"piper\""],
                 ["Imitation et gestes appris", "vision/mirror.py", "mirror"],
@@ -530,9 +531,18 @@ CHAPTERS = [
                 ["« InMoov, regarde à gauche »", "Commande locale immédiate"],
                 ["« InMoov, qu'est-ce que je tiens ? »", "L'IA prend une photo et la décrit"],
                 ["« InMoov, je m'appelle Paul »", "L'IA retient le prénom pour les prochaines fois"],
+                ["« InMoov, regarde autour de toi »", "La tête balaie la pièce (3 photos) et l'IA la décrit"],
+                ["« InMoov, pourquoi le ciel est bleu ? »", "« Laisse-moi réfléchir… » : réflexion approfondie"],
+                ["« InMoov, qu'est-ce qui a changé ? »", "L'IA répond d'après ce que le Coral a vu apparaître ou disparaître"],
+                ["« InMoov, on s'est déjà parlé ? »", "L'IA s'appuie sur le résumé des conversations précédentes"],
                 ["« InMoov, fais le geste salut »", "Joue un geste appris par imitation"],
                 ["« InMoov » (seul)", "Le robot répond « oui ? » et écoute la phrase suivante"],
             ]),
+            ("h", "« Raisonnement humain »"),
+            ("p", "Le Coral détecte en continu les objets de la pièce (sans Internet). À chaque phrase, l'IA reçoit "
+                  "l'heure, ce qu'elle voit, ses capteurs et son humeur ; elle réfléchit plus longtemps aux vraies "
+                  "questions et se souvient des conversations passées. Réglages : brain.mind et vision.objects ; "
+                  "installation du modèle d'objets : bash vision/install_coral.sh."),
             ("h", "Apprendre un geste en le montrant"),
             ("cmd", [
                 "sudo systemctl stop inmoov-vision",

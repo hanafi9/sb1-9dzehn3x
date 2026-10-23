@@ -71,7 +71,15 @@ class Listener:
                 from memory_store import MemoryStore
 
                 self.memory = MemoryStore(brain_cfg["memory_path"])
-            self.brain = ClaudeBrain(brain_cfg, self._call_checked, self.say, memory=self.memory)
+            self.mind = None
+            mind_cfg = brain_cfg.get("mind") or {}
+            if mind_cfg.get("enabled"):
+                from mind import Mind
+
+                self.mind = Mind(mind_cfg)
+                self.mind.start(mind_cfg.get("period_s", 2.0))   # étudie la pièce en continu (Coral)
+                log.info("Perception, humeur et souvenirs des conversations : activés")
+            self.brain = ClaudeBrain(brain_cfg, self._call_checked, self.say, memory=self.memory, mind=self.mind)
             log.info("IA conversationnelle : Claude (%s)", brain_cfg["model"])
         self.local = None
         if local_cfg and local_cfg.get("enabled"):
@@ -273,6 +281,10 @@ def main():
         value = cfg.get(section, {}).get(key)
         if value and not os.path.isabs(value):
             cfg[section][key] = os.path.join(base, value)
+    mind_cfg = cfg.get("brain", {}).get("mind") or {}
+    for key in ("environment_path", "mood_path", "episodes_path"):
+        if mind_cfg.get(key) and not os.path.isabs(mind_cfg[key]):
+            mind_cfg[key] = os.path.join(base, mind_cfg[key])
     mrl = MrlClient(cfg["mrl"]["url"], cfg["mrl"]["timeout_s"])
     try:
         Listener(cfg["voice"], mrl, args.dry_run, cfg.get("brain"),

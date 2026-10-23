@@ -33,12 +33,26 @@
       "invert": true
     },
     "share_frame_path": "/dev/shm/inmoov_frame.jpg",
-    "share_frame_period_s": 1.0
+    "share_frame_period_s": 1.0,
+    "state_path": "/dev/shm/inmoov_vision.json",
+    "pause_path": "/dev/shm/inmoov_tracking_pause",
+    "objects": {
+      "enabled": true,
+      "_aide": "Détection des objets de la pièce sur le même Coral USB (80 catégories COCO), lue par l'IA. Modèle installé par vision/install_coral.sh.",
+      "model": "models/ssdlite_mobiledet_coco_qat_postprocess_edgetpu.tflite",
+      "labels": "models/coco_labels.txt",
+      "period_s": 2.0,
+      "score_threshold": 0.5
+    }
   },
   "brain": {
     "enabled": true,
     "model": "claude-opus-5-5",
     "effort": "low",
+    "adaptive_effort": true,
+    "effort_think": "high",
+    "say_thinking": true,
+    "_effort_aide": "« effort » sert pour bavarder ; « effort_think » pour les vraies questions (pourquoi, comment, conseil, calcul, histoire…). Le robot dit alors « laisse-moi réfléchir ».",
     "max_tokens": 4096,
     "timeout_s": 30,
     "max_tool_rounds": 4,
@@ -58,10 +72,27 @@
     "neck_max": 120,
     "camera_frame_path": "/dev/shm/inmoov_frame.jpg",
     "camera_frame_max_age_s": 5,
+    "tracking_pause_path": "/dev/shm/inmoov_tracking_pause",
+    "look_around_settle_s": 1.0,
+    "look_around_wait_s": 3.0,
     "memory_path": "data/memory.json",
     "gestures": [],
     "_gestures_aide": "Noms des gestes InMoov2 autorisés pour l'IA (fichiers du dossier gestures de MyRobotLab), ex. [\"daVinci\"]. Vide = outil désactivé.",
-    "recorded_gestures_dir": "data/gestures"
+    "recorded_gestures_dir": "data/gestures",
+    "mind": {
+      "enabled": true,
+      "_aide": "« Raisonnement humain » : à chaque phrase, l'IA reçoit l'heure, ce que voit le Coral, les capteurs et son humeur ; chaque conversation est résumée pour s'en souvenir (un petit appel à l'API par conversation).",
+      "vision_state_path": "/dev/shm/inmoov_vision.json",
+      "vision_max_age_s": 10,
+      "sensors_url": "http://127.0.0.1:8095",
+      "touch_threshold": 0.35,
+      "period_s": 2.0,
+      "environment_path": "data/environment.json",
+      "mood_path": "data/mood.json",
+      "episodes_path": "data/episodes.json",
+      "episodes_in_prompt": 8,
+      "summarize_conversations": true
+    }
   },
   "voice": {
     "input_device": null,

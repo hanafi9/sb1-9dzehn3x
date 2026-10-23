@@ -433,6 +433,24 @@ Dans `config.json` → `brain` :
 | `recorded_gestures_dir` | gestes **appris par imitation**, aussi jouables par l'IA |
 | `memory_path` | **souvenirs** : l'IA retient prénoms et informations (outil `remember`), visibles et effaçables dans l'onglet IA |
 
+### 8.1 bis « Raisonnement humain » : perception, réflexion, humeur et souvenirs
+
+Section `brain` (+ `brain.mind`), programmes `voice/mind.py`, `perception.py`, `mood.py`,
+`episodes.py`, `reasoning.py` et `vision/scene.py` :
+
+| Capacité | Comment | Réglage |
+|---|---|---|
+| **Étudier l'environnement avec le Coral** | `face_tracker.py` détecte aussi les **objets de la pièce** (SSDLite MobileDet, 80 catégories COCO, noms en français) sur le même Coral USB, toutes les 2 s, et écrit ce qu'il voit dans `/dev/shm/inmoov_vision.json`. La voix retient ce qui apparaît, disparaît, et ce qui est « habituel » dans la pièce. **Aucune image n'est envoyée sur Internet pour cela.** | `vision.objects`, `brain.mind` |
+| **Regarder autour de lui** | outil `look_around` : la tête va à gauche, au centre, à droite (suivi de visage suspendu), 3 photos envoyées à Claude | `brain.tracking_pause_path` |
+| **Réfléchir selon la question** | bavardage = effort `low` ; « pourquoi », « comment », conseil, calcul, histoire… = effort `high`, et le robot dit « laisse-moi réfléchir ». Le changement passe par un « effort par message » (le cache de la conversation reste valable). Il admet quand il ne sait pas. | `adaptive_effort`, `effort`, `effort_think`, `say_thinking` |
+| **Conscience de la situation** | à chaque phrase, Claude reçoit l'heure, ce que voit le Coral, la batterie, la distance, le toucher, les défauts de servos et son humeur (message système valable un seul tour) | `brain.mind` |
+| **Humeur et personnalité** | énergie, joie et curiosité évoluent (nuit, batterie, solitude, échanges) ; l'IA peut exprimer une émotion avec l'outil `feel`. Modèle simple et assumé : le robot ne prétend pas ressentir comme un humain. | `brain.mind.mood_path` |
+| **Mémoire des conversations** | à la fin d'une conversation (10 min de silence), Claude en écrit un résumé ; les 8 derniers sont donnés au début des suivantes | `brain.mind.episodes_path`, `episodes_in_prompt` |
+
+Fichiers créés dans `data/` : `environment.json`, `mood.json`, `episodes.json` (effaçables à tout moment).
+Coût : un petit appel à l'API de plus par conversation (le résumé) ; les questions « à réfléchir »
+coûtent plus que le bavardage. Installation du modèle d'objets : relancer `bash vision/install_coral.sh`.
+
 Section `local_llm` : **IA de secours sans Internet** (Ollama sur le Pi, ou hailo-ollama avec le
 Raspberry Pi AI HAT+ 2). Ordre utilisé : Claude → IA locale → chatbot d'InMoov2.
 

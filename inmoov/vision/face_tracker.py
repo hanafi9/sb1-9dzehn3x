@@ -3,6 +3,8 @@
 
 Le Coral détecte les visages, et le programme tourne la tête (rothead)
 et le cou (neck) pour garder le visage le plus proche au centre de l'image.
+Avec le même Coral, il détecte aussi les objets de la pièce (section vision.objects)
+et écrit ce qu'il voit dans un petit fichier JSON lu par l'IA (voir scene.py).
 
 Nécessite Python 3.12 au plus (PyCoral n'existe pas pour 3.13) : bash vision/install_coral.sh
 
@@ -17,11 +19,13 @@ import time
 
 import cv2
 from pycoral.adapters import common, detect
+from pycoral.utils.dataset import read_label_file
 from pycoral.utils.edgetpu import list_edge_tpus, make_interpreter
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 from mrl_client import AsyncMrlClient, load_config  # noqa: E402
 from tracking import AxisController, normalized_error, pick_target  # noqa: E402
+from scene import summarize_objects, tracking_paused, write_state  # noqa: E402
 
 log = logging.getLogger("vision")
 
@@ -35,6 +39,18 @@ def detect_faces(interpreter, frame_bgr, threshold):
     interpreter.invoke()
     objs = detect.get_objects(interpreter, threshold, scale)
     return [(o.bbox.xmin, o.bbox.ymin, o.bbox.xmax, o.bbox.ymax, o.score) for o in objs]
+
+
+def detect_objects(interpreter, frame_bgr, threshold):
+    """Objets COCO : [(id, score, xmin, ymin, xmax, ymax)] en pixels de l'image d'origine."""
+    rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
+    h, w = rgb.shape[:2]
+    _, scale = common.set_resized_input(
+        interpreter, (w, h), lambda size: cv2.resize(rgb, size)
+    )
+    interpreter.invoke()
+    objs = detect.get_objects(interpreter, threshold, scale)
+    return [(o.id, o.score, o.bbox.xmin, o.bbox.ymin, o.bbox.xmax, o.bbox.ymax) for o in objs]
 
 
 def share_frame(frame, path, quality=80):
@@ -72,6 +88,20 @@ def main():
     interpreter.allocate_tensors()
     log.info("Modèle chargé sur le Coral : %s", model_path)
 
+    # deuxième modèle sur le même Coral : objets de la pièce, quelques fois par seconde au plus
+    ocfg = vcfg.get("objects") or {}
+    obj_interpreter, obj_labels = None, {}
+    if ocfg.get("enabled"):
+        obj_model = os.path.join(base_dir, ocfg["model"])
+        try:
+            obj_interpreter = make_interpreter(obj_model)
+            obj_interpreter.allocate_tensors()
+            obj_labels = read_label_file(os.path.join(base_dir, ocfg["labels"]))
+            log.info("Détection d'objets chargée sur le Coral : %s", obj_model)
+        except (ValueError, OSError) as e:
+            log.warning("Détection d'objets désactivée (%s) : bash vision/install_coral.sh", e)
+            obj_interpreter = None
+
     cam = cv2.VideoCapture(vcfg["camera_index"])
     cam.set(cv2.CAP_PROP_FRAME_WIDTH, vcfg["frame_width"])
     cam.set(cv2.CAP_PROP_FRAME_HEIGHT, vcfg["frame_height"])
@@ -89,6 +119,9 @@ def main():
     share_path = vcfg.get("share_frame_path")
     share_period = vcfg.get("share_frame_period_s", 1.0)
     last_share = 0.0
+    state_path = vcfg.get("state_path")
+    pause_path = vcfg.get("pause_path")
+    objects, last_objects = [], 0.0
     fps_t, fps_n = time.monotonic(), 0
 
     def send(axis_name, axis):
@@ -114,7 +147,8 @@ def main():
             target = pick_target(faces)
             now = time.monotonic()
 
-            if now - last_cmd >= period:
+            paused = bool(pause_path) and tracking_paused(pause_path, time.time())
+            if now - last_cmd >= period and not paused:
                 if target is not None:
                     last_seen = now
                     ex, ey = normalized_error(target, w, h)
@@ -140,9 +174,22 @@ def main():
                 if cv2.waitKey(1) & 0xFF == ord("q"):
                     break
 
+            if obj_interpreter is not None and now - last_objects >= ocfg.get("period_s", 2.0):
+                raw = detect_objects(obj_interpreter, frame, ocfg.get("score_threshold", 0.5))
+                objects = summarize_objects(raw, obj_labels, w, h, ocfg.get("score_threshold", 0.5))
+                last_objects = now
+
             if share_path and now - last_share >= share_period:
                 try:
                     share_frame(frame, share_path)
+                    if state_path:
+                        biggest = max(((f[3] - f[1]) / float(h) for f in faces), default=0.0)
+                        write_state(state_path, {
+                            "time": time.time(), "faces": len(faces), "face_height": round(biggest, 3),
+                            "objects": objects, "objects_age_s": round(now - last_objects, 1) if last_objects else None,
+                            "head": {"rothead": round(pan.position, 1), "neck": round(tilt.position, 1)},
+                            "tracking_paused": paused,
+                        })
                 except OSError as e:
                     log.warning("Image non partagée : %s", e)
                 last_share = now

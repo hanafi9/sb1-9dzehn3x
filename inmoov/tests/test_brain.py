@@ -73,7 +73,7 @@ class BrainTest(unittest.TestCase):
         req = self.api.requests[0]
         self.assertEqual(req["model"], "claude-opus-5-5")
         self.assertEqual(req["fallbacks"], "default")
-        self.assertEqual(req["betas"], ["server-side-fallback-2026-07-01"])
+        self.assertEqual(req["betas"], ["server-side-fallback-2026-07-01", "mid-conversation-output-config-2026-07-01"])
         self.assertEqual(req["output_config"], {"effort": "low"})
         self.assertNotIn("thinking", req)
 
@@ -130,7 +130,7 @@ class BrainTest(unittest.TestCase):
         cfg = dict(self.cfg, camera_frame_path="/tmp/x.jpg", gestures=["salut"])
         tools = build_tools(cfg, MemoryStore("/tmp/nexiste-pas.json"))
         self.assertEqual([t["name"] for t in tools],
-                         ["move_head", "hand", "rest_position", "look", "gesture", "remember"])
+                         ["move_head", "hand", "rest_position", "look", "look_around", "gesture", "remember"])
         for t in tools:
             self.assertTrue(t["strict"])
             self.assertFalse(t["input_schema"]["additionalProperties"])

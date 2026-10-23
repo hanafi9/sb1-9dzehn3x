@@ -74,16 +74,24 @@ fetch "$PYC_URL" "$PYC_SUM"
 "$DIR/.venv-vision/bin/pip" install -q "$DL/$(basename "$TFL_URL")" "$DL/$(basename "$PYC_URL")"
 "$DIR/.venv-vision/bin/pip" install -q -r "$DIR/vision/requirements.txt"
 
-# 4. Modèle de détection de visage
+# 4. Modèles (visages + objets de la pièce) et étiquettes, vérifiés par empreinte
+TD="https://raw.githubusercontent.com/google-coral/test_data/master"
+mkdir -p "$DIR/models"
+model() {  # nom empreinte
+    local f="$DIR/models/$1"
+    if [ -f "$f" ] && echo "$2  $f" | sha256sum -c --quiet - 2>/dev/null; then
+        echo "    $1 : déjà présent"
+        return
+    fi
+    wget -q --show-progress -O "$f" "$TD/$1"
+    echo "$2  $f" | sha256sum -c --quiet - || { echo "Empreinte incorrecte pour $1 : fichier supprimé." >&2; rm -f "$f"; exit 1; }
+}
+echo "4/4 modèles de détection (visages, objets de la pièce)"
+model ssd_mobilenet_v2_face_quant_postprocess_edgetpu.tflite aaadbd662cb167f8fda1aa2d04f35e27890e15f52069ba2f0ce0606e546fc7d2
+model ssdlite_mobiledet_coco_qat_postprocess_edgetpu.tflite b69e508ef2a670e06b80bd3e5559a827d5cd8d557c95d5e332cbf1d31d434a2e
+model coco_labels.txt dc183f003fc753c4c43fae6fdf7f387559449573f13fa32e517fb7453fd380f1
 MODEL="$DIR/models/ssd_mobilenet_v2_face_quant_postprocess_edgetpu.tflite"
-if [ ! -f "$MODEL" ]; then
-    echo "4/4 modèle de détection de visage"
-    mkdir -p "$DIR/models"
-    wget -q --show-progress -O "$MODEL" \
-        https://raw.githubusercontent.com/google-coral/test_data/master/ssd_mobilenet_v2_face_quant_postprocess_edgetpu.tflite
-else
-    echo "4/4 modèle déjà présent"
-fi
+OBJ_MODEL="$DIR/models/ssdlite_mobiledet_coco_qat_postprocess_edgetpu.tflite"
 
 echo
 echo "Vérification : Coral vu par PyCoral ?"
@@ -91,5 +99,7 @@ echo "Vérification : Coral vu par PyCoral ?"
 echo "Vérification : modèle chargé sur le Coral ?"
 "$DIR/.venv-vision/bin/python" -c "
 from pycoral.utils.edgetpu import make_interpreter
-i = make_interpreter('$MODEL'); i.allocate_tensors(); print('OK : le Coral exécute le modèle')
+i = make_interpreter('$MODEL'); i.allocate_tensors()
+j = make_interpreter('$OBJ_MODEL'); j.allocate_tensors()
+print('OK : le Coral exécute les deux modèles (visages et objets)')
 " || echo "ÉCHEC : débrancher/rebrancher le Coral (port bleu) ; si cela persiste, voir sudo dmesg | tail -15"
