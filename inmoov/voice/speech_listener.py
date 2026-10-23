@@ -68,6 +68,7 @@ class Listener:
             log.info("Voix hors ligne Piper : %s", cfg["piper_model"])
         self.memory = None
         self.brain = None
+        self.reactions = None
         if brain_cfg and brain_cfg.get("enabled"):
             from llm_brain import ClaudeBrain  # importé seulement si utilisé
 
@@ -87,6 +88,13 @@ class Listener:
                                      say_async=self.say_async if self.pipeline else None,
                                      wait_speech=self.wait_speech if self.pipeline else None)
             log.info("IA conversationnelle : Claude (%s)", brain_cfg["model"])
+            react_cfg = brain_cfg.get("reactions") or {}
+            if react_cfg.get("enabled") and mind_cfg.get("vision_state_path"):
+                from reactions import Reactions
+
+                self.reactions = Reactions(react_cfg, mind_cfg["vision_state_path"],
+                                           environment=self.mind.environment if self.mind else None)
+                log.info("Réactions spontanées à ce que voient les caméras : %s", ", ".join(self.reactions.cfg["events"]))
         self.local = None
         if local_cfg and local_cfg.get("enabled"):
             from llm_local import LocalBrain
@@ -224,6 +232,8 @@ class Listener:
                 return
             text = rest
         self.awake_until = 0.0
+        if self.reactions is not None:
+            self.reactions.on_conversation()
 
         phrase, actions = match_command(text, self.cfg["commands"], self.cfg["fuzzy_threshold"])
         if actions:
@@ -299,6 +309,7 @@ class Listener:
                     continue
                 pcm = self.segmenter.push(frame, self.vad.is_speech(frame, SAMPLE_RATE))
                 if pcm is None:
+                    self._maybe_react()
                     continue
                 t0 = time.monotonic()
                 text = self.transcribe(pcm)
@@ -311,6 +322,28 @@ class Listener:
                     self.handle(text)
                 # ce qui a été capté pendant le calcul est périmé
                 self._flush_audio()
+
+    def _maybe_react(self):
+        """Entre deux phrases : réagit à ce que les caméras viennent de remarquer."""
+        if self.reactions is None or self.brain is None or self.segmenter.triggered:
+            return   # quelqu'un est en train de parler : on ne lui coupe pas la parole
+        if time.monotonic() < self.mute_until:
+            return
+        event = self.reactions.poll()
+        if event is None:
+            return
+        self.status("thinking")
+        try:
+            said = self.brain.notice(event[1])
+        except Exception:  # une réaction ratée ne doit jamais arrêter l'écoute
+            log.exception("Réaction impossible")
+            said = None
+        finally:
+            self.status("idle")
+        if said is not None:
+            self.reactions.on_conversation()
+            self._follow_up()   # la personne peut répondre sans dire « Kamil »
+        self._flush_audio()
 
 
 def main():

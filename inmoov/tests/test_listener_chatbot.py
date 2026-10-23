@@ -45,7 +45,7 @@ def listener(tts, dry_run=False, wake_words=()):
                "chatbot_method": "getResponse", "mouth_service": "i01.mouth", "seconds_per_char": 0.07,
                "wake_window_s": 8}
     lst.awake_until = lst.mute_until = 0.0
-    lst.brain = lst.local = lst.leds = lst.pipeline = None
+    lst.brain = lst.local = lst.leds = lst.pipeline = lst.reactions = None
     lst.tts, lst.dry_run, lst.mrl = tts, dry_run, FakeMrl()
     return lst
 
@@ -105,6 +105,24 @@ class ChatbotTest(unittest.TestCase):
         self.assertEqual(lst.mrl.calls[-1], ("i01.chatBot", "getResponse", "je m'appelle Rachida"))
         lst.handle("Kamil, bonjour")
         self.assertEqual(lst.awake_until, 0.0)
+
+    def test_reaction_to_camera_event(self):
+        lst = listener(FakeTts(), wake_words=["kamil"])
+        lst.segmenter = types.SimpleNamespace(triggered=False, reset=lambda: None)
+        lst.frames = __import__("queue").Queue()
+        noticed, talks = [], []
+        lst.brain = types.SimpleNamespace(notice=lambda e: noticed.append(e) or "Bonjour !", ask=lambda t: None)
+        lst.reactions = types.SimpleNamespace(poll=lambda: ("arrivee", "Une personne vient d'apparaître."),
+                                              on_conversation=lambda: talks.append(1))
+        lst._maybe_react()
+        self.assertEqual(noticed, ["Une personne vient d'apparaître."])
+        self.assertEqual(talks, [1])
+        lst.handle("je m'appelle Rachida")   # répond sans dire « Kamil » : fenêtre de suite ouverte
+        self.assertEqual(lst.mrl.calls[-1][2], "je m'appelle Rachida")
+        # quelqu'un parle : pas de réaction pendant ce temps
+        lst.segmenter.triggered = True
+        lst._maybe_react()
+        self.assertEqual(len(noticed), 1)
 
 
 if __name__ == "__main__":

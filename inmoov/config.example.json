@@ -98,6 +98,16 @@
       "episodes_path": "data/episodes.json",
       "episodes_in_prompt": 8,
       "summarize_conversations": true
+    },
+    "reactions": {
+      "enabled": true,
+      "_aide": "Réactions spontanées à ce que voient les caméras (voice/reactions.py) : arrivee = saluer quelqu'un qui arrive, proche = visage tout près, attente = quelqu'un reste sans parler, objet = objet inhabituel, depart = au revoir. Chaque réaction = un appel à Claude ; max_per_hour limite le coût. quiet_hours [22, 7] = silence la nuit.",
+      "events": ["arrivee", "proche", "attente", "objet", "depart"],
+      "absence_before_greet_s": 60,
+      "linger_s": 45,
+      "max_per_hour": 15,
+      "quiet_hours": [22, 7],
+      "cooldown_s": {"arrivee": 120, "proche": 300, "attente": 600, "objet": 600, "depart": 300}
     }
   },
   "voice": {

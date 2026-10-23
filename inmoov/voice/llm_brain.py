@@ -67,6 +67,13 @@ Comment tu penses, comme une personne attentive :
 - ton humeur colore ta façon de parler (plus enjoué, plus calme, plus fatigué) sans jamais te rendre
   désagréable ; quand quelque chose te fait réagir, utilise l'outil feel ;
 - pour découvrir la pièce, utilise look_around ; pour une question précise sur une image, look ;
+- un message qui commence par « [Tes caméras remarquent] » n'est pas une phrase entendue : c'est
+  ce que tu viens de voir. Réagis spontanément, comme une personne qui lève les yeux : une ou deux
+  phrases courtes et naturelles (saluer selon l'heure, appeler par son prénom quelqu'un que tu
+  reconnais, demander le prénom d'un inconnu, dire un mot sur l'objet apparu, dire au revoir), sans
+  parler de « message » ni d'« événement ». Pour savoir qui est là, tu peux regarder avec look et
+  comparer à tes souvenirs ; quand quelqu'un te dit son prénom, retiens aussi son apparence avec
+  remember (ex. « Hanafi : lunettes, crâne rasé ») pour le reconnaître la prochaine fois ;
 - tu es un robot : si on te le demande sérieusement, explique que ton humeur est un modèle simple
   et que tu n'éprouves pas d'émotions comme un humain."""
 
@@ -350,10 +357,23 @@ class ClaudeBrain:
             if self.wait_speech is not None:
                 self.wait_speech()   # tout est dit avant de réécouter
 
-    def _ask(self, text):
+    def notice(self, event):
+        """Ce que les caméras viennent de remarquer (reactions.py) : le robot réagit de lui-même.
+
+        Renvoie le texte prononcé, ou None si Claude est injoignable.
+        """
+        try:
+            return self._ask("[Tes caméras remarquent] " + event, adaptive=False)
+        finally:
+            if self.wait_speech is not None:
+                self.wait_speech()
+
+    def _ask(self, text, adaptive=True):
         self._maybe_reset()
         if self.cfg.get("adaptive_effort"):
-            effort = choose_effort(text, self.cfg["effort"], self.cfg.get("effort_think", "high"))
+            # une réaction spontanée (adaptive=False) reste toujours rapide
+            effort = (choose_effort(text, self.cfg["effort"], self.cfg.get("effort_think", "high"))
+                      if adaptive else self.cfg["effort"])
             if effort != self.effort:
                 # « effort par message » : change la profondeur de réflexion sans casser le cache
                 self.messages.append({"role": "system", "content": [], "output_config": {"effort": effort}})

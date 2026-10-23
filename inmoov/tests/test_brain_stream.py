@@ -99,6 +99,18 @@ class StreamTest(unittest.TestCase):
         self.assertEqual(last["content"][0]["type"], "tool_result")
         self.assertEqual(last["content"][0]["tool_use_id"], "toolu_1")
 
+    def test_notice_is_marked_and_quick(self):
+        self.cfg["adaptive_effort"] = True
+        b = self.make([stream_body([("text", ["Bonjour ! Comment tu t'appelles ?"])], "end_turn")])
+        b.effort = "high"   # la question d'avant demandait de réfléchir
+        said = b.notice("Une personne vient d'apparaître devant toi, à distance de conversation.")
+        self.assertEqual(said, "Bonjour ! Comment tu t'appelles ?")
+        msgs = self.requests[0]["messages"]
+        self.assertEqual(msgs[-2], {"role": "system", "content": [], "output_config": {"effort": "low"}})
+        self.assertTrue(msgs[-1]["content"].startswith("[Tes caméras remarquent] Une personne"))
+        self.assertNotIn(("dit", "Laisse-moi réfléchir."), self.events)
+        self.assertEqual(self.events[-1], ("attend",))
+
     def test_without_pipeline_no_stream(self):
         self.cfg["stream"] = False
         b = self.make([])
