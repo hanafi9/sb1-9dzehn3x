@@ -239,3 +239,41 @@ code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .85em; 
 a.button { display: inline-block; padding: .4rem .7rem; border: 1px solid var(--accent); border-radius: 8px;
   text-decoration: none; font: inherit; }
 a.button.ghost { background: transparent; color: var(--accent); }
+
+/* ---------------------------------------------------------------- banc d'essai */
+.bench-grid { display: grid; gap: 1rem; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); margin-bottom: 1rem; }
+.bench-grid > .card { margin-bottom: 0; }
+@media (max-width: 760px) { .bench-grid { grid-template-columns: minmax(0, 1fr); } }
+#bench-robot { width: 100%; max-width: 280px; display: block; margin: 0 auto; }
+#bench-robot .zone { cursor: pointer; }
+#bench-robot .zone rect, #bench-robot .zone circle { fill: var(--zone, #cbd5e1); stroke: var(--border); stroke-width: 2; transition: fill .2s; }
+#bench-robot .zone .eye { fill: var(--card); }
+#bench-robot .zone:hover rect, #bench-robot .zone:focus rect { stroke: var(--accent); stroke-width: 3; }
+#bench-robot .zone.selected rect { stroke: var(--accent); stroke-width: 4; }
+#bench-robot .zone.ok { --zone: #86efac; }
+#bench-robot .zone.bad { --zone: #fca5a5; }
+#bench-robot .zone.part { --zone: #fcd34d; }
+#bench-robot .legs rect { fill: none; stroke: var(--border); stroke-width: 2; stroke-dasharray: 5 4; }
+#bench-robot text { fill: var(--muted); font-size: 11px; }
+.bench-legend { display: flex; flex-wrap: wrap; gap: .8rem; justify-content: center; font-size: .85rem; color: var(--muted); }
+.bench-legend i { display: inline-block; width: .8rem; height: .8rem; border-radius: 3px; margin-right: .3rem; vertical-align: -1px; }
+.lg-ok { background: #86efac; } .lg-bad { background: #fca5a5; } .lg-part { background: #fcd34d; } .lg-none { background: #cbd5e1; }
+.bench-servo { border-top: 1px solid var(--border); padding: .6rem 0; }
+.bench-servo .row { margin: .2rem 0; }
+.bench-servo .pos { font-variant-numeric: tabular-nums; min-width: 2.5rem; text-align: right; }
+.bench-servo button.mark { min-width: 2.4rem; }
+.bench-servo button.mark.on-ok { background: var(--ok); border-color: var(--ok); color: #fff; }
+.bench-servo button.mark.on-bad { background: var(--bad); border-color: var(--bad); color: #fff; }
+.bench-cams { display: grid; gap: .8rem; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.bench-cams figure { margin: 0; }
+.bench-cams .cam { position: relative; aspect-ratio: 4 / 3; background: #000; border-radius: 8px; overflow: hidden; }
+.bench-cams img, .bench-cams canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.bench-cams .cam-off { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  color: #cbd5e1; font-size: .9rem; text-align: center; padding: 1rem; }
+.bench-cams .cam.live .cam-off { display: none; }
+.bench-cams figcaption { font-size: .85rem; margin-top: .3rem; }
+.meter { flex: 1; min-width: 120px; height: .8rem; background: var(--border); border-radius: 999px; overflow: hidden; }
+.meter > div { height: 100%; width: 0; background: var(--ok); transition: width .3s; }
+.bench-grid.wide-first { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); }
+@media (max-width: 760px) { .bench-grid.wide-first { grid-template-columns: minmax(0, 1fr); } }
+#bench-say { flex: 1; min-width: 0; }

@@ -18,6 +18,7 @@
 
   <nav class="tabs" role="tablist">
     <button data-tab="dashboard" class="active">Tableau de bord</button>
+    <button data-tab="bench">Banc d'essai</button>
     <button data-tab="docs">Documentation</button>
     <button data-tab="guide">Guide de montage</button>
     <button data-tab="schema">Schémas</button>
@@ -43,6 +44,92 @@
     </section>
 
     <!-- Documentation -->
+    <section id="tab-bench" class="tab">
+      <div class="card">
+        <div class="row between wrap">
+          <h2>Banc d'essai du robot</h2>
+          <div class="row wrap">
+            <button id="bench-rest-all">Tout au repos</button>
+            <button id="bench-stop" class="stop">Arrêt : couper tous les servos</button>
+          </div>
+        </div>
+        <div id="bench-status" class="row wrap"></div>
+        <p class="muted">Cliquez une partie du robot pour la tester. Après chaque test, marquez si elle
+          <b>fonctionne</b> ✓ ou s'il y a un <b>problème</b> ✗ : la silhouette se colore et le bilan est gardé sur le Pi.</p>
+      </div>
+      <div class="bench-grid">
+        <div class="card">
+          <h2>Robot <span class="muted">(vu de face)</span></h2>
+          <svg id="bench-robot" viewBox="0 0 220 330" role="img" aria-label="Silhouette du robot : cliquez une partie">
+            <g class="zone" data-group="head" tabindex="0">
+              <rect x="80" y="8" width="60" height="66" rx="24"/>
+              <circle class="eye" cx="99" cy="38" r="5"/><circle class="eye" cx="121" cy="38" r="5"/>
+              <rect class="eye" x="98" y="56" width="24" height="5" rx="2"/>
+            </g>
+            <g class="zone" data-group="torso" tabindex="0">
+              <rect x="98" y="74" width="24" height="12"/>
+              <rect x="66" y="86" width="88" height="120" rx="16"/>
+            </g>
+            <g class="zone" data-group="rightArm" tabindex="0">
+              <rect x="34" y="90" width="28" height="64" rx="12"/>
+              <rect x="30" y="156" width="26" height="62" rx="11"/>
+            </g>
+            <g class="zone" data-group="leftArm" tabindex="0">
+              <rect x="158" y="90" width="28" height="64" rx="12"/>
+              <rect x="164" y="156" width="26" height="62" rx="11"/>
+            </g>
+            <g class="zone" data-group="rightHand" tabindex="0"><rect x="24" y="222" width="34" height="40" rx="12"/></g>
+            <g class="zone" data-group="leftHand" tabindex="0"><rect x="162" y="222" width="34" height="40" rx="12"/></g>
+            <g class="legs"><rect x="76" y="210" width="30" height="112" rx="12"/><rect x="114" y="210" width="30" height="112" rx="12"/></g>
+            <text x="48" y="282" text-anchor="middle">droite</text>
+            <text x="179" y="282" text-anchor="middle">gauche</text>
+          </svg>
+          <div class="bench-legend">
+            <span><i class="lg-ok"></i>fonctionne</span><span><i class="lg-bad"></i>problème</span>
+            <span><i class="lg-part"></i>en partie testé</span><span><i class="lg-none"></i>pas testé</span>
+          </div>
+        </div>
+        <div class="card" id="bench-part">
+          <p class="muted">Choisissez une partie du robot à gauche.</p>
+        </div>
+      </div>
+      <div class="bench-grid wide-first">
+        <div class="card">
+          <div class="row between wrap">
+            <h2>Caméras</h2>
+            <label class="check"><input type="checkbox" id="bench-boxes" checked> cadres de détection</label>
+          </div>
+          <div class="bench-cams">
+            <figure data-cam="0"><div class="cam"><img alt="Caméra du suivi de visage"><canvas></canvas><span class="cam-off">Pas d'image</span></div>
+              <figcaption>Caméra du suivi de visage <span class="cam-age muted"></span></figcaption></figure>
+            <figure data-cam="1"><div class="cam"><img alt="2e caméra"><canvas></canvas><span class="cam-off">Pas d'image</span></div>
+              <figcaption>2e caméra <span class="cam-age muted"></span></figcaption></figure>
+          </div>
+          <div id="bench-vision" class="muted"></div>
+        </div>
+        <div class="card">
+          <h2>Son et voix</h2>
+          <h3>Haut-parleurs</h3>
+          <div class="row wrap">
+            <button class="ghost" data-speaker="left">◀ Gauche</button>
+            <button class="ghost" data-speaker="both">Les deux</button>
+            <button class="ghost" data-speaker="right">Droite ▶</button>
+          </div>
+          <h3>Faire parler le robot (voix Piper)</h3>
+          <div class="row wrap">
+            <input id="bench-say" value="Bonjour, je suis Kamil. Tous mes systèmes fonctionnent." size="38">
+            <button id="bench-say-btn">Parler</button>
+          </div>
+          <h3>Micro</h3>
+          <div class="row wrap">
+            <button id="bench-mic-btn" class="ghost">Tester le micro (parlez 3 s)</button>
+            <div class="meter"><div id="bench-mic-bar"></div></div>
+            <span id="bench-mic-text" class="muted"></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section id="tab-docs" class="tab">
       <div class="docs">
         <aside class="docs-nav card">

@@ -58,8 +58,11 @@ def summarize_objects(objects, labels, width, height, min_score=0.5):
             continue
         cx = (x0 + x1) / 2.0 / max(width, 1)
         size = max(0.0, (x1 - x0) * (y1 - y0)) / float(max(width * height, 1))
+        W, H = float(max(width, 1)), float(max(height, 1))
         out.append({"label": french(name), "score": round(float(score), 2),
-                    "side": side_of(cx), "size": round(size, 3)})
+                    "side": side_of(cx), "size": round(size, 3),
+                    # cadre en fraction de l'image (dessiné dans l'Atelier)
+                    "box": [round(x0 / W, 3), round(y0 / H, 3), round(x1 / W, 3), round(y1 / H, 3)]})
     out.sort(key=lambda o: -o["score"])
     return out
 

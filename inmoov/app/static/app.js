@@ -993,3 +993,230 @@ $("#config-save").addEventListener("click", (e) => withButton(e.target, async ()
 // ------------------------------------------------------------ démarrage
 showTab("dashboard");
 setInterval(() => { if (currentTab === "dashboard") loaders.dashboard(); }, 10000);
+
+// ------------------------------------------------------------ banc d'essai
+const bench = { groups: [], results: {}, state: null, part: null, timer: null, camTimer: null, sweeps: new Set() };
+
+loaders.bench = async () => {
+  try {
+    bench.groups = (await api("GET", "/api/servos")).groups;
+  } catch (e) { toast(e.message, true); }
+  await benchRefresh();
+  if (!bench.part) benchSelect("head");
+  clearInterval(bench.timer);
+  clearInterval(bench.camTimer);
+  // rafraîchit seulement tant que l'onglet est affiché
+  bench.timer = setInterval(() => (currentTab === "bench" ? benchRefresh() : clearInterval(bench.timer)), 2000);
+  bench.camTimer = setInterval(() => (currentTab === "bench" ? benchCameras() : clearInterval(bench.camTimer)), 500);
+};
+
+async function benchRefresh() {
+  let s;
+  try { s = await api("GET", "/api/bench/state"); } catch (e) { return; }
+  bench.state = s;
+  bench.results = s.results || {};
+  const v = s.vision;
+  $("#bench-status").innerHTML = [
+    pill(s.mrl, "MyRobotLab connecté", "MyRobotLab injoignable"),
+    pill(s.voice, "voix lancée", "voix arrêtée"),
+    pill(s.tracker, "suivi de visage lancé", "suivi de visage arrêté"),
+    pill(s.coral, "Coral détecté", "Coral absent", "Coral : inconnu"),
+  ].join(" ");
+  if (!v) {
+    $("#bench-vision").textContent = "Lancez face_tracker.py (vision) pour voir les caméras et ce que détecte le Coral.";
+  } else {
+    const objs = (v.objects || []).map((o) => `${esc(o.label)} (${esc(o.side)}, ${Math.round(o.score * 100)} %)`).join(", ");
+    $("#bench-vision").innerHTML = `${v.fresh ? "" : "<b>Image figée</b> · "}Visages : <b>${v.faces || 0}</b>
+      · Tête : rothead ${esc(v.head?.rothead)}, neck ${esc(v.head?.neck)}${v.tracking_paused ? " (suivi en pause)" : ""}
+      <br>Objets vus : ${objs || "aucun"}`;
+  }
+  if (s.second_camera_index === null || s.second_camera_index === undefined) {
+    $('[data-cam="1"] .cam-off').textContent = "Réglez vision.second_camera_index dans config.json (ex. 2) puis relancez face_tracker.py";
+  }
+  benchColorZones();
+  if (bench.part) benchMarks();
+}
+
+function benchCameras() {
+  for (const fig of document.querySelectorAll(".bench-cams figure")) {
+    const n = fig.dataset.cam;
+    const cam = (bench.state?.cameras || [])[n];
+    $(".cam-age", fig).textContent = cam && cam.age_s !== null ? `(il y a ${cam.age_s} s)` : "";
+    if (!cam || !cam.live) { $(".cam", fig).classList.remove("live"); continue; }
+    const img = new Image();   // préchargée : pas de clignotement
+    img.onload = () => {
+      $("img", fig).src = img.src;
+      $(".cam", fig).classList.add("live");
+      benchBoxes(fig, n, img.naturalWidth, img.naturalHeight);
+    };
+    img.src = `/api/bench/camera/${n}.jpg?t=${Date.now()}`;
+  }
+}
+
+// Cadres des visages (vert) et des objets (bleu) détectés par le Coral, sur la caméra du suivi
+function benchBoxes(fig, n, natW, natH) {
+  const canvas = $("canvas", fig);
+  const w = canvas.width = canvas.clientWidth, h = canvas.height = canvas.clientHeight;
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, w, h);
+  const v = bench.state?.vision;
+  if (n !== "0" || !v || !$("#bench-boxes").checked || !natW) return;
+  // l'image est centrée (object-fit: contain) : on calcule sa zone réelle
+  const scale = Math.min(w / natW, h / natH);
+  const iw = natW * scale, ih = natH * scale, ox = (w - iw) / 2, oy = (h - ih) / 2;
+  const draw = (b, color, label) => {
+    const [x0, y0, x1, y1] = b;
+    ctx.strokeStyle = color; ctx.lineWidth = 2;
+    ctx.strokeRect(ox + x0 * iw, oy + y0 * ih, (x1 - x0) * iw, (y1 - y0) * ih);
+    ctx.font = "12px system-ui";
+    const tx = ox + x0 * iw, ty = Math.max(0, oy + y0 * ih - 16);
+    ctx.fillStyle = color;   // étiquette sur fond plein, lisible sur toute image
+    ctx.fillRect(tx, ty, ctx.measureText(label).width + 6, 16);
+    ctx.fillStyle = "#fff";
+    ctx.fillText(label, tx + 3, ty + 12);
+  };
+  (v.objects || []).filter((o) => o.box).forEach((o) => draw(o.box, "#3b82f6", o.label));
+  (v.face_boxes || []).forEach((b) => draw(b, "#22c55e", `visage ${Math.round(b[4] * 100)} %`));
+}
+
+function benchGroupStatus(g) {
+  const r = g.servos.map((s) => bench.results[s.service]);
+  if (r.includes("bad")) return "bad";
+  if (r.every((x) => x === "ok")) return "ok";
+  return r.some((x) => x) ? "part" : "";
+}
+function benchColorZones() {
+  document.querySelectorAll("#bench-robot .zone").forEach((z) => {
+    const g = bench.groups.find((x) => x.key === z.dataset.group);
+    z.classList.remove("ok", "bad", "part");
+    const st = g ? benchGroupStatus(g) : "";
+    if (st) z.classList.add(st);
+    z.classList.toggle("selected", z.dataset.group === bench.part);
+  });
+}
+
+function benchSelect(key) {
+  const g = bench.groups.find((x) => x.key === key);
+  if (!g) return;
+  bench.part = key;
+  benchColorZones();
+  $("#bench-part").innerHTML = `
+    <div class="row between wrap"><h2>${esc(g.label)}</h2>
+      <div class="row wrap"><button data-bact="sweep-all">Tester toute la partie</button>
+      <button class="ghost" data-bact="rest-all">Repos</button></div></div>
+    <p class="muted">Le curseur bouge le servo en direct (0-180, limité par la calibration de l'onglet Servos).
+      « Tester » le fait aller d'un côté puis de l'autre, puis revenir au repos.</p>
+    ${g.servos.map((s) => `
+      <div class="bench-servo" data-service="${esc(s.service)}" data-rest="${s.rest}">
+        <div class="row between"><b>${esc(s.label)}</b>
+          <span class="muted">PCA ${esc(s.pca.address)} canal ${s.pca.channel}</span></div>
+        <div class="row"><input type="range" min="0" max="180" value="${s.rest}" aria-label="position de ${esc(s.label)}">
+          <span class="pos">${s.rest}</span></div>
+        <div class="row wrap">
+          <button class="ghost" data-bact="sweep">Tester</button>
+          <button class="ghost" data-bact="rest">Repos</button>
+          <span style="flex:1"></span>
+          <button class="ghost mark" data-bact="ok" title="fonctionne">✓</button>
+          <button class="ghost mark" data-bact="bad" title="problème">✗</button>
+        </div>
+      </div>`).join("")}`;
+  benchMarks();
+}
+
+function benchMarks() {
+  document.querySelectorAll("#bench-part .bench-servo").forEach((d) => {
+    const r = bench.results[d.dataset.service];
+    $('[data-bact="ok"]', d).classList.toggle("on-ok", r === "ok");
+    $('[data-bact="bad"]', d).classList.toggle("on-bad", r === "bad");
+  });
+}
+
+$("#bench-robot").addEventListener("click", (e) => {
+  const z = e.target.closest(".zone");
+  if (z) benchSelect(z.dataset.group);
+});
+$("#bench-robot").addEventListener("keydown", (e) => {
+  const z = e.target.closest(".zone");
+  if (z && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); benchSelect(z.dataset.group); }
+});
+
+const benchSliderTimers = new Map();
+$("#bench-part").addEventListener("input", (e) => {
+  if (e.target.type !== "range") return;
+  const d = e.target.closest(".bench-servo"), service = d.dataset.service;
+  $(".pos", d).textContent = e.target.value;
+  if (benchSliderTimers.has(service)) return;
+  benchSliderTimers.set(service, setTimeout(() => benchSliderTimers.delete(service), 150));
+  sendMove(service, e.target.value);
+});
+$("#bench-part").addEventListener("change", (e) => {
+  if (e.target.type === "range") sendMove(e.target.closest(".bench-servo").dataset.service, e.target.value);
+});
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+async function benchMove(d, pos) {
+  $("input[type=range]", d).value = pos;
+  $(".pos", d).textContent = pos;
+  await api("POST", `/api/servos/${encodeURIComponent(d.dataset.service)}/move`, { pos });
+}
+// Balayage doux : repos → 20 → 160 → repos (la calibration empêche de dépasser les butées)
+async function benchSweep(d) {
+  const rest = Number(d.dataset.rest);
+  for (const pos of [rest, 20, 160, rest]) {
+    if (bench.stopped) return;
+    await benchMove(d, pos);
+    await sleep(1200);
+  }
+}
+
+$("#bench-part").addEventListener("click", (e) => {
+  const act = e.target.dataset.bact;
+  if (!act) return;
+  const d = e.target.closest(".bench-servo");
+  withButton(e.target, async () => {
+    bench.stopped = false;
+    if (act === "sweep") await benchSweep(d);
+    else if (act === "rest") await benchMove(d, Number(d.dataset.rest));
+    else if (act === "sweep-all") {
+      for (const s of document.querySelectorAll("#bench-part .bench-servo")) await benchSweep(s);
+    } else if (act === "rest-all") {
+      for (const s of document.querySelectorAll("#bench-part .bench-servo")) await benchMove(s, Number(s.dataset.rest));
+    } else if (act === "ok" || act === "bad") {
+      const cur = bench.results[d.dataset.service];
+      const r = await api("PUT", `/api/bench/results/${encodeURIComponent(d.dataset.service)}`,
+        { result: cur === act ? "" : act });
+      bench.results = r.results;
+      benchMarks();
+      benchColorZones();
+    }
+  });
+});
+
+$("#bench-rest-all").addEventListener("click", (e) => withButton(e.target, async () => {
+  const r = await api("POST", "/api/bench/all/rest");
+  toast(r.errors.length ? r.errors[0] : "Tous les servos vont au repos", r.errors.length > 0);
+}));
+$("#bench-stop").addEventListener("click", (e) => withButton(e.target, async () => {
+  bench.stopped = true;   // interrompt les balayages en cours
+  const r = await api("POST", "/api/bench/all/disable");
+  toast(r.errors.length ? r.errors[0] : "Tous les servos sont coupés (désactivés)", r.errors.length > 0);
+}));
+
+document.querySelectorAll("[data-speaker]").forEach((b) => b.addEventListener("click", () => withButton(b, async () => {
+  await api("POST", "/api/bench/speaker", { side: b.dataset.speaker });
+})));
+$("#bench-say-btn").addEventListener("click", (e) => withButton(e.target, async () => {
+  await api("POST", "/api/bench/speak", { text: $("#bench-say").value });
+}));
+$("#bench-mic-btn").addEventListener("click", (e) => withButton(e.target, async () => {
+  $("#bench-mic-text").textContent = "Parlez…";
+  try {
+    const r = await api("POST", "/api/bench/mic");
+    $("#bench-mic-bar").style.width = Math.min(100, r.peak) + "%";
+    $("#bench-mic-text").textContent = r.peak < 3 ? `Presque rien entendu (${r.peak} %) : micro coupé ou trop bas ?`
+      : r.peak > 95 ? `Saturé (${r.peak} %) : baissez le gain (alsamixer)` : `OK : crête ${r.peak} %`;
+  } catch (err) {
+    $("#bench-mic-text").textContent = "";
+    throw err;
+  }
+}));

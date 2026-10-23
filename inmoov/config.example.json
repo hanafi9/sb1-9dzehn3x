@@ -33,7 +33,10 @@
       "invert": true
     },
     "share_frame_path": "/dev/shm/inmoov_frame.jpg",
-    "share_frame_period_s": 1.0,
+    "share_frame_period_s": 0.5,
+    "_second_camera_aide": "Numéro de la 2e caméra (l'autre œil), affichée dans l'onglet Banc d'essai de l'Atelier. null = pas de 2e caméra.",
+    "second_camera_index": null,
+    "share_frame2_path": "/dev/shm/inmoov_frame2.jpg",
     "state_path": "/dev/shm/inmoov_vision.json",
     "pause_path": "/dev/shm/inmoov_tracking_pause",
     "objects": {

@@ -109,6 +109,20 @@ def main():
         log.error("Caméra %s introuvable.", vcfg["camera_index"])
         return 1
 
+    # 2e caméra (l'autre œil) : seulement montrée dans l'Atelier (onglet Banc d'essai)
+    cam2, share2_path = None, vcfg.get("share_frame2_path")
+    if vcfg.get("second_camera_index") is not None and share2_path:
+        cam2 = cv2.VideoCapture(vcfg["second_camera_index"])
+        cam2.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))  # moins de débit USB
+        cam2.set(cv2.CAP_PROP_FRAME_WIDTH, vcfg["frame_width"])
+        cam2.set(cv2.CAP_PROP_FRAME_HEIGHT, vcfg["frame_height"])
+        cam2.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        if cam2.isOpened():
+            log.info("2e caméra %s ouverte (image : %s)", vcfg["second_camera_index"], share2_path)
+        else:
+            log.warning("2e caméra %s introuvable", vcfg["second_camera_index"])
+            cam2 = None
+
     mrl = AsyncMrlClient(cfg["mrl"]["url"], cfg["mrl"]["timeout_s"])
     pan = AxisController(vcfg["pan"])
     tilt = AxisController(vcfg["tilt"])
@@ -144,6 +158,8 @@ def main():
 
             h, w = frame.shape[:2]
             faces = detect_faces(interpreter, frame, vcfg["score_threshold"])
+            if cam2 is not None:
+                cam2.grab()   # garde l'image de la 2e caméra fraîche (décodée seulement au partage)
             target = pick_target(faces)
             now = time.monotonic()
 
@@ -189,7 +205,14 @@ def main():
                             "objects": objects, "objects_age_s": round(now - last_objects, 1) if last_objects else None,
                             "head": {"rothead": round(pan.position, 1), "neck": round(tilt.position, 1)},
                             "tracking_paused": paused,
+                            # cadres des visages en fraction de l'image (dessinés dans l'Atelier)
+                            "face_boxes": [[round(f[0] / w, 3), round(f[1] / h, 3), round(f[2] / w, 3),
+                                            round(f[3] / h, 3), round(float(f[4]), 2)] for f in faces],
                         })
+                    if cam2 is not None:
+                        ok2, frame2 = cam2.retrieve()
+                        if ok2:
+                            share_frame(frame2, share2_path)
                 except OSError as e:
                     log.warning("Image non partagée : %s", e)
                 last_share = now
@@ -203,6 +226,8 @@ def main():
         pass
     finally:
         cam.release()
+        if cam2 is not None:
+            cam2.release()
         cv2.destroyAllWindows()
     return 0
 

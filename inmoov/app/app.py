@@ -26,6 +26,7 @@ ROOT = os.path.normpath(os.path.join(HERE, ".."))
 sys.path[:0] = [ROOT, os.path.join(ROOT, "legs")]
 
 import arduino_tools  # noqa: E402
+import bench  # noqa: E402
 import electrical  # noqa: E402
 import servo_inventory  # noqa: E402
 import system_tools  # noqa: E402
@@ -149,6 +150,7 @@ def create_app(data_dir=None, run=None, mrl=None):
                             servo_inventory.default_calibration())
     progress_store = JsonStore(os.path.join(data_dir, "guide_progress.json"), {})
     parts_store = JsonStore(os.path.join(data_dir, "parts_progress.json"), {})
+    bench_store = JsonStore(os.path.join(data_dir, "bench_results.json"), {})
     jobs = JobRunner()
     legs = LegsManager()
 
@@ -616,6 +618,101 @@ def create_app(data_dir=None, run=None, mrl=None):
         if data.get("side") not in ("left", "right"):
             raise ValueError("main gauche ou droite")
         return jsonify(hub_request("/grip", {"side": data["side"], "threshold": data.get("threshold")}, timeout=15))
+
+    # ---------------------------------------------------------- banc d'essai
+    @app.get("/api/bench/state")
+    @api
+    def bench_state():
+        cfg, base = robot_cfg()
+        paths = bench.vision_paths(cfg, base)
+        ok, _ = mrl_client().call_checked("runtime", "getUptime")
+        cameras = []
+        for n, label in ((0, "Caméra du suivi de visage"), (1, "2e caméra")):
+            age = bench.file_age(paths[n])
+            cameras.append({"id": n, "label": label, "age_s": None if age is None else round(age, 1),
+                            "live": age is not None and age < 5})
+        return jsonify({
+            "ok": True, "mrl": ok,
+            "voice": bench.process_running("speech_listener.py", run),
+            "tracker": bench.process_running("face_tracker.py", run),
+            "coral": system_tools.coral_present(run),
+            "vision": bench.read_vision_state(paths["state"]),
+            "cameras": cameras,
+            "second_camera_index": cfg.get("vision", {}).get("second_camera_index"),
+            "results": bench_store.load(),
+        })
+
+    @app.get("/api/bench/camera/<int:n>.jpg")
+    def bench_camera(n):
+        cfg, base = robot_cfg()
+        paths = bench.vision_paths(cfg, base)
+        if n not in (0, 1) or bench.file_age(paths[n]) is None:
+            return jsonify({"ok": False, "error": "pas d'image (face_tracker.py lancé ?)"}), 404
+        with open(paths[n], "rb") as f:
+            data = f.read()
+        return Response(data, mimetype="image/jpeg", headers={"Cache-Control": "no-store"})
+
+    @app.post("/api/bench/speak")
+    @api
+    def bench_speak():
+        cfg, _ = robot_cfg()
+        cmd = bench.piper_command(ROOT, cfg, bench.clean_text(body().get("text")))
+        res = run(cmd, capture_output=True, text=True, timeout=90)
+        if res.returncode != 0:
+            raise RuntimeError("Piper : " + (res.stderr or "erreur").strip().splitlines()[-1])
+        return jsonify({"ok": True})
+
+    @app.post("/api/bench/speaker")
+    @api
+    def bench_speaker():
+        side = body().get("side")
+        if side not in bench.SPEAKER_FILES:
+            raise ValueError("côté inconnu")
+        res = run(["aplay", "-q", bench.SPEAKER_FILES[side]], capture_output=True, text=True, timeout=15)
+        if res.returncode != 0:
+            raise RuntimeError("aplay : " + (res.stderr or "erreur").strip())
+        return jsonify({"ok": True})
+
+    @app.post("/api/bench/mic")
+    @api
+    def bench_mic():
+        if bench.process_running("speech_listener.py", run):
+            raise ValueError("le micro est utilisé par la voix (speech_listener.py) : "
+                             "parlez-lui plutôt, ou arrêtez-la pour ce test")
+        res = run(bench.record_command(3), capture_output=True, timeout=15)
+        if res.returncode != 0:
+            raise RuntimeError("arecord : " + (res.stderr or b"erreur").decode("utf-8", "replace").strip())
+        peak, mean = bench.mic_level(res.stdout)
+        return jsonify({"ok": True, "peak": peak, "mean": mean})
+
+    @app.put("/api/bench/results/<service>")
+    @api
+    def bench_result(service):
+        check_service(service)
+        result = body().get("result", "")
+        if result not in bench.RESULTS:
+            raise ValueError("résultat : ok, bad ou vide")
+        results = bench_store.load()
+        if result:
+            results[service] = result
+        else:
+            results.pop(service, None)
+        bench_store.save(results)
+        return jsonify({"ok": True, "results": results})
+
+    @app.post("/api/bench/all/<action>")
+    @api
+    def bench_all(action):
+        if action not in ("rest", "disable"):
+            raise ValueError("action inconnue")
+        errors = []
+        for service in sorted(servo_inventory.all_services()):
+            try:
+                mrl_call(service, action)
+            except RuntimeError as e:
+                errors.append(str(e))
+                break   # MyRobotLab injoignable : inutile d'insister
+        return jsonify({"ok": not errors, "errors": errors})
 
     # ---------------------------------------------------------- IA : mémoire et gestes
     def memory_store():
