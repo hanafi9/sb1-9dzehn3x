@@ -239,10 +239,12 @@ class BrainWithMindTest(unittest.TestCase):
         roles = [m["role"] for m in second["messages"]]
         self.assertEqual(roles, ["user", "system", "assistant", "system", "user", "system"])
         self.assertEqual(second["messages"][3], {"role": "system", "content": [], "output_config": {"effort": "high"}})
-        self.assertIn(self.spoken[1], ("Laisse-moi réfléchir.", "Bonne question, je réfléchis.", "Hmm, voyons voir.",
-                                       "Attends, je réfléchis un instant."))
+        from reasoning import THINKING_PHRASES
+        self.assertIn(self.spoken[1], THINKING_PHRASES)
         self.assertEqual(third["messages"][-3], {"role": "system", "content": [], "output_config": {"effort": "low"}})
         self.assertIn("Comment tu penses", first["system"])
+        self.assertIn("Ta personnalité", first["system"])
+        self.assertIn("un peu taquin", first["system"])          # humour 2 par défaut
         self.assertIn("feel", [t["name"] for t in first["tools"]])
 
     def test_feel_and_look_around(self):

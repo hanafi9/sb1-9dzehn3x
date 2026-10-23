@@ -87,12 +87,19 @@ class ChatbotTest(unittest.TestCase):
         tts = FakeTts()
         lst = listener(tts, wake_words=["kamil", "robot"])
         lst.handle("Kamil.")
-        self.assertEqual(tts.said, ["oui ?"])
+        self.assertEqual(len(tts.said), 1)                       # réponse courte (« Présent ! »…)
         lst.handle("Kamil, ce que tu dis est bizarre")
         self.assertEqual(lst.mrl.calls[-1], ("i01.chatBot", "getResponse", "ce que tu dis est bizarre"))
         lst.awake_until = 0.0  # fenêtre de suite écoulée
         lst.handle("bonjour")  # plus réveillé : ignoré
         self.assertEqual(len(lst.mrl.calls), 1)
+
+    def test_wake_replies_vary(self):
+        lst = listener(FakeTts())
+        lst.cfg["wake_replies"] = ["Oui ?", "Présent !", "Me voilà !"]
+        said = [lst._wake_reply() for _ in range(30)]
+        self.assertTrue(set(said) <= {"Oui ?", "Présent !", "Me voilà !"})
+        self.assertTrue(all(a != b for a, b in zip(said, said[1:])))   # jamais deux fois de suite
 
     def test_follow_up_without_wake_word(self):
         tts = FakeTts()

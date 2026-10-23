@@ -20,7 +20,10 @@ THINK_PATTERNS = [
 _THINK = re.compile("|".join(THINK_PATTERNS), re.IGNORECASE)
 
 THINKING_PHRASES = ["Laisse-moi réfléchir.", "Bonne question, je réfléchis.", "Hmm, voyons voir.",
-                    "Attends, je réfléchis un instant."]
+                    "Attends, je réfléchis un instant.", "Oh, ça, c'est une colle ! Je réfléchis.",
+                    "Mes circuits chauffent, une seconde.", "Je fouille dans ma mémoire…",
+                    "Ah, intéressant. Laisse-moi y penser.", "Une seconde, je fais tourner mes engrenages."]
+_last = {"phrase": None}
 
 
 def choose_effort(text, quick="low", think="high", long_words=22):
@@ -32,4 +35,7 @@ def choose_effort(text, quick="low", think="high", long_words=22):
 
 
 def thinking_phrase(rng=random):
-    return rng.choice(THINKING_PHRASES)
+    """Phrase d'attente, jamais deux fois la même de suite."""
+    phrase = rng.choice([p for p in THINKING_PHRASES if p != _last["phrase"]])
+    _last["phrase"] = phrase
+    return phrase

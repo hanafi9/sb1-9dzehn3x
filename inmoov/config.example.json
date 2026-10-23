@@ -67,6 +67,10 @@
     "robot_name": "InMoov",
     "owner_name": "son créateur",
     "extra_instructions": "",
+    "personality": {
+      "humour": 2,
+      "_aide": "humour : 0 = sérieux, 1 = léger, 2 = un peu taquin (une petite blague de temps en temps), 3 = farceur. Toujours bienveillant, sérieux quand la personne est triste ou inquiète."
+    },
     "robot_service": "i01",
     "rothead_service": "i01.head.rothead",
     "neck_service": "i01.head.neck",

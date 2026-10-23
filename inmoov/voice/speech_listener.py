@@ -20,6 +20,7 @@ import argparse
 import logging
 import os
 import queue
+import random
 import sys
 import time
 
@@ -38,6 +39,7 @@ log = logging.getLogger("voice")
 
 SAMPLE_RATE = 16000  # Whisper et WebRTC VAD travaillent en 16 kHz
 FRAME_MS = 30
+WAKE_REPLIES = ["Oui ?", "Je t'écoute !", "Présent !", "Oui, chef ?", "Hmm ?", "Me voilà !", "Oui, oui ?"]
 FRAME_SAMPLES = SAMPLE_RATE * FRAME_MS // 1000
 
 
@@ -67,6 +69,9 @@ class Listener:
                 # phrase par phrase : le robot parle pendant que Claude écrit la suite
                 self.pipeline = SpeechPipeline(self.tts, fallback=self._speak_mrl)
             log.info("Voix hors ligne Piper : %s", cfg["piper_model"])
+            from reasoning import THINKING_PHRASES
+
+            self.tts.warm_up(list(cfg.get("wake_replies") or WAKE_REPLIES) + THINKING_PHRASES)
         self.memory = None
         self.brain = None
         self.reactions = None
@@ -245,6 +250,14 @@ class Listener:
         r, g, b = self.leds.get("colors", {}).get(state, LED_COLORS[state])
         self._call_checked(self.leds["service"], "fill", r, g, b)
 
+    def _wake_reply(self):
+        """Réponse immédiate à « Kamil ! » seul, variée pour ne pas sonner comme une machine."""
+        replies = self.cfg.get("wake_replies") or WAKE_REPLIES
+        last = getattr(self, "_last_wake_reply", None)
+        reply = random.choice([r for r in replies if r != last] or replies)
+        self._last_wake_reply = reply
+        return reply
+
     def _mute_for(self, text):
         # Le micro entendrait la voix du robot : on l'ignore le temps qu'il parle.
         if text:
@@ -261,7 +274,7 @@ class Listener:
         if found:
             if not rest:
                 self.awake_until = now + self.cfg["wake_window_s"]
-                self.say("oui ?")
+                self.say(self._wake_reply())
                 self.status("awake")
                 return
             text = rest

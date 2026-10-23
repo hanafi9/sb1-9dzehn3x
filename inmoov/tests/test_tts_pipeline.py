@@ -9,7 +9,7 @@ import unittest
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 sys.path[:0] = [ROOT, os.path.join(ROOT, "voice")]
 
-from tts_piper import SpeechPipeline  # noqa: E402
+from tts_piper import PiperSpeaker, SpeechPipeline  # noqa: E402
 
 
 class FakeSpeaker:
@@ -50,6 +50,46 @@ class PipelineTest(unittest.TestCase):
         p.put("  ")   # ignoré
         self.assertTrue(p.wait(5))
         self.assertEqual(said, ["cassé"])
+
+
+class FakeVoice:
+    def __init__(self):
+        self.calls = 0
+
+    def synthesize_wav(self, text, wav, syn_config=None):
+        self.calls += 1
+        wav.setnchannels(1)
+        wav.setsampwidth(2)
+        wav.setframerate(22050)
+        wav.writeframes(b"\x00\x00" * 2205 * len(text))   # 0,1 s par caractère
+
+
+class CacheTest(unittest.TestCase):
+    def speaker(self):
+        sp = object.__new__(PiperSpeaker)
+        sp.voice, sp.syn_config, sp.lock, sp.cache = FakeVoice(), None, threading.Lock(), {}
+        return sp
+
+    def test_short_phrases_are_made_once(self):
+        sp = self.speaker()
+        for _ in range(3):
+            path, duration = sp.synthesize("Présent !")
+            self.assertAlmostEqual(duration, 0.9)
+            os.remove(path)
+        self.assertEqual(sp.voice.calls, 1)              # fabriquée une seule fois
+        long_text = "Il était une fois un robot qui rêvait d'apprendre à danser la valse avec sa créatrice."
+        for _ in range(2):
+            os.remove(sp.synthesize(long_text)[0])
+        self.assertEqual(sp.voice.calls, 3)              # phrase longue : pas gardée
+
+    def test_warm_up(self):
+        sp = self.speaker()
+        sp.warm_up(["Oui ?", "Hmm ?"])
+        for _ in range(50):
+            if len(sp.cache) == 2:
+                break
+            time.sleep(0.02)
+        self.assertEqual(set(sp.cache), {"Oui ?", "Hmm ?"})
 
 
 if __name__ == "__main__":

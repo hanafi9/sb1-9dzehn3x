@@ -34,20 +34,40 @@ class PiperSpeaker:
             from piper import SynthesisConfig
 
             self.syn_config = SynthesisConfig(length_scale=length_scale)
+        self.lock = threading.Lock()   # une seule fabrication de son à la fois
+        self.cache = {}                # phrases courtes déjà fabriquées : dites sans délai
 
     def synthesize(self, text):
         """Fabrique le fichier son ; renvoie (chemin du .wav, durée en secondes)."""
         fd, path = tempfile.mkstemp(suffix=".wav", prefix="inmoov-")
         os.close(fd)
         try:
-            with wave.open(path, "wb") as wav:
-                self.voice.synthesize_wav(text, wav, syn_config=self.syn_config)
+            cached = self.cache.get(text)
+            if cached is None:
+                with self.lock, wave.open(path, "wb") as wav:
+                    self.voice.synthesize_wav(text, wav, syn_config=self.syn_config)
+                if len(text) <= 60:
+                    with open(path, "rb") as f:
+                        self.cache[text] = f.read()
+            else:
+                with open(path, "wb") as f:
+                    f.write(cached)
             with wave.open(path, "rb") as wav:
                 duration = wav.getnframes() / float(wav.getframerate())
         except Exception:
             _remove(path)
             raise
         return path, duration
+
+    def warm_up(self, phrases):
+        """Prépare en arrière-plan les phrases courtes (« Présent ! », « Hmm, voyons voir. »)."""
+        def job():
+            for phrase in phrases:
+                try:
+                    _remove(self.synthesize(phrase)[0])
+                except Exception:  # pas grave : elle sera fabriquée au moment de la dire
+                    log.debug("phrase non préparée : %s", phrase)
+        threading.Thread(target=job, name="piper-warm", daemon=True).start()
 
     def play(self, path, duration):
         """Joue le fichier puis l'efface (bloquant)."""
