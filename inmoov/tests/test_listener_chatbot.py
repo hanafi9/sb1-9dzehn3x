@@ -106,6 +106,17 @@ class ChatbotTest(unittest.TestCase):
         lst.brain_cfg = {}
         self.assertIn(lst._wake_reply(), speech_listener.WAKE_REPLIES)
 
+    def test_response_delay_is_logged_by_step(self):
+        lst = listener(FakeTts())
+        lst.cfg["end_silence_ms"] = 700
+        now = time.monotonic()
+        lst.turn = {"end": now - 5.0, "whisper": 2.0, "heard": now - 3.0, "queued": now - 0.5}
+        with self.assertLogs("voice", "INFO") as logs:
+            lst._on_first_sound("Bonjour !")
+        self.assertIn("1er son 5.0 s", logs.output[0])
+        self.assertIn("Whisper 2.0 + Claude (1re phrase) 2.5 + Piper 0.5", logs.output[0])
+        self.assertIsNone(lst.turn)
+
     def test_follow_up_without_wake_word(self):
         tts = FakeTts()
         lst = listener(tts, wake_words=["kamil"])

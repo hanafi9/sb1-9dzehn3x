@@ -69,10 +69,12 @@ class Listener:
         if cfg.get("tts") == "piper":
             from tts_piper import PiperSpeaker, SpeechPipeline  # importé seulement si utilisé
 
-            self.tts = PiperSpeaker(cfg["piper_model"], length_scale=cfg.get("piper_length_scale"))
+            self.tts = PiperSpeaker(cfg["piper_model"], length_scale=cfg.get("piper_length_scale"),
+                                    speaker_id=cfg.get("piper_speaker_id"))
             if not dry_run:
                 # phrase par phrase : le robot parle pendant que Claude écrit la suite
                 self.pipeline = SpeechPipeline(self.tts, fallback=self._speak_mrl)
+                self.pipeline.on_play_start = self._on_first_sound
             log.info("Voix hors ligne Piper : %s", cfg["piper_model"])
             from reasoning import THINKING_PHRASES
 
@@ -224,6 +226,9 @@ class Listener:
         self.status("speaking")
         if self.pipeline is not None:
             # même file que les phrases de Claude : jamais deux sons en même temps
+            turn = getattr(self, "turn", None)
+            if turn and "queued" not in turn:
+                turn["queued"] = time.monotonic()
             self.pipeline.put(text)
             self.wait_speech()
             return
@@ -242,8 +247,22 @@ class Listener:
 
     def say_async(self, text):
         """Phrase mise dans la file de Piper : rend la main tout de suite."""
+        turn = getattr(self, "turn", None)
+        if turn and "queued" not in turn:
+            turn["queued"] = time.monotonic()
         self.status("speaking")
         self.pipeline.put(text)
+
+    def _on_first_sound(self, text):
+        """Journal du délai de réponse, décomposé, pour voir quelle étape est lente."""
+        turn, self.turn = getattr(self, "turn", None), None
+        if not turn or "queued" not in turn:
+            return
+        now = time.monotonic()
+        log.info("⏱ 1er son %.1f s après la fin de ta phrase = silence de fin %.1f + Whisper %.1f "
+                 "+ Claude (1re phrase) %.1f + Piper %.1f  [« %s »]",
+                 now - turn["end"], self.cfg["end_silence_ms"] / 1000.0, turn["whisper"],
+                 turn["queued"] - turn["heard"], now - turn["queued"], text[:40])
 
     def wait_speech(self):
         """Attend la fin de tout ce qui est dans la file de Piper."""
@@ -373,6 +392,9 @@ class Listener:
                 t0 = time.monotonic()
                 text = self.transcribe(pcm)
                 spent = time.monotonic() - t0
+                # chronométrage du tour : de la fin de la phrase entendue au 1er son du robot
+                self.turn = {"end": t0 - self.cfg["end_silence_ms"] / 1000.0, "whisper": spent,
+                             "heard": time.monotonic()}
                 log.info("Entendu (%.1f s audio, %.1f s calcul) : %s", len(pcm) / 2 / SAMPLE_RATE, spent, text)
                 if spent > 8:
                     log.warning("Whisper très lent (%.0f s) : processeur surchargé ou trop chaud ? "

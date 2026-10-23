@@ -22,7 +22,7 @@ log = logging.getLogger("piper")
 
 
 class PiperSpeaker:
-    def __init__(self, model_path, player=("aplay", "-q"), length_scale=None):
+    def __init__(self, model_path, player=("aplay", "-q"), length_scale=None, speaker_id=None):
         from piper import PiperVoice  # importé seulement si cette voix est choisie
 
         if not os.path.isfile(model_path):
@@ -30,10 +30,12 @@ class PiperSpeaker:
         self.voice = PiperVoice.load(model_path)
         self.player = list(player)
         self.syn_config = None
-        if length_scale:
+        if length_scale or speaker_id is not None:
             from piper import SynthesisConfig
 
-            self.syn_config = SynthesisConfig(length_scale=length_scale)
+            # length_scale : < 1 parle plus vite, > 1 plus lentement ;
+            # speaker_id : numéro de la voix dans un modèle à plusieurs voix (ex. fr_FR-upmc-medium)
+            self.syn_config = SynthesisConfig(length_scale=length_scale or None, speaker_id=speaker_id)
         self.lock = threading.Lock()   # une seule fabrication de son à la fois
         self.cache = {}                # phrases courtes déjà fabriquées : dites sans délai
 
@@ -105,6 +107,7 @@ class SpeechPipeline:
         self.sounds = queue.Queue()
         self.pending = 0
         self.done = threading.Condition()
+        self.on_play_start = None   # appelée juste avant de jouer chaque phrase (mesure du délai)
         threading.Thread(target=self._synth_loop, name="piper-synth", daemon=True).start()
         threading.Thread(target=self._play_loop, name="piper-play", daemon=True).start()
 
@@ -133,6 +136,8 @@ class SpeechPipeline:
         while True:
             text, path, duration = self.sounds.get()
             try:
+                if self.on_play_start is not None:
+                    self.on_play_start(text)
                 if path is not None:
                     self.speaker.play(path, duration)
                 elif self.fallback is not None:
