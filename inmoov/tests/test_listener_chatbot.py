@@ -46,7 +46,7 @@ def listener(tts, dry_run=False, wake_words=()):
                "chatbot_method": "getResponse", "mouth_service": "i01.mouth", "seconds_per_char": 0.07,
                "wake_window_s": 8}
     lst.awake_until = lst.mute_until = 0.0
-    lst.brain = lst.local = lst.leds = lst.pipeline = lst.reactions = None
+    lst.brain = lst.local = lst.leds = lst.pipeline = lst.reactions = lst.voices = lst._last_audio = None
     lst.tts, lst.dry_run, lst.mrl = tts, dry_run, FakeMrl()
     return lst
 
@@ -106,6 +106,20 @@ class ChatbotTest(unittest.TestCase):
         lst.brain_cfg = {}
         self.assertIn(lst._wake_reply(), speech_listener.WAKE_REPLIES)
 
+    def test_owner_only_voice_commands(self):
+        tts = FakeTts()
+        lst = listener(tts)
+        lst.cfg["commands"] = {"lève le bras": [["i01.rightArm.shoulder", "moveTo", 120]]}
+        lst.cfg["speaker_id"] = {"owner": "Hanafi", "owner_only_commands": True}
+        lst._last_audio = [0.0]
+        lst.voices = types.SimpleNamespace(identify=lambda audio: (None, 0.2))     # voix inconnue
+        lst.handle("lève le bras")
+        self.assertEqual(lst.mrl.calls, [])
+        self.assertIn("Hanafi", tts.said[-1])
+        lst.voices = types.SimpleNamespace(identify=lambda audio: ("Hanafi", 0.8))
+        lst.handle("lève le bras")
+        self.assertEqual(lst.mrl.calls, [("i01.rightArm.shoulder", "moveTo", 120)])
+
     def test_response_delay_is_logged_by_step(self):
         lst = listener(FakeTts())
         lst.cfg["end_silence_ms"] = 700
@@ -135,7 +149,7 @@ class ChatbotTest(unittest.TestCase):
         lst.segmenter = types.SimpleNamespace(triggered=False, reset=lambda: None)
         lst.frames = __import__("queue").Queue()
         noticed, talks = [], []
-        lst.brain = types.SimpleNamespace(notice=lambda e: noticed.append(e) or "Bonjour !", ask=lambda t: None)
+        lst.brain = types.SimpleNamespace(notice=lambda e: noticed.append(e) or "Bonjour !", ask=lambda t, **k: None)
         lst.reactions = types.SimpleNamespace(poll=lambda: ("arrivee", "Une personne vient d'apparaître."),
                                               on_conversation=lambda: talks.append(1))
         lst._maybe_react()

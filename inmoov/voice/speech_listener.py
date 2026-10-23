@@ -84,6 +84,19 @@ class Listener:
         self.memory = None
         self.brain = None
         self.reactions = None
+        self.voices = None
+        self._last_audio = None
+        spk = cfg.get("speaker_id") or {}
+        if spk.get("enabled"):
+            from speaker_id import MODEL_NAME, VoiceIdentifier, make_extractor
+
+            try:
+                self.voices = VoiceIdentifier(make_extractor(spk.get("model") or "models/" + MODEL_NAME),
+                                              spk.get("db_path") or "data/voices.json",
+                                              threshold=float(spk.get("threshold", 0.55)))
+                log.info("Reconnaissance des voix : %s", ", ".join(self.voices.names()) or "aucune voix enregistrée")
+            except Exception as e:  # sans elle, le robot parle quand même
+                log.warning("Reconnaissance des voix désactivée : %s", e)
         if brain_cfg and brain_cfg.get("enabled"):
             from llm_brain import ClaudeBrain  # importé seulement si utilisé
 
@@ -103,6 +116,11 @@ class Listener:
                                      say_async=self.say_async if self.pipeline else None,
                                      wait_speech=self.wait_speech if self.pipeline else None)
             log.info("IA conversationnelle : Claude (%s)", brain_cfg["model"])
+            spk = cfg.get("speaker_id") or {}
+            if spk.get("owner") and spk.get("owner_only_tools"):
+                # mouvements réservés à une voix (ex. move_head, hand, gesture)
+                self.brain.owner = spk["owner"]
+                self.brain.restricted_tools = set(spk["owner_only_tools"])
             react_cfg = brain_cfg.get("reactions") or {}
             if react_cfg.get("enabled") and mind_cfg.get("vision_state_path"):
                 from reactions import Reactions
@@ -163,6 +181,7 @@ class Listener:
         if self.cfg.get("auto_gain", True):
             # micro trop faible : la phrase est remontée à un bon niveau avant Whisper
             audio = normalize_peak(audio, max_gain=self.cfg.get("auto_gain_max", 20.0))
+        self._last_audio = audio   # pour reconnaître la voix si la phrase s'adresse au robot
         text, confidence, doubtful = self._whisper(self.model, audio, self.cfg["beam_size"])
         threshold = self.cfg.get("fallback_below_confidence", -0.45)
         # le 2e modèle ne sert que pour une phrase adressée au robot (mot de réveil, ou conversation
@@ -311,10 +330,16 @@ class Listener:
         self.awake_until = 0.0
         if self.reactions is not None:
             self.reactions.on_conversation()
+        speaker = self._identify()
 
         phrase, actions = match_command(text, self.cfg["commands"], self.cfg["fuzzy_threshold"])
         if actions:
             log.info("Commande : %s", phrase)
+            owner = (self.cfg.get("speaker_id") or {}).get("owner")
+            if owner and (self.cfg.get("speaker_id") or {}).get("owner_only_commands") and speaker != owner:
+                log.info("Commande refusée : voix de %s non reconnue", owner)
+                self.say("Désolé, je n'obéis à cet ordre que si je reconnais la voix de %s." % owner)
+                return
             for action in actions:
                 self._call(*action)
             return
@@ -324,7 +349,7 @@ class Listener:
         try:
             if self.brain is not None:
                 try:
-                    answered = self.brain.ask(text) is not None
+                    answered = self.brain.ask(text, speaker=speaker) is not None
                 except Exception:  # ex. clé API absente : le robot doit continuer d'écouter
                     log.exception("Erreur inattendue de l'IA")
                     self.brain.reset()
@@ -406,6 +431,19 @@ class Listener:
                 # ce qui a été capté pendant le calcul est périmé
                 self._flush_audio()
 
+    def _identify(self):
+        """Prénom de la personne qui vient de parler, "" si voix inconnue, None si désactivé."""
+        if self.voices is None or self._last_audio is None:
+            return None
+        try:
+            name, score = self.voices.identify(self._last_audio)
+        except Exception as e:
+            log.warning("Voix non analysée : %s", e)
+            return None
+        if score is not None:
+            log.info("Voix : %s (%.2f)", name or "inconnue", score)
+        return name or ""
+
     def _maybe_react(self):
         """Entre deux phrases : réagit à ce que les caméras viennent de remarquer."""
         if self.reactions is None or self.brain is None or self.segmenter.triggered:
@@ -451,6 +489,10 @@ def main():
         value = cfg.get(section, {}).get(key)
         if value and not os.path.isabs(value):
             cfg[section][key] = os.path.join(base, value)
+    spk_cfg = cfg.get("voice", {}).get("speaker_id") or {}
+    for key in ("model", "db_path"):
+        if spk_cfg.get(key) and not os.path.isabs(spk_cfg[key]):
+            spk_cfg[key] = os.path.join(base, spk_cfg[key])
     mind_cfg = cfg.get("brain", {}).get("mind") or {}
     for key in ("environment_path", "mood_path", "episodes_path"):
         if mind_cfg.get(key) and not os.path.isabs(mind_cfg[key]):

@@ -5,3 +5,4 @@ sounddevice>=0.4.6
 numpy
 anthropic>=1.0
 # facultatif, voix française hors ligne : pip install piper-tts
+# facultatif, reconnaître qui parle à sa voix (voice/enroll_voice.py) : pip install sherpa-onnx

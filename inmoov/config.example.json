@@ -126,6 +126,16 @@
     "input_gain": 1,
     "auto_gain": true,
     "auto_gain_max": 20,
+    "speaker_id": {
+      "enabled": false,
+      "_aide": "Reconnaître qui parle à sa voix (voice/enroll_voice.py pour enregistrer une voix ; pip install sherpa-onnx). threshold : score minimum (0 à 1) pour reconnaître. owner + owner_only_tools (ex. [\"move_head\", \"hand\", \"gesture\", \"rest_position\"]) : mouvements réservés à cette voix ; owner_only_commands : idem pour les commandes vocales directes.",
+      "model": "models/wespeaker_en_voxceleb_resnet34_LM.onnx",
+      "db_path": "data/voices.json",
+      "threshold": 0.55,
+      "owner": null,
+      "owner_only_tools": [],
+      "owner_only_commands": false
+    },
     "whisper_model": "base",
     "_fallback_aide": "Si le 1er modèle n'est pas sûr de lui (confiance sous fallback_below_confidence) pour une phrase adressée au robot, elle est relue par un modèle plus juste mais ~3 fois plus lent. null = désactivé.",
     "whisper_fallback_model": null,

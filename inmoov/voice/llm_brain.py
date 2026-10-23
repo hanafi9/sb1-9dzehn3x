@@ -48,6 +48,9 @@ geste rend la conversation plus vivante (par exemple tourner la tête vers la pe
 Si quelqu'un te demande un mouvement que tes outils ne permettent pas, dis-le simplement.
 Si tu n'as pas bien compris (la reconnaissance vocale fait parfois des erreurs), demande
 de répéter plutôt que d'inventer.
+Un message peut commencer par « [Voix de X] » : X est la personne reconnue à sa voix (en
+général juste, pas toujours) ; appelle-la par son prénom. « [Voix inconnue] » : tu ne
+reconnais pas cette voix ; si c'est utile, demande gentiment qui te parle.
 Quand on te demande ce que tu vois, ce que la personne tient ou à quoi elle ressemble,
 utilise l'outil look au lieu de deviner. Quand quelqu'un te dit son prénom ou quelque chose
 d'important à retenir sur lui, utilise l'outil remember.{mind}{extra}"""
@@ -378,12 +381,16 @@ class ClaudeBrain:
             fallbacks="default",
         )
 
-    def ask(self, text):
+    def ask(self, text, speaker=None):
         """Envoie la phrase entendue à Claude, exécute ses gestes, le fait parler.
 
         Renvoie le texte prononcé, ou None si Claude est injoignable
         (l'appelant peut alors se rabattre sur le chatbot d'InMoov2).
         """
+        self.current_speaker = speaker
+        if speaker is not None:
+            # reconnaissance des voix active : Claude sait qui parle (ou que la voix est inconnue)
+            text = ("[Voix de %s] " % speaker if speaker else "[Voix inconnue] ") + text
         try:
             return self._ask(text)
         finally:
@@ -473,7 +480,12 @@ class ClaudeBrain:
 
     def _tool_result(self, block):
         try:
-            ok, message = self._run_tool(block.name, block.input)
+            owner = getattr(self, "owner", None)
+            if (block.name in getattr(self, "restricted_tools", ()) and owner
+                    and getattr(self, "current_speaker", None) != owner):
+                ok, message = False, "action réservée à %s (sa voix n'a pas été reconnue)" % owner
+            else:
+                ok, message = self._run_tool(block.name, block.input)
         except (KeyError, TypeError, ValueError) as e:
             ok, message = False, "arguments invalides : %s" % e
         log.info("Outil %s%s -> %s", block.name, dict(block.input),
