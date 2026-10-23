@@ -103,6 +103,10 @@ def main():
             obj_interpreter = None
 
     cam = cv2.VideoCapture(vcfg["camera_index"])
+    if vcfg.get("camera_fourcc"):
+        # MJPG : image compressée par la caméra, ~10 fois moins de débit USB qu'en YUYV ;
+        # indispensable pour faire tourner 2 caméras sur le même port USB 2
+        cam.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*vcfg["camera_fourcc"]))
     cam.set(cv2.CAP_PROP_FRAME_WIDTH, vcfg["frame_width"])
     cam.set(cv2.CAP_PROP_FRAME_HEIGHT, vcfg["frame_height"])
     if not cam.isOpened():
@@ -113,14 +117,17 @@ def main():
     cam2, share2_path = None, vcfg.get("share_frame2_path")
     if vcfg.get("second_camera_index") is not None and share2_path:
         cam2 = cv2.VideoCapture(vcfg["second_camera_index"])
-        cam2.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))  # moins de débit USB
+        cam2.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*(vcfg.get("camera_fourcc") or "MJPG")))
         cam2.set(cv2.CAP_PROP_FRAME_WIDTH, vcfg["frame_width"])
         cam2.set(cv2.CAP_PROP_FRAME_HEIGHT, vcfg["frame_height"])
         cam2.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         if cam2.isOpened():
             log.info("2e caméra %s ouverte (image : %s)", vcfg["second_camera_index"], share2_path)
         else:
-            log.warning("2e caméra %s introuvable", vcfg["second_camera_index"])
+            log.warning("2e caméra %s impossible à ouvrir : déjà utilisée par un autre programme "
+                        "(fuser -v /dev/video%s) ou débit USB insuffisant (camera_fourcc \"MJPG\", "
+                        "ou brancher l'autre caméra sur un port USB bleu)",
+                        vcfg["second_camera_index"], vcfg["second_camera_index"])
             cam2 = None
 
     mrl = AsyncMrlClient(cfg["mrl"]["url"], cfg["mrl"]["timeout_s"])

@@ -5,6 +5,7 @@
   },
   "vision": {
     "camera_index": 0,
+    "camera_fourcc": "MJPG",
     "frame_width": 640,
     "frame_height": 480,
     "model": "models/ssd_mobilenet_v2_face_quant_postprocess_edgetpu.tflite",
