@@ -318,7 +318,9 @@ class Listener:
                 if spent > 8:
                     log.warning("Whisper très lent (%.0f s) : processeur surchargé ou trop chaud ? "
                                 "(vcgencmd measure_temp ; top)", spent)
-                if text and not is_hallucination(text):
+                if text and is_hallucination(text, self.cfg.get("vocabulary", "")):
+                    log.info("(ignoré : invention de Whisper sur du bruit)")
+                elif text:
                     self.handle(text)
                 # ce qui a été capté pendant le calcul est périmé
                 self._flush_audio()

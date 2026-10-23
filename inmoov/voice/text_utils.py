@@ -25,11 +25,29 @@ def normalize(text):
     return re.sub(r"\s+", " ", text).strip()
 
 
-def is_hallucination(text):
+def is_hallucination(text, vocabulary=""):
+    """Vrai pour les phrases que Whisper invente sur du bruit :
+    sous-titres connus, mots répétés en boucle (« 200, 200, 200… »), ou simple
+    récitation des mots du vocabulaire qu'on lui a donné (« au revoir, regarde, gauche… »)."""
     n = normalize(text).strip(" .")
     if not n:
         return True
-    return any(n == normalize(h).strip(" .") for h in HALLUCINATIONS)
+    if any(n == normalize(h).strip(" .") for h in HALLUCINATIONS):
+        return True
+    words = n.split()
+    if len(words) >= 6:
+        # répétition : peu de mots différents, ou un même mot plus de 4 fois de suite
+        if len(set(words)) <= len(words) / 3:
+            return True
+        run = 1
+        for a, b in zip(words, words[1:]):
+            run = run + 1 if a == b else 1
+            if run >= 4:
+                return True
+    vocab = set(normalize(vocabulary).replace(",", " ").split())
+    if vocab and len(words) >= 4 and all(w in vocab for w in words):
+        return True
+    return False
 
 
 def clean_chatbot_reply(reply):

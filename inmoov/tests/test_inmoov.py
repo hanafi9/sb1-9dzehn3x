@@ -117,6 +117,15 @@ class TextTest(unittest.TestCase):
         self.assertTrue(is_hallucination(" ... "))
         self.assertFalse(is_hallucination("Merci"))
         self.assertFalse(is_hallucination("bonjour InMoov"))
+        # vues sur le Pi : boucles de répétition et récitation du vocabulaire donné à Whisper
+        vocab = "Kamil, InMoov, bonjour, au revoir, regarde, gauche, droite, haut, bas, tête"
+        self.assertTrue(is_hallucination("c'est comme des âgés de 200, 200, 200, 200, 200, 200, 200", vocab))
+        self.assertTrue(is_hallucination("Tête, tête, tête, tête, tête, tête", vocab))
+        self.assertTrue(is_hallucination("au revoir, regarde, gauche, haut, bas,", vocab))
+        self.assertFalse(is_hallucination("Kamil, regarde à gauche", vocab))
+        self.assertFalse(is_hallucination("Kamil regarde gauche", vocab))
+        self.assertFalse(is_hallucination("bonjour bonjour", vocab))
+        self.assertFalse(is_hallucination("Kamil, raconte-moi l'histoire d'un robot qui apprend à danser", vocab))
 
 
 class FakeMrl(BaseHTTPRequestHandler):
