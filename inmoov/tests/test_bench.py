@@ -122,10 +122,12 @@ class BenchTest(unittest.TestCase):
         os.makedirs(os.path.join(root, "models"))
         for p in (".venv-voice/bin/python", "models/fr_FR-tom-medium.onnx"):
             open(os.path.join(root, p), "w").close()
-        cmd = bench.piper_command(root, {"voice": {"piper_model": "models/fr_FR-tom-medium.onnx"}}, "Salut")
+        cmd = bench.piper_command(root, {"voice": {"piper_model": "models/fr_FR-tom-medium.onnx",
+                                                   "piper_speaker_id": 3}}, "Salut")
         self.assertEqual(cmd[0], os.path.join(root, ".venv-voice", "bin", "python"))
-        self.assertEqual(cmd[-3:], [os.path.join(root, "voice"), os.path.join(root, "models/fr_FR-tom-medium.onnx"),
-                                    "Salut"])
+        self.assertEqual(cmd[-4:-1], [os.path.join(root, "voice"), os.path.join(root, "models/fr_FR-tom-medium.onnx"),
+                                      "Salut"])
+        self.assertEqual(json.loads(cmd[-1]), {"length_scale": None, "speaker_id": 3})   # même voix que le robot
 
     def test_mic(self):
         r = self.c.post("/api/bench/mic").get_json()

@@ -16,8 +16,10 @@ SPEAKER_FILES = {
 }
 RESULTS = ("ok", "bad", "")
 # Petit programme lancé avec le Python de la voix (.venv-voice), où Piper est installé
-PIPER_SNIPPET = ("import sys; sys.path.insert(0, sys.argv[1]); from tts_piper import PiperSpeaker; "
-                 "PiperSpeaker(sys.argv[2]).speak(sys.argv[3])")
+PIPER_SNIPPET = ("import sys, json; sys.path.insert(0, sys.argv[1]); from tts_piper import PiperSpeaker; "
+                 "o = json.loads(sys.argv[4]); "
+                 "PiperSpeaker(sys.argv[2], length_scale=o.get('length_scale'), speaker_id=o.get('speaker_id'))"
+                 ".speak(sys.argv[3])")
 
 
 def vision_paths(cfg, base):
@@ -75,7 +77,8 @@ def piper_command(root, cfg, text):
         raise FileNotFoundError("Python de la voix absent (%s) : voir README, partie voix" % python)
     if not os.path.isfile(model):
         raise FileNotFoundError("voix Piper absente (%s) : voir README 8.2" % model)
-    return [python, "-c", PIPER_SNIPPET, os.path.join(root, "voice"), model, text]
+    options = json.dumps({"length_scale": voice.get("piper_length_scale"), "speaker_id": voice.get("piper_speaker_id")})
+    return [python, "-c", PIPER_SNIPPET, os.path.join(root, "voice"), model, text, options]
 
 
 def clean_text(text, max_len=300):
