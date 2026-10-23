@@ -1,6 +1,7 @@
 """Traitement du texte reconnu : mot de réveil, commandes, filtres anti-erreurs."""
 
 import difflib
+import html
 import re
 import unicodedata
 
@@ -29,6 +30,18 @@ def is_hallucination(text):
     if not n:
         return True
     return any(n == normalize(h).strip(" .") for h in HALLUCINATIONS)
+
+
+def clean_chatbot_reply(reply):
+    """Réponse du chatbot d'InMoov2 prête à être dite : sans balises HTML (« <img src=…/> »).
+
+    Renvoie None s'il ne reste rien à prononcer.
+    """
+    if not isinstance(reply, str):
+        return None
+    text = html.unescape(re.sub(r"<[^>]*>", " ", reply))
+    text = re.sub(r"\s+([.,])", r"\1", re.sub(r"\s+", " ", text)).strip()
+    return text or None
 
 
 def strip_wake_word(text, wake_words, threshold=0.75):

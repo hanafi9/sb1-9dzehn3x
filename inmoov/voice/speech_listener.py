@@ -31,7 +31,7 @@ from faster_whisper import WhisperModel
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 from mrl_client import MrlClient, load_config  # noqa: E402
 from segmenter import UtteranceSegmenter  # noqa: E402
-from text_utils import is_hallucination, match_command, strip_wake_word  # noqa: E402
+from text_utils import clean_chatbot_reply, is_hallucination, match_command, strip_wake_word  # noqa: E402
 
 log = logging.getLogger("voice")
 
@@ -180,11 +180,12 @@ class Listener:
     def handle(self, text):
         now = time.monotonic()
         awake = now < self.awake_until
-        if not awake:
-            found, rest = strip_wake_word(text, self.cfg["wake_words"])
-            if not found:
-                log.info("(pas de mot de réveil) %s", text)
-                return
+        # le mot de réveil est retiré même si le robot est déjà réveillé (« Kamil… » puis « Kamil, … »)
+        found, rest = strip_wake_word(text, self.cfg["wake_words"])
+        if not awake and not found:
+            log.info("(pas de mot de réveil) %s", text)
+            return
+        if found:
             if not rest:
                 self.awake_until = now + self.cfg["wake_window_s"]
                 self.say("oui ?")
@@ -224,7 +225,7 @@ class Listener:
         log.warning("On utilise le chatbot d'InMoov2")
 
         resp = self._call(self.cfg["chatbot_service"], self.cfg["chatbot_method"], text)
-        reply = resp.get("msg") if isinstance(resp, dict) else None
+        reply = clean_chatbot_reply(resp.get("msg")) if isinstance(resp, dict) else None
         log.info("Réponse du chatbot : %s", reply)
         if reply and self.tts is not None and not self.dry_run:
             # avec Piper, la réponse sort par les haut-parleurs du robot comme celle de Claude

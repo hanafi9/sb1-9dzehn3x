@@ -30,17 +30,18 @@ class FakeTts:
 
 
 class FakeMrl:
-    def __init__(self):
+    def __init__(self, reply="Salut human!"):
         self.calls = []
+        self.reply = reply
 
     def call_checked(self, service, method, *params):
         self.calls.append((service, method) + params)
-        return True, ({"msg": "Salut human!"} if method == "getResponse" else None)
+        return True, ({"msg": self.reply} if method == "getResponse" else None)
 
 
-def listener(tts, dry_run=False):
+def listener(tts, dry_run=False, wake_words=()):
     lst = object.__new__(speech_listener.Listener)
-    lst.cfg = {"wake_words": [], "commands": {}, "fuzzy_threshold": 0.8, "chatbot_service": "i01.chatBot",
+    lst.cfg = {"wake_words": list(wake_words), "commands": {}, "fuzzy_threshold": 0.8, "chatbot_service": "i01.chatBot",
                "chatbot_method": "getResponse", "mouth_service": "i01.mouth", "seconds_per_char": 0.07,
                "wake_window_s": 8}
     lst.awake_until = lst.mute_until = 0.0
@@ -70,6 +71,26 @@ class ChatbotTest(unittest.TestCase):
         lst.handle("bonjour")
         self.assertEqual(tts.said, [])
         self.assertEqual(lst.mrl.calls, [])
+
+    def test_html_is_not_spoken(self):
+        tts = FakeTts()
+        lst = listener(tts)
+        lst.mrl.reply = '<img src="img/InMoov2/brain-resize.gif"/>'
+        lst.handle("tu mets du temps")
+        self.assertEqual(tts.said, [])
+        lst.mrl.reply = "Je r&eacute;fl&eacute;chis <b>encore</b>."
+        lst.handle("tu mets du temps")
+        self.assertEqual(tts.said, ["Je réfléchis encore."])
+
+    def test_wake_word_removed_when_already_awake(self):
+        tts = FakeTts()
+        lst = listener(tts, wake_words=["kamil", "robot"])
+        lst.handle("Kamil.")
+        self.assertEqual(tts.said, ["oui ?"])
+        lst.handle("Kamil, ce que tu dis est bizarre")
+        self.assertEqual(lst.mrl.calls[-1], ("i01.chatBot", "getResponse", "ce que tu dis est bizarre"))
+        lst.handle("bonjour")  # plus réveillé : ignoré
+        self.assertEqual(len(lst.mrl.calls), 1)
 
 
 if __name__ == "__main__":
