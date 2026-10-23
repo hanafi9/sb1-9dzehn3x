@@ -71,6 +71,12 @@ class Listener:
 
             self.tts = PiperSpeaker(cfg["piper_model"], length_scale=cfg.get("piper_length_scale"),
                                     speaker_id=cfg.get("piper_speaker_id"))
+            if (cfg.get("cloud_tts") or {}).get("enabled"):
+                from tts_cloud import CloudSpeaker
+
+                # voix en ligne plus naturelle ; Piper reste là si Internet manque
+                self.tts = CloudSpeaker(cfg["cloud_tts"], fallback=self.tts)
+                log.info("Voix en ligne : %s, voix « %s » (Piper en secours)", self.tts.model, self.tts.voice)
             if not dry_run:
                 # phrase par phrase : le robot parle pendant que Claude écrit la suite
                 self.pipeline = SpeechPipeline(self.tts, fallback=self._speak_mrl)

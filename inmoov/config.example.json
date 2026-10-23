@@ -137,6 +137,14 @@
     "input_gain": 1,
     "auto_gain": true,
     "auto_gain_max": 20,
+    "cloud_tts": {
+      "enabled": false,
+      "_aide": "Voix en ligne OpenAI (gpt-4o-mini-tts), plus naturelle et plus claire que Piper ; clé OPENAI_API_KEY dans anthropic.env ; Piper prend le relais sans Internet. voice : onyx (grave), cedar, ash, echo, marin… ; instructions : le ton voulu, en français.",
+      "model": "gpt-4o-mini-tts",
+      "voice": "onyx",
+      "instructions": "Voix d'homme mûr, posée et chaleureuse, diction très claire et articulée, français de France, rythme naturel, sourire dans la voix.",
+      "speed": null
+    },
     "cloud_stt": {
       "enabled": false,
       "_aide": "Reconnaissance vocale en ligne, bien plus juste et rapide que Whisper sur le Pi. provider groq (modèle whisper-large-v3-turbo, clé GROQ_API_KEY) ou openai (gpt-4o-mini-transcribe, clé OPENAI_API_KEY) ; la clé va dans anthropic.env. Sans Internet : Whisper du Pi.",
