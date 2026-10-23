@@ -20,11 +20,12 @@ import urllib.request
 import numpy as np
 import sounddevice as sd
 
-from audio_gain import normalize_peak
-from mrl_client import load_config
-from speaker_id import MODEL_NAME, MODEL_URL, SAMPLE_RATE, VoiceIdentifier, make_extractor
-
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+sys.path.insert(0, ROOT)   # mrl_client.py est dans le dossier inmoov
+
+from audio_gain import normalize_peak  # noqa: E402
+from mrl_client import load_config  # noqa: E402
+from speaker_id import MODEL_NAME, MODEL_URL, SAMPLE_RATE, VoiceIdentifier, make_extractor  # noqa: E402
 PHRASES = [
     "Bonjour Kamil, c'est moi, tu me reconnais ?",
     "Aujourd'hui il fait beau, on pourrait aller se promener au parc.",
