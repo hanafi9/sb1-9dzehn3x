@@ -61,7 +61,9 @@ def main():
                         max_speed=mcfg.get("max_speed", 60.0))
     mrl = AsyncMrlClient(cfg["mrl"]["url"], cfg["mrl"]["timeout_s"], max_pending=64)
 
-    cam = cv2.VideoCapture(vcfg["camera_index"])
+    src = vcfg["camera_index"]   # numéro, ou chemin fixe /dev/v4l/by-path/…
+    cam = (cv2.VideoCapture(src, cv2.CAP_V4L2) if isinstance(src, str) and not src.isdigit()
+           else cv2.VideoCapture(int(src)))
     cam.set(cv2.CAP_PROP_FRAME_WIDTH, vcfg["frame_width"])
     cam.set(cv2.CAP_PROP_FRAME_HEIGHT, vcfg["frame_height"])
     if not cam.isOpened():

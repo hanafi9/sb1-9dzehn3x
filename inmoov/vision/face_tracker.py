@@ -53,6 +53,14 @@ def detect_objects(interpreter, frame_bgr, threshold):
     return [(o.id, o.score, o.bbox.xmin, o.bbox.ymin, o.bbox.xmax, o.bbox.ymax) for o in objs]
 
 
+def open_camera(source):
+    """source : numéro (0, 3…) ou chemin fixe lié au port USB
+    (/dev/v4l/by-path/platform-xhci-hcd.1-usb-0:1:1.0-video-index0), qui ne change pas au redémarrage."""
+    if isinstance(source, str) and not source.isdigit():
+        return cv2.VideoCapture(source, cv2.CAP_V4L2)
+    return cv2.VideoCapture(int(source))
+
+
 def share_frame(frame, path, quality=80):
     """Écrit l'image courante pour l'IA (outil « look »), de façon atomique."""
     ok, jpg = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, quality])
@@ -102,7 +110,7 @@ def main():
             log.warning("Détection d'objets désactivée (%s) : bash vision/install_coral.sh", e)
             obj_interpreter = None
 
-    cam = cv2.VideoCapture(vcfg["camera_index"])
+    cam = open_camera(vcfg["camera_index"])
     if vcfg.get("camera_fourcc"):
         # MJPG : image compressée par la caméra, ~10 fois moins de débit USB qu'en YUYV ;
         # indispensable pour faire tourner 2 caméras sur le même port USB 2
@@ -116,7 +124,7 @@ def main():
     # 2e caméra (l'autre œil) : seulement montrée dans l'Atelier (onglet Banc d'essai)
     cam2, share2_path = None, vcfg.get("share_frame2_path")
     if vcfg.get("second_camera_index") is not None and share2_path:
-        cam2 = cv2.VideoCapture(vcfg["second_camera_index"])
+        cam2 = open_camera(vcfg["second_camera_index"])
         cam2.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*(vcfg.get("camera_fourcc") or "MJPG")))
         cam2.set(cv2.CAP_PROP_FRAME_WIDTH, vcfg["frame_width"])
         cam2.set(cv2.CAP_PROP_FRAME_HEIGHT, vcfg["frame_height"])
@@ -125,9 +133,9 @@ def main():
             log.info("2e caméra %s ouverte (image : %s)", vcfg["second_camera_index"], share2_path)
         else:
             log.warning("2e caméra %s impossible à ouvrir : déjà utilisée par un autre programme "
-                        "(fuser -v /dev/video%s) ou débit USB insuffisant (camera_fourcc \"MJPG\", "
-                        "ou brancher l'autre caméra sur un port USB bleu)",
-                        vcfg["second_camera_index"], vcfg["second_camera_index"])
+                        "(fuser -v /dev/video*), numéro changé (v4l2-ctl --list-devices) ou débit USB "
+                        "insuffisant (camera_fourcc \"MJPG\", ou l'autre caméra sur un port USB bleu)",
+                        vcfg["second_camera_index"])
             cam2 = None
 
     mrl = AsyncMrlClient(cfg["mrl"]["url"], cfg["mrl"]["timeout_s"])
