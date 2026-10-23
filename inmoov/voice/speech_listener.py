@@ -130,6 +130,10 @@ class Listener:
             beam_size=self.cfg["beam_size"],
             initial_prompt=self.cfg.get("vocabulary") or None,
             condition_on_previous_text=False,
+            # un seul essai : les nouveaux essais « à température » de Whisper sur du bruit
+            # prenaient jusqu'à 55 s, pendant lesquelles le robot n'entendait plus rien
+            temperature=self.cfg.get("temperature", 0.0),
+            max_new_tokens=self.cfg.get("max_new_tokens", 128),
             vad_filter=False,  # déjà fait par WebRTC VAD
         )
         parts = []
@@ -202,25 +206,30 @@ class Listener:
             return
 
         self.status("thinking")
+        answered = False
         try:
             if self.brain is not None:
                 try:
-                    if self.brain.ask(text) is not None:
-                        return
+                    answered = self.brain.ask(text) is not None
                 except Exception:  # ex. clé API absente : le robot doit continuer d'écouter
                     log.exception("Erreur inattendue de l'IA")
                     self.brain.reset()
-                log.warning("Claude indisponible")
+                if not answered:
+                    log.warning("Claude indisponible")
 
-            if self.local is not None:
+            if not answered and self.local is not None:
                 reply = self.local.ask(text)
                 if reply:
                     log.info("Réponse de l'IA locale : %s", reply)
                     self.say(reply)
-                    return
-                log.warning("IA locale indisponible")
+                    answered = True
+                else:
+                    log.warning("IA locale indisponible")
         finally:
             self.status("idle")
+        if answered:
+            self._follow_up()
+            return
 
         log.warning("On utilise le chatbot d'InMoov2")
 
@@ -231,8 +240,17 @@ class Listener:
             # avec Piper, la réponse sort par les haut-parleurs du robot comme celle de Claude
             # (la voix de MyRobotLab peut être muette ou envoyée vers le HDMI)
             self.say(reply)
-            return
-        self._mute_for(reply)
+        else:
+            self._mute_for(reply)
+        if reply:
+            self._follow_up()
+
+    def _follow_up(self):
+        """Après une réponse, on peut continuer sans redire le mot de réveil pendant quelques secondes."""
+        window = self.cfg.get("follow_up_s", 10)
+        if window > 0:
+            self.awake_until = max(time.monotonic(), self.mute_until) + window
+            self.status("awake")
 
     # --- boucle principale -------------------------------------------------
     def run(self):

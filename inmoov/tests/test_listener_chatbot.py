@@ -89,8 +89,22 @@ class ChatbotTest(unittest.TestCase):
         self.assertEqual(tts.said, ["oui ?"])
         lst.handle("Kamil, ce que tu dis est bizarre")
         self.assertEqual(lst.mrl.calls[-1], ("i01.chatBot", "getResponse", "ce que tu dis est bizarre"))
+        lst.awake_until = 0.0  # fenêtre de suite écoulée
         lst.handle("bonjour")  # plus réveillé : ignoré
         self.assertEqual(len(lst.mrl.calls), 1)
+
+    def test_follow_up_without_wake_word(self):
+        tts = FakeTts()
+        lst = listener(tts, wake_words=["kamil"])
+        lst.handle("Kamil, bonjour")
+        lst.handle("je m'appelle Rachida")  # juste après la réponse : pas besoin de « Kamil »
+        self.assertEqual(lst.mrl.calls[-1], ("i01.chatBot", "getResponse", "je m'appelle Rachida"))
+        lst.cfg["follow_up_s"] = 0
+        lst.awake_until = 0.0
+        lst.handle("bonjour")
+        self.assertEqual(lst.mrl.calls[-1], ("i01.chatBot", "getResponse", "je m'appelle Rachida"))
+        lst.handle("Kamil, bonjour")
+        self.assertEqual(lst.awake_until, 0.0)
 
 
 if __name__ == "__main__":

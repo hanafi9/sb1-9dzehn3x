@@ -118,6 +118,8 @@
       "robot"
     ],
     "wake_window_s": 8,
+    "_follow_up_aide": "Après chaque réponse du robot, on peut continuer la conversation sans redire le mot de réveil pendant follow_up_s secondes (0 = toujours le redire).",
+    "follow_up_s": 10,
     "vocabulary": "InMoov, MyRobotLab, Raspberry, bonjour, au revoir, regarde, gauche, droite, haut, bas, main, bras, tête",
     "chatbot_service": "i01.chatBot",
     "chatbot_method": "getResponse",
