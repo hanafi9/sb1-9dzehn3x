@@ -40,6 +40,10 @@ log = logging.getLogger("voice")
 SAMPLE_RATE = 16000  # Whisper et WebRTC VAD travaillent en 16 kHz
 FRAME_MS = 30
 WAKE_REPLIES = ["Oui ?", "Je t'écoute !", "Présent !", "Oui, chef ?", "Hmm ?", "Me voilà !", "Oui, oui ?"]
+# humour 3 (farceur)
+WAKE_REPLIES_FUNNY = ["Présent, chef ! Batteries chargées !", "Kamil à l'écoute, antennes déployées !",
+                      "Oui ? J'étais en train de compter mes vis.", "Me voilà ! Je ne dormais pas, promis.",
+                      "Bip bip, je t'écoute !", "Oui, mon capitaine ?", "Tu m'as appelé ? Mes oreilles frétillent !"]
 FRAME_SAMPLES = SAMPLE_RATE * FRAME_MS // 1000
 
 
@@ -56,6 +60,7 @@ LED_COLORS = {
 class Listener:
     def __init__(self, cfg, mrl, dry_run=False, brain_cfg=None, local_cfg=None, leds_cfg=None):
         self.cfg = cfg
+        self.brain_cfg = brain_cfg or {}
         self.mrl = mrl
         self.dry_run = dry_run
         self.leds = leds_cfg if leds_cfg and leds_cfg.get("enabled") else None
@@ -71,7 +76,9 @@ class Listener:
             log.info("Voix hors ligne Piper : %s", cfg["piper_model"])
             from reasoning import THINKING_PHRASES
 
-            self.tts.warm_up(list(cfg.get("wake_replies") or WAKE_REPLIES) + THINKING_PHRASES)
+            self.brain_cfg = brain_cfg
+            self.tts.warm_up(list(cfg.get("wake_replies") or (WAKE_REPLIES_FUNNY if self._funny() else WAKE_REPLIES))
+                             + THINKING_PHRASES)
         self.memory = None
         self.brain = None
         self.reactions = None
@@ -250,9 +257,13 @@ class Listener:
         r, g, b = self.leds.get("colors", {}).get(state, LED_COLORS[state])
         self._call_checked(self.leds["service"], "fill", r, g, b)
 
+    def _funny(self):
+        brain_cfg = getattr(self, "brain_cfg", None) or {}
+        return int((brain_cfg.get("personality") or {}).get("humour", 2)) >= 3
+
     def _wake_reply(self):
         """Réponse immédiate à « Kamil ! » seul, variée pour ne pas sonner comme une machine."""
-        replies = self.cfg.get("wake_replies") or WAKE_REPLIES
+        replies = self.cfg.get("wake_replies") or (WAKE_REPLIES_FUNNY if self._funny() else WAKE_REPLIES)
         last = getattr(self, "_last_wake_reply", None)
         reply = random.choice([r for r in replies if r != last] or replies)
         self._last_wake_reply = reply

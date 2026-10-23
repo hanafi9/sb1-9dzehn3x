@@ -22,7 +22,9 @@ _THINK = re.compile("|".join(THINK_PATTERNS), re.IGNORECASE)
 THINKING_PHRASES = ["Laisse-moi réfléchir.", "Bonne question, je réfléchis.", "Hmm, voyons voir.",
                     "Attends, je réfléchis un instant.", "Oh, ça, c'est une colle ! Je réfléchis.",
                     "Mes circuits chauffent, une seconde.", "Je fouille dans ma mémoire…",
-                    "Ah, intéressant. Laisse-moi y penser.", "Une seconde, je fais tourner mes engrenages."]
+                    "Ah, intéressant. Laisse-moi y penser.", "Une seconde, je fais tourner mes engrenages.",
+                    "Attention, ça chauffe là-dedans !", "Je consulte mon unique neurone, il est très occupé.",
+                    "Pause réflexion… ne débranche rien surtout."]
 _last = {"phrase": None}
 
 

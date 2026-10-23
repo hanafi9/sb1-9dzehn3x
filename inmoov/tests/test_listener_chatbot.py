@@ -100,6 +100,11 @@ class ChatbotTest(unittest.TestCase):
         said = [lst._wake_reply() for _ in range(30)]
         self.assertTrue(set(said) <= {"Oui ?", "Présent !", "Me voilà !"})
         self.assertTrue(all(a != b for a, b in zip(said, said[1:])))   # jamais deux fois de suite
+        lst.cfg.pop("wake_replies")
+        lst.brain_cfg = {"personality": {"humour": 3}}                 # farceur
+        self.assertIn(lst._wake_reply(), speech_listener.WAKE_REPLIES_FUNNY)
+        lst.brain_cfg = {}
+        self.assertIn(lst._wake_reply(), speech_listener.WAKE_REPLIES)
 
     def test_follow_up_without_wake_word(self):
         tts = FakeTts()
