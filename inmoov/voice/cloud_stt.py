@@ -30,6 +30,9 @@ PROVIDERS = {
 }
 
 
+USER_AGENT = "InMoov-Kamil/1.0 (+https://github.com/hanafi9/sb1-9dzehn3x)"
+
+
 class CloudError(Exception):
     pass
 
@@ -81,12 +84,17 @@ class CloudTranscriber:
             fields["prompt"] = self.prompt
         body, ctype = multipart(fields, "phrase.wav", wav_bytes(audio))
         req = urllib.request.Request(self.base_url + "/audio/transcriptions", data=body, method="POST",
-                                     headers={"Authorization": "Bearer " + key, "Content-Type": ctype})
+                                     headers={"Authorization": "Bearer " + key, "Content-Type": ctype,
+                                              # la signature par défaut « Python-urllib » est bloquée par
+                                              # Cloudflare devant Groq (erreur 403, « error code: 1010 »)
+                                              "User-Agent": USER_AGENT, "Accept": "application/json"})
         try:
             with urllib.request.urlopen(req, timeout=self.timeout) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
         except urllib.error.HTTPError as e:
-            detail = e.read().decode("utf-8", "replace")[:200]
+            detail = e.read().decode("utf-8", "replace").strip()[:200]
+            if e.code == 403 and "1010" in detail:
+                detail += " (accès bloqué par Cloudflare : signature du programme refusée)"
             raise CloudError("le service a répondu %d : %s" % (e.code, detail))
         except (urllib.error.URLError, OSError, ValueError) as e:
             raise CloudError("service injoignable (%s)" % getattr(e, "reason", e))

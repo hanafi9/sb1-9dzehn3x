@@ -34,6 +34,12 @@ class FakeSTT(BaseHTTPRequestHandler):
         parts = {p.get_param("name", header="content-disposition"): p.get_payload(decode=True)
                  for p in msg.get_payload()}
         FakeSTT.seen.append((self.path, self.headers["Authorization"], parts))
+        if "Python-urllib" in self.headers.get("User-Agent", ""):     # comme Cloudflare devant Groq
+            self.send_response(403)
+            self.send_header("Content-Length", "16")
+            self.end_headers()
+            self.wfile.write(b"error code: 1010")
+            return
         with wave.open(io.BytesIO(parts["file"])) as w:
             ok = w.getframerate() == 16000 and w.getnchannels() == 1
         out = json.dumps({"text": " Kamil, quelle heure est-il ? " if ok else "?"}).encode()
