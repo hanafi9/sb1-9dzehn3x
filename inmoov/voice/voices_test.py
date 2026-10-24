@@ -8,6 +8,7 @@
     ../.venv-voice/bin/python voices_test.py --cloud                  # voix en ligne OpenAI (ash, echo, verse…)
     ../.venv-voice/bin/python voices_test.py --cloud ash echo --speeds 1.0 1.1
     ../.venv-voice/bin/python voices_test.py --cloud --model tts-1 echo ash  # timbre plus régulier
+    ../.venv-voice/bin/python voices_test.py --cloud --model tts-1 ash echo fable --pitch 1.1 1.15 1.2  # plus ado
 
 Chaque voix manquante est téléchargée une fois dans ../models (20 à 120 Mo).
 La voix et la vitesse choisies se mettent ensuite dans config.json, section voice :
@@ -48,6 +49,8 @@ def main():
     parser.add_argument("--text", default=SENTENCE)
     parser.add_argument("--cloud", action="store_true", help="voix en ligne OpenAI (clé OPENAI_API_KEY)")
     parser.add_argument("--instructions", default=None, help="ton voulu (voix en ligne), en français")
+    parser.add_argument("--pitch", nargs="+", type=float, default=[1.0],
+                        help="voix en ligne : 1.1 à 1.2 = plus aiguë, plus jeune (même vitesse)")
     parser.add_argument("--model", default="gpt-4o-mini-tts", help="voix en ligne : gpt-4o-mini-tts, tts-1, tts-1-hd")
     args = parser.parse_args()
     if args.cloud:
@@ -75,15 +78,18 @@ def audition_cloud(args):
     voices = args.voices if args.voices != VOICES else CLOUD_VOICES
     for voice in voices:
         for speed in args.speeds:
-            input("\nEntrée pour écouter : voix en ligne %s (%s), vitesse %.1f" % (voice, args.model, speed))
-            speaker = CloudSpeaker({"model": args.model, "voice": voice, "instructions": args.instructions,
-                                    "speed": speed if speed != 1.0 else None})
-            try:
-                speaker.speak(args.text)
-            except RuntimeError as e:
-                print("  %s" % e)
-                return
-    print("\nPour garder une voix : config.json → voice → cloud_tts → \"model\": \"<modèle>\", \"voice\": \"<voix>\", \"speed\": <vitesse ou null>")
+            for pitch in args.pitch:
+                input("\nEntrée pour écouter : voix en ligne %s (%s), vitesse %.2g, hauteur %.2g"
+                      % (voice, args.model, speed, pitch))
+                speaker = CloudSpeaker({"model": args.model, "voice": voice, "instructions": args.instructions,
+                                        "speed": speed if speed != 1.0 else None, "pitch": pitch})
+                try:
+                    speaker.speak(args.text)
+                except RuntimeError as e:
+                    print("  %s" % e)
+                    return
+    print("\nPour garder une voix : config.json → voice → cloud_tts → \"model\": \"<modèle>\", "
+          "\"voice\": \"<voix>\", \"speed\": <vitesse ou null>, \"pitch\": <hauteur ou null>")
 
 
 if __name__ == "__main__":

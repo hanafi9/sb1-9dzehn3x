@@ -82,6 +82,16 @@ class CloudTTSTest(unittest.TestCase):
         self.assertEqual(CloudSpeaker(self.cfg, fallback=piper).synthesize("Salut"), ("/tmp/piper.wav", 0.5))
         self.assertEqual(piper.said, ["Coucou", "Salut"])
 
+    def test_higher_pitch_keeps_speed(self):
+        os.environ["TEST_TTS_KEY"] = "cle"
+        sp = CloudSpeaker(dict(self.cfg, speed=1.2, pitch=1.2))
+        path, duration = sp.synthesize("Salut, c'est moi, Kamil, en version ado !")
+        with wave.open(path) as w:
+            self.assertEqual(w.getframerate(), 28800)          # joué 20 % plus vite : plus aigu
+        os.remove(path)
+        self.assertAlmostEqual(duration, 1 / 1.2)
+        self.assertNotIn("speed", FakeTTS.seen[-1][1])        # 1.2 / 1.2 : le service parle normalement
+
     def test_no_voice_mixing_after_failure(self):
         piper = FakePiper()
         os.environ["TEST_TTS_KEY"] = "cle"

@@ -2,6 +2,7 @@
 
 Le ton se décrit en français dans « instructions » (par défaut : jeune homme de 28 ans, voix claire
 et légèrement aiguë). Voix conseillées pour un homme jeune : ash, echo, verse (onyx est grave).
+« pitch » (ex. 1.15) rend n'importe quelle voix plus aiguë, façon ado, sans changer sa vitesse.
 API : POST https://api.openai.com/v1/audio/speech
       {"model", "voice", "input", "instructions", "response_format": "pcm", "speed"}
 Réponse « pcm » : échantillons bruts 16 bits mono à 24 kHz, mis ici dans un fichier WAV.
@@ -40,6 +41,9 @@ class CloudSpeaker:
         self.speed = cfg.get("speed")
         self.key_env = cfg.get("api_key_env") or "OPENAI_API_KEY"
         self.rate = int(cfg.get("pcm_rate", 24000))
+        # pitch > 1 : voix plus aiguë, plus jeune (son joué plus vite, la vitesse est compensée
+        # en demandant au service de parler plus lentement) ; 1.15 ≈ voix d'ado
+        self.pitch = min(max(float(cfg.get("pitch") or 1.0), 0.7), 1.5)
         self.timeout = float(cfg.get("timeout_s", 8))
         self.fallback = fallback
         self.player = list(player)
@@ -56,8 +60,9 @@ class CloudSpeaker:
         body = {"model": self.model, "voice": self.voice, "input": text, "response_format": "pcm"}
         if self.instructions and not self.model.startswith("tts-1"):   # tts-1 ne gère pas les consignes
             body["instructions"] = self.instructions
-        if self.speed:
-            body["speed"] = float(self.speed)
+        speed = float(self.speed or 1.0) / self.pitch
+        if abs(speed - 1.0) > 0.01:
+            body["speed"] = round(min(max(speed, 0.25), 4.0), 3)
         req = urllib.request.Request(self.base_url + "/audio/speech", data=json.dumps(body).encode("utf-8"),
                                      method="POST", headers={"Authorization": "Bearer " + key,
                                                              "Content-Type": "application/json",
@@ -99,9 +104,9 @@ class CloudSpeaker:
         with wave.open(path, "wb") as w:
             w.setnchannels(1)
             w.setsampwidth(2)
-            w.setframerate(self.rate)
+            w.setframerate(int(self.rate * self.pitch))
             w.writeframes(pcm[: len(pcm) // 2 * 2])
-        return path, len(pcm) / 2.0 / self.rate
+        return path, len(pcm) / 2.0 / (self.rate * self.pitch)
 
     def play(self, path, duration):
         from tts_piper import _remove
