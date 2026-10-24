@@ -75,6 +75,7 @@ class CloudSpeaker:
         if (self.fallback is not None and self.failed_at is not None
                 and time.monotonic() - self.failed_at < self.cooldown):
             # même les petites phrases prêtes (« Hmm, attends… ») : une seule voix à la fois
+            log.info("🔊 Piper (panne récente) : %s", text[:60])
             return self.fallback.synthesize(text)
         pcm = self.cache.get(text)
         if pcm is None:
@@ -85,10 +86,14 @@ class CloudSpeaker:
                     raise
                 self.failed_at = time.monotonic()
                 log.warning("%s : voix Piper à la place pendant %.0f s", e, self.cooldown)
+                log.info("🔊 Piper : %s", text[:60])
                 return self.fallback.synthesize(text)
             self.failed_at = None
+            log.info("🔊 %s %s : %s", self.voice, self.model, text[:60])
             if len(text) <= 60:
                 self.cache[text] = pcm
+        else:
+            log.info("🔊 %s %s (prête) : %s", self.voice, self.model, text[:60])
         fd, path = tempfile.mkstemp(suffix=".wav", prefix="inmoov-")
         os.close(fd)
         with wave.open(path, "wb") as w:

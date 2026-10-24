@@ -290,6 +290,7 @@ class Listener:
         self._speak_mrl(text)
 
     def _speak_mrl(self, text):
+        log.info("🔊 MyRobotLab (%s) : %s", self.cfg["mouth_service"], (text or "")[:60])
         self._call(self.cfg["mouth_service"], "speak", text)
         self._mute_for(text)
 
