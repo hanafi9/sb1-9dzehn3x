@@ -49,6 +49,8 @@ class KamilMQTTTest(unittest.TestCase):
         self.assertEqual(sw["device"]["name"], "Kamil")
         self.assertTrue(all(r for t, p, r in self.client.published if t.endswith("/config")))   # gardées
         self.assertEqual(self.client.get("kamil/disponible"), ["online"])
+        self.assertEqual(self.client.get("kamil/question/valeur"), [""])       # pas « unknown »
+        self.assertEqual(configs["homeassistant/text/kamil/question/config"]["state_topic"], "kamil/question/valeur")
         self.assertEqual(self.client.get("kamil/garde"), ["ON"])
         self.assertIn("kamil/dire", self.client.subscribed)
         self.assertIn("homeassistant/status", self.client.subscribed)
@@ -63,6 +65,8 @@ class KamilMQTTTest(unittest.TestCase):
         self.ha._on_message(self.client, None, message("kamil/garde/set", "ON"))
         self.ha._on_message(self.client, None, message("kamil/dire", "  "))          # vide : ignoré
         got = [self.ha.commands.get_nowait() for _ in range(self.ha.commands.qsize())]
+        self.assertEqual(self.client.get("kamil/dire/valeur"), [""])           # champ vidé dans HA
+        self.assertEqual(self.client.get("kamil/question/valeur"), [""])
         self.assertEqual(got, [("dire", "Le linge est sec !"), ("question", "Quelle heure est-il ?"),
                                ("garde", True)])
 

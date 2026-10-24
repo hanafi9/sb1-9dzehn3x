@@ -105,8 +105,10 @@ class KamilMQTT:
             return
         if msg.topic == self.t("dire"):
             self.commands.put(("dire", payload))
+            client.publish(self.t("dire/valeur"), "")      # champ vidé : message reçu
         elif msg.topic == self.t("question"):
             self.commands.put(("question", payload))
+            client.publish(self.t("question/valeur"), "")
         elif msg.topic == self.t("garde/set"):
             self.commands.put(("garde", payload.upper() == "ON"))
 
@@ -134,9 +136,11 @@ class KamilMQTT:
             ent("switch", "garde", "Mode garde", state_topic=self.t("garde"), command_topic=self.t("garde/set"),
                 icon="mdi:shield-home"),
             ent("notify", "dire", "Dire", command_topic=self.t("dire")),
-            ent("text", "dire_texte", "Faire dire", command_topic=self.t("dire"), max=255,
+            ent("text", "dire_texte", "Faire dire", command_topic=self.t("dire"),
+                state_topic=self.t("dire/valeur"), max=255,
                 icon="mdi:account-voice"),
-            ent("text", "question", "Question", command_topic=self.t("question"), max=255,
+            ent("text", "question", "Question", command_topic=self.t("question"),
+                state_topic=self.t("question/valeur"), max=255,
                 icon="mdi:chat-question"),
             ent("camera", "camera1", "Caméra 1", topic=self.t("camera1")),
             ent("camera", "camera2", "Caméra 2", topic=self.t("camera2")),
@@ -147,6 +151,8 @@ class KamilMQTT:
             self.client.publish("%s/%s/kamil/%s/config" % (self.cfg["discovery_prefix"], component, key),
                                 json.dumps(conf, ensure_ascii=False), retain=True)
         self.client.publish(self.t("disponible"), "online", retain=True)
+        for field in ("dire/valeur", "question/valeur"):
+            self.client.publish(self.t(field), "")             # champs vides au lieu de « unknown »
         if self.guard_state is not None:
             self.last["garde"] = "ON" if self.guard_state() else "OFF"
         for key, value in list(self.last.items()):
