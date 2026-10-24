@@ -190,11 +190,18 @@ class Watcher:
                         e = json.loads(line)
                     except ValueError:
                         continue
-                    if e.get("t", 0) >= since:
+                    if e.get("t", 0) >= since and not self._ignored(e):
                         out.append(e)
         except OSError:
             pass
         return out
+
+    def _ignored(self, entry):
+        """Objet noté avant d'être ajouté à ignored_objects (ex. canapé qui « clignote ») : on le tait."""
+        if entry.get("type") != "objet":
+            return False
+        label = entry.get("text", "").split(" : ", 1)[-1].rsplit(" (caméra", 1)[0]
+        return label in self.cfg["ignored_objects"]
 
     def journal_text(self, hours=24.0, limit=40):
         events = self.entries(hours)

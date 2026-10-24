@@ -66,6 +66,17 @@ class WatchTest(unittest.TestCase):
         self.assertTrue(all(os.path.isfile(p) for p in arrival["images"]))
         self.assertIn("12 h 00 : Arrivée", s.w.journal_text(24))
 
+    def test_old_furniture_lines_are_hidden(self):
+        s = Scene()
+        with open(s.w.journal_path, "a", encoding="utf-8") as f:
+            for text in ("Nouvel objet : canapé (caméra 1)", "Objet disparu : lit (caméra 2)",
+                         "Nouvel objet : sac à dos (caméra 1)"):
+                f.write(json.dumps({"t": s.now, "type": "objet", "text": text, "images": []}) + "\n")
+        text = s.w.journal_text()                              # lignes notées avant le réglage : tues
+        self.assertNotIn("canapé", text)
+        self.assertNotIn("lit ", text)
+        self.assertIn("sac à dos", text)
+
     def test_photo_and_old_entries(self):
         s = Scene()
         s.run(3, people=1)
