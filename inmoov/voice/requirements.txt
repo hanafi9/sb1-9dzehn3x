@@ -6,3 +6,4 @@ numpy
 anthropic>=1.0
 # facultatif, voix française hors ligne : pip install piper-tts
 # facultatif, reconnaître qui parle à sa voix (voice/enroll_voice.py) : pip install sherpa-onnx
+# facultatif, Kamil dans Home Assistant par MQTT (voice/ha_mqtt.py) : pip install paho-mqtt

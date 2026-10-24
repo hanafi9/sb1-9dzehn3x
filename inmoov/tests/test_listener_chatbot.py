@@ -163,6 +163,33 @@ class ChatbotTest(unittest.TestCase):
         lst.handle("on observe avec attention l'enquête policière Camille allume le lustre")
         self.assertEqual(asked, [("allume le lustre", {"speaker": None, "direct": True})])
 
+    def test_home_assistant_commands(self):
+        tts = FakeTts()
+        lst = listener(tts, wake_words=["kamil"])
+        lst.segmenter = types.SimpleNamespace(triggered=False, reset=lambda: None)
+        lst.frames = speech_listener.queue.Queue()
+        sent = []
+        lst.ha = types.SimpleNamespace(commands=speech_listener.queue.Queue(), state=lambda s: None,
+                                       publish=lambda k, v: sent.append((k, v)), guard=lambda on: sent.append(("garde", on)))
+        asked = []
+        lst.brain = types.SimpleNamespace(ask=lambda t, **k: asked.append((t, k)) or "Il est midi.")
+        guard = []
+        lst.watcher = types.SimpleNamespace(poll=lambda: None, set_guard=guard.append)
+        lst.ha.commands.put(("dire", "Le linge est sec !"))
+        lst._maybe_react()
+        self.assertEqual(tts.said, ["Le linge est sec !"])
+        lst.ha.commands.put(("question", "quelle heure est-il ?"))
+        lst._maybe_react()
+        self.assertEqual(asked, [])                              # Kamil parle encore : la question attend
+        lst.mute_until = 0.0
+        lst._maybe_react()
+        self.assertEqual(asked[-1], ("quelle heure est-il ?", {"speaker": None, "direct": True}))
+        self.assertIn(("reponse", "Il est midi."), sent)
+        lst.ha.commands.put(("garde", True))
+        lst.mute_until = 0.0
+        lst._maybe_react()
+        self.assertEqual(guard, [True])
+
     def test_claude_silence_closes_the_window(self):
         tts = FakeTts()
         lst = listener(tts, wake_words=["kamil"])

@@ -292,6 +292,13 @@
     "max_turns": 6,
     "_aide": "IA de secours sans Internet : Ollama sur le Pi, ou hailo-ollama avec le Raspberry Pi AI HAT+ 2. Le nom du modèle dépend de ce qui est installé."
   },
+  "mqtt": {
+    "enabled": false,
+    "_aide": "Kamil dans Home Assistant (voice/ha_mqtt.py) : appareil « Kamil » créé tout seul (état, phrases, voix, personnes, mouvement, journal, mode garde, 2 caméras, « Dire », « Question »). Dans Home Assistant : module Mosquitto broker + intégration MQTT. Sur le Pi : pip install paho-mqtt, et MQTT_USERNAME=… / MQTT_PASSWORD=… dans anthropic.env.",
+    "host": "homeassistant.local",
+    "port": 1883,
+    "camera_every_s": 2
+  },
   "leds": {
     "enabled": false,
     "service": "i01.neoPixel",

@@ -75,6 +75,7 @@ class Watcher:
         self.last_motion = [-1e9, -1e9]
         self.objects = {}          # (caméra, nom) -> {"streak", "last", "logged", "decor"}
         self.started = None
+        self.on_record = None      # appelée avec chaque événement noté (ex. envoi à Home Assistant)
 
     # ------------------------------------------------------------ boucle
     def poll(self):
@@ -154,6 +155,11 @@ class Watcher:
             with open(self.journal_path, "a", encoding="utf-8") as f:
                 f.write(json.dumps(entry, ensure_ascii=False) + "\n")
         log.info("Journal : %s%s", text, " (%d photo)" % len(images) if images else "")
+        if self.on_record is not None:
+            try:
+                self.on_record(entry)
+            except Exception:
+                log.exception("Journal : envoi impossible")
 
     def _snapshot(self, cam, now):
         paths = self.cfg["frame_paths"]

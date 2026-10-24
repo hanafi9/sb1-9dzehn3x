@@ -63,7 +63,7 @@ LED_COLORS = {
 
 
 class Listener:
-    def __init__(self, cfg, mrl, dry_run=False, brain_cfg=None, local_cfg=None, leds_cfg=None):
+    def __init__(self, cfg, mrl, dry_run=False, brain_cfg=None, local_cfg=None, leds_cfg=None, mqtt_cfg=None):
         self.cfg = cfg
         self.brain_cfg = brain_cfg or {}
         self.mrl = mrl
@@ -185,6 +185,26 @@ class Listener:
         self.frames = queue.Queue()
         self.awake_until = 0.0
         self.mute_until = 0.0
+        self.ha = None
+        if mqtt_cfg and mqtt_cfg.get("enabled"):
+            self._start_mqtt(mqtt_cfg, (brain_cfg or {}).get("mind") or {})
+
+    def _start_mqtt(self, mqtt_cfg, mind_cfg):
+        """Kamil dans Home Assistant (ha_mqtt.py) : états, caméras, « Kamil dit », mode garde."""
+        try:
+            from ha_mqtt import KamilMQTT
+
+            self.ha = KamilMQTT(mqtt_cfg, mind_cfg.get("vision_state_path"))
+        except Exception as e:   # ex. paho-mqtt non installé : Kamil marche sans
+            log.warning("Home Assistant (MQTT) désactivé : %s", e)
+            return
+        watcher = getattr(self, "watcher", None)
+        if watcher is not None:
+            self.ha.guard_state = lambda: watcher.guard
+            watcher.on_record = lambda entry: (self.ha.publish("journal", entry["text"]),
+                                               self.ha.guard(watcher.guard))
+        self.ha.state("idle")
+        self.ha.start()
 
     # --- audio -------------------------------------------------------------
     def _on_audio(self, indata, n_frames, time_info, status):
@@ -322,7 +342,9 @@ class Listener:
         self.mute_until = max(self.mute_until, time.monotonic() + 0.3)
 
     def status(self, state):
-        """Couleur des LED d'état (facultatif, service NeoPixel d'InMoov2)."""
+        """Couleur des LED d'état (facultatif, service NeoPixel d'InMoov2) et état dans Home Assistant."""
+        if getattr(self, "ha", None) is not None:
+            self.ha.state(state)
         if self.leds is None:
             return
         r, g, b = self.leds.get("colors", {}).get(state, LED_COLORS[state])
@@ -351,11 +373,12 @@ class Listener:
         if text:
             self.mute_until = time.monotonic() + 0.5 + len(text) * self.cfg["seconds_per_char"]
 
-    def handle(self, text):
+    def handle(self, text, addressed=False):
+        """addressed : phrase forcément pour Kamil (ex. question écrite dans Home Assistant)."""
         now = time.monotonic()
         awake = now < self.awake_until
         # le mot de réveil est retiré même si le robot est déjà réveillé (« Kamil… » puis « Kamil, … »)
-        found, rest = strip_wake_word(text, self.cfg["wake_words"])
+        found, rest = (True, text) if addressed else strip_wake_word(text, self.cfg["wake_words"])
         if not found and self.cfg["wake_words"]:
             # avec la télé allumée, la phrase dure jusqu'à 12 s : « Kamil » peut être au milieu
             after = find_wake_word_anywhere(text, self.cfg["wake_words"])
@@ -403,6 +426,8 @@ class Listener:
                     self.brain.reset()
                 if said == "":
                     return          # Claude a jugé que ce n'était pas pour lui : silence, sans relance
+                if said and getattr(self, "ha", None) is not None:
+                    self.ha.publish("reponse", said)
                 if not answered:
                     log.warning("Claude indisponible")
 
@@ -472,6 +497,8 @@ class Listener:
                 self.turn = {"end": t0 - self.cfg["end_silence_ms"] / 1000.0, "whisper": spent,
                              "heard": time.monotonic()}
                 log.info("Entendu (%.1f s audio, %.1f s calcul) : %s", len(pcm) / 2 / SAMPLE_RATE, spent, text)
+                if getattr(self, "ha", None) is not None and text:
+                    self.ha.publish("entendu", text)
                 if spent > 8:
                     log.warning("Whisper très lent (%.0f s) : processeur surchargé ou trop chaud ? "
                                 "(vcgencmd measure_temp ; top)", spent)
@@ -505,6 +532,8 @@ class Listener:
             return None
         if score is not None:
             log.info("Voix : %s (%.2f)", name or "inconnue", score)
+        if getattr(self, "ha", None) is not None:
+            self.ha.publish("voix", name or "inconnue")
         return name or ""
 
     def _maybe_react(self):
@@ -515,8 +544,12 @@ class Listener:
             if alert:
                 self._pending_alert = alert
                 self._notify_phone(alert)
-        if self.brain is None or self.segmenter.triggered:
+        if self.segmenter.triggered:
             return   # quelqu'un est en train de parler : on ne lui coupe pas la parole
+        if getattr(self, "ha", None) is not None and time.monotonic() >= self.mute_until:
+            self._ha_command()
+        if self.brain is None:
+            return
         if time.monotonic() < self.mute_until:
             return
         alert, self._pending_alert = getattr(self, "_pending_alert", None), None
@@ -537,9 +570,33 @@ class Listener:
         finally:
             self.status("idle")
         if said is not None:
+            if getattr(self, "ha", None) is not None:
+                self.ha.publish("reponse", said)
             if self.reactions is not None:
                 self.reactions.on_conversation()
             self._follow_up()   # la personne peut répondre sans dire « Kamil »
+        self._flush_audio()
+
+    def _ha_command(self):
+        """Une demande venue de Home Assistant : « Kamil dit », question, mode garde."""
+        try:
+            kind, value = self.ha.commands.get_nowait()
+        except queue.Empty:
+            return
+        log.info("Home Assistant demande : %s %s", kind, value)
+        if kind == "dire":
+            self.say(value)
+            self.ha.publish("reponse", value)
+        elif kind == "question":
+            self._last_audio = None   # pas de voix à reconnaître : la question est écrite
+            self.handle(value, addressed=True)
+        elif kind == "garde":
+            watcher = getattr(self, "watcher", None)
+            if watcher is not None:
+                watcher.set_guard(value)
+            else:
+                self.ha.guard(False)
+                log.warning("Mode garde impossible : surveillance désactivée (brain.watch)")
         self._flush_audio()
 
     def _notify_phone(self, alert):
@@ -589,7 +646,7 @@ def main():
     mrl = MrlClient(cfg["mrl"]["url"], cfg["mrl"]["timeout_s"])
     try:
         Listener(cfg["voice"], mrl, args.dry_run, cfg.get("brain"),
-                 cfg.get("local_llm"), cfg.get("leds")).run()
+                 cfg.get("local_llm"), cfg.get("leds"), cfg.get("mqtt")).run()
     except KeyboardInterrupt:
         pass
     return 0
