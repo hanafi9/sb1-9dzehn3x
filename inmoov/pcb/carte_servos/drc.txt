@@ -1,0 +1,10 @@
+** Drc report for /home/user/sb1-9dzehn3x/inmoov/pcb/carte_servos/carte_servos.kicad_pcb **
+** Created on 2026-10-07 20:12:22 **
+
+** Found 0 DRC violations **
+
+** Found 0 unconnected pads **
+
+** Found 0 Footprint errors **
+
+** End of Report **

@@ -1,0 +1,3 @@
+(sym_lib_table
+  (lib (name "InMoov")(type "KiCad")(uri "${KIPRJMOD}/inmoov.kicad_sym")(options "")(descr "Symboles du robot InMoov"))
+)
