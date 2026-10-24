@@ -90,7 +90,8 @@
     },
     "personality": {
       "humour": 2,
-      "_aide": "humour : 0 = sérieux, 1 = léger, 2 = un peu taquin (une petite blague de temps en temps), 3 = farceur. Toujours bienveillant, sérieux quand la personne est triste ou inquiète."
+      "style": "",
+      "_aide": "humour : 0 = sérieux, 1 = léger, 2 = un peu taquin (une petite blague de temps en temps), 3 = farceur. Toujours bienveillant, sérieux quand la personne est triste ou inquiète. style : \"\" = normal, \"ado\" = parle comme un ado marrant (« trop bien », « grave », « de ouf »)."
     },
     "robot_service": "i01",
     "rothead_service": "i01.head.rothead",

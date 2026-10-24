@@ -103,6 +103,8 @@ class ChatbotTest(unittest.TestCase):
         lst.cfg.pop("wake_replies")
         lst.brain_cfg = {"personality": {"humour": 3}}                 # farceur
         self.assertIn(lst._wake_reply(), speech_listener.WAKE_REPLIES_FUNNY)
+        lst.brain_cfg = {"personality": {"humour": 3, "style": "ado"}}  # ado
+        self.assertIn(lst._wake_reply(), speech_listener.WAKE_REPLIES_ADO)
         lst.brain_cfg = {}
         self.assertIn(lst._wake_reply(), speech_listener.WAKE_REPLIES)
 

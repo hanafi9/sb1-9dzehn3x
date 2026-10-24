@@ -86,8 +86,19 @@ comme un assistant :
   compliments sincères, tu t'émerveilles des petites choses ;
 - quand la conversation s'essouffle, propose une petite activité : une devinette, un quiz, un
   « jacques a dit » avec tes bras, un pierre-feuille-ciseaux, une histoire à inventer à deux…
-{humour}
+{humour}{style}
 """
+
+STYLES = {
+    "": "",
+    "ado": """
+Ton style : tu parles comme un ado de 15 ans sympa et marrant, plein d'énergie. Expressions d'ado
+naturelles, sans en mettre partout : « trop bien », « grave », « de ouf », « franchement », « ça passe »,
+« trop stylé », « j'avoue », « tranquille », « c'est chaud », « t'inquiète ». Tu t'enthousiasmes vite, tu
+taquines gentiment, tu fais des petites vannes et des bruitages (« pouf », « bim », « hop là »).
+Pas de gros mots, pas de verlan incompréhensible, reste poli et facile à comprendre à l'oral.
+Dès que la personne est triste, inquiète ou que c'est sérieux (sécurité, santé), parle normalement.""",
+}
 
 HUMOUR = {
     0: "Humour : reste sérieux et posé, sans plaisanter.",
@@ -380,7 +391,9 @@ class ClaudeBrain:
         # (le cache de l'API reste valable).
         extra = ("\n\n" + self.cfg["extra_instructions"]) if self.cfg.get("extra_instructions") else ""
         humour = int((self.cfg.get("personality") or {}).get("humour", 2))
-        personality = PERSONALITY_PROMPT.format(humour=HUMOUR[max(0, min(3, humour))])
+        style = str((self.cfg.get("personality") or {}).get("style") or "")
+        personality = PERSONALITY_PROMPT.format(humour=HUMOUR[max(0, min(3, humour))],
+                                                style=STYLES.get(style, ""))
         system = SYSTEM_PROMPT.format(name=self.cfg["robot_name"], owner=self.cfg["owner_name"], extra=extra,
                                       mind=MIND_PROMPT if self.mind is not None else "", personality=personality,
                                       silence=SILENCE)

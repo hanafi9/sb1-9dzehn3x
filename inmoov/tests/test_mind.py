@@ -245,6 +245,7 @@ class BrainWithMindTest(unittest.TestCase):
         self.assertIn("Comment tu penses", first["system"])
         self.assertIn("Ta personnalité", first["system"])
         self.assertIn("un peu taquin", first["system"])          # humour 2 par défaut
+        self.assertNotIn("ado de 15 ans", first["system"])       # style normal par défaut
         self.assertIn("feel", [t["name"] for t in first["tools"]])
 
     def test_feel_and_look_around(self):

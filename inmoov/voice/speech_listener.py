@@ -46,6 +46,9 @@ WAKE_REPLIES = ["Oui ?", "Je t'écoute !", "Présent !", "Oui, chef ?", "Hmm ?",
 WAKE_REPLIES_FUNNY = ["Présent, chef ! Batteries chargées !", "Kamil à l'écoute, antennes déployées !",
                       "Oui ? J'étais en train de compter mes vis.", "Me voilà ! Je ne dormais pas, promis.",
                       "Bip bip, je t'écoute !", "Oui, mon capitaine ?", "Tu m'as appelé ? Mes oreilles frétillent !"]
+WAKE_REPLIES_ADO = ["Yo ! Je suis là !", "Ouais ? Vas-y, je t'écoute !", "Wesh, c'est Kamil, quoi de neuf ?",
+                    "Présent ! Trop prêt !", "Oui oui, j'suis grave réveillé !", "Ah, te voilà ! Raconte !",
+                    "Tranquille, je t'écoute !"]
 FRAME_SAMPLES = SAMPLE_RATE * FRAME_MS // 1000
 
 
@@ -87,7 +90,7 @@ class Listener:
             from reasoning import FILLERS, THINKING_PHRASES
 
             self.brain_cfg = brain_cfg
-            self.tts.warm_up(list(cfg.get("wake_replies") or (WAKE_REPLIES_FUNNY if self._funny() else WAKE_REPLIES))
+            self.tts.warm_up(list(cfg.get("wake_replies") or self._default_wake_replies())
                              + FILLERS + THINKING_PHRASES)
         self.memory = None
         self.brain = None
@@ -329,9 +332,15 @@ class Listener:
         brain_cfg = getattr(self, "brain_cfg", None) or {}
         return int((brain_cfg.get("personality") or {}).get("humour", 2)) >= 3
 
+    def _default_wake_replies(self):
+        brain_cfg = getattr(self, "brain_cfg", None) or {}
+        if (brain_cfg.get("personality") or {}).get("style") == "ado":
+            return WAKE_REPLIES_ADO
+        return WAKE_REPLIES_FUNNY if self._funny() else WAKE_REPLIES
+
     def _wake_reply(self):
         """Réponse immédiate à « Kamil ! » seul, variée pour ne pas sonner comme une machine."""
-        replies = self.cfg.get("wake_replies") or (WAKE_REPLIES_FUNNY if self._funny() else WAKE_REPLIES)
+        replies = self.cfg.get("wake_replies") or self._default_wake_replies()
         last = getattr(self, "_last_wake_reply", None)
         reply = random.choice([r for r in replies if r != last] or replies)
         self._last_wake_reply = reply
