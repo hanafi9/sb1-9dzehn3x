@@ -72,11 +72,12 @@ class CloudSpeaker:
 
     def synthesize(self, text):
         """Fichier WAV de la phrase ; renvoie (chemin, durée en secondes)."""
+        if (self.fallback is not None and self.failed_at is not None
+                and time.monotonic() - self.failed_at < self.cooldown):
+            # même les petites phrases prêtes (« Hmm, attends… ») : une seule voix à la fois
+            return self.fallback.synthesize(text)
         pcm = self.cache.get(text)
         if pcm is None:
-            if (self.fallback is not None and self.failed_at is not None
-                    and time.monotonic() - self.failed_at < self.cooldown):
-                return self.fallback.synthesize(text)
             try:
                 pcm = self._fetch_pcm(text)
             except RuntimeError as e:

@@ -62,6 +62,23 @@ def clean_chatbot_reply(reply):
     return text or None
 
 
+def find_wake_word_anywhere(text, wake_words, threshold=0.9):
+    """Cherche un mot de réveil n'importe où dans la phrase (ex. « … la télé… Kamil, allume le lustre »).
+
+    Renvoie ce qui suit sa dernière apparition, ou None. Seuil plus strict qu'au début de la
+    phrase, pour que « famille » ne passe pas pour « Camille » au milieu des informations.
+    """
+    original = [w for w in text.split() if normalize(w)]
+    words = [normalize(w) for w in original]
+    targets = [normalize(w).replace(" ", "") for w in wake_words or []]
+    for start in range(len(words) - 1, -1, -1):
+        for size in (1, 2):
+            chunk = "".join(words[start:start + size])
+            if chunk and any(difflib.SequenceMatcher(None, chunk, t).ratio() >= threshold for t in targets):
+                return " ".join(original[start + size:]).lstrip(" ,.;:!?")
+    return None
+
+
 def strip_wake_word(text, wake_words, threshold=0.75):
     """Cherche un mot de réveil au début de la phrase.
 

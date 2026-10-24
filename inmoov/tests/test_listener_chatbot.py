@@ -152,6 +152,15 @@ class ChatbotTest(unittest.TestCase):
         lst.handle("Kamil, raconte-moi une très longue histoire de pirates")    # avec son prénom : toujours
         self.assertEqual(asked[-1][1]["direct"], True)
 
+    def test_wake_word_heard_in_the_middle_of_tv(self):
+        import numpy as np
+        lst = listener(FakeTts(), wake_words=["kamil", "camille"])
+        asked = []
+        lst.brain = types.SimpleNamespace(ask=lambda t, **k: asked.append((t, k)) or "Voilà !")
+        lst._last_audio = np.zeros(16000 * 12, dtype=np.float32)
+        lst.handle("on observe avec attention l'enquête policière Camille allume le lustre")
+        self.assertEqual(asked, [("allume le lustre", {"speaker": None, "direct": True})])
+
     def test_claude_silence_closes_the_window(self):
         tts = FakeTts()
         lst = listener(tts, wake_words=["kamil"])

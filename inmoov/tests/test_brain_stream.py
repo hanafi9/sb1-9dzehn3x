@@ -195,6 +195,12 @@ class StreamTest(unittest.TestCase):
         self.assertIn("[silence]", self.requests[0]["system"][0]["text"] if isinstance(
             self.requests[0]["system"], list) else self.requests[0]["system"])
 
+    def test_no_silence_when_called_by_name(self):
+        b = self.make([stream_body([("text", ["[silence]"])], "end_turn")])
+        said = b.ask("sait bien")
+        self.assertIn("répéter", said)
+        self.assertIn(("dit (bloquant)", "Pardon, je n'ai pas bien compris. Tu peux répéter ?"), self.events)
+
     def test_without_pipeline_no_stream(self):
         self.cfg["stream"] = False
         b = self.make([])

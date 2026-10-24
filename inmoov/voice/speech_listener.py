@@ -34,7 +34,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 from audio_gain import amplify_pcm16, normalize_peak  # noqa: E402
 from mrl_client import MrlClient, load_config  # noqa: E402
 from segmenter import UtteranceSegmenter  # noqa: E402
-from text_utils import clean_chatbot_reply, is_hallucination, match_command, strip_wake_word  # noqa: E402
+from text_utils import (clean_chatbot_reply, find_wake_word_anywhere, is_hallucination,  # noqa: E402
+                        match_command, strip_wake_word)
 
 log = logging.getLogger("voice")
 
@@ -303,9 +304,9 @@ class Listener:
     def _on_first_sound(self, text):
         """Journal du délai de réponse, décomposé, pour voir quelle étape est lente."""
         turn, self.turn = getattr(self, "turn", None), None
-        if not turn or "queued" not in turn:
-            return
         now = time.monotonic()
+        if not turn or "queued" not in turn or now - turn["end"] > 30:   # vieille phrase ignorée
+            return
         log.info("⏱ 1er son %.1f s après la fin de ta phrase = silence de fin %.1f + Whisper %.1f "
                  "+ Claude (1re phrase) %.1f + Piper %.1f  [« %s »]",
                  now - turn["end"], self.cfg["end_silence_ms"] / 1000.0, turn["whisper"],
@@ -345,6 +346,12 @@ class Listener:
         awake = now < self.awake_until
         # le mot de réveil est retiré même si le robot est déjà réveillé (« Kamil… » puis « Kamil, … »)
         found, rest = strip_wake_word(text, self.cfg["wake_words"])
+        if not found and self.cfg["wake_words"]:
+            # avec la télé allumée, la phrase dure jusqu'à 12 s : « Kamil » peut être au milieu
+            after = find_wake_word_anywhere(text, self.cfg["wake_words"])
+            if after is not None:
+                log.info("(« %s » entendu au milieu de la phrase : on garde la suite)", self.cfg["wake_words"][0])
+                found, rest = True, after
         if not awake and not found:
             log.info("(pas de mot de réveil) %s", text)
             return

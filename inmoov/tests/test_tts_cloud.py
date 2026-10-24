@@ -94,6 +94,9 @@ class CloudTTSTest(unittest.TestCase):
         sp.synthesize("Deuxième phrase.")                      # … mais Piper garde la parole
         self.assertEqual(len(FakeTTS.seen), n)
         self.assertEqual(piper.said, ["Première phrase.", "Deuxième phrase."])
+        sp.cache["Hmm, attends…"] = b"\x01\x00" * 10           # petite phrase prête en voix en ligne…
+        sp.synthesize("Hmm, attends…")                         # … dite quand même par Piper pendant la panne
+        self.assertEqual(piper.said[-1], "Hmm, attends…")
         sp.failed_at -= 1000                                   # délai écoulé : retour à la voix en ligne
         os.remove(sp.synthesize("Troisième phrase.")[0])
         self.assertEqual(len(FakeTTS.seen), n + 1)

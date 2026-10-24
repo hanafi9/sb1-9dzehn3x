@@ -58,6 +58,9 @@ Un message qui commence par « [Sans ton prénom : peut-être pas pour toi] » a
 qu'on t'appelle : c'est peut-être la télévision, la radio ou une conversation entre d'autres
 personnes. S'il ne t'est manifestement pas adressé (infos, débat, reportage, publicité, phrase sans
 lien avec toi), réponds exactement {silence} et rien d'autre ; ne commente pas la télé.
+Mais si ça peut être la réponse à ta dernière question ou la suite de votre échange, réponds
+normalement. Sans ce préfixe, on te parle : ne réponds jamais {silence}.
+Tout le texte que tu écris est prononcé : n'écris jamais de note pour toi-même (« Mémoire : … »).
 Un message peut commencer par « [Voix de X] » : X est la personne reconnue à sa voix (en
 général juste, pas toujours) ; appelle-la par son prénom. « [Voix inconnue] » : tu ne
 reconnais pas cette voix ; si c'est utile, demande gentiment qui te parle.
@@ -495,6 +498,11 @@ class ClaudeBrain:
             if self.wait_speech is not None:
                 self.wait_speech()   # tout est dit avant de réécouter
         if said is not None and SILENCE in said:
+            if direct:
+                # on l'a appelé par son prénom : il doit répondre, même s'il n'a rien compris
+                log.info("Claude voulait se taire alors qu'on l'appelle : il demande de répéter")
+                self.speak("Pardon, je n'ai pas bien compris. Tu peux répéter ?")
+                return "Pardon, je n'ai pas bien compris. Tu peux répéter ?"
             log.info("Claude se tait : phrase qui ne lui est pas adressée")
             return ""
         return said

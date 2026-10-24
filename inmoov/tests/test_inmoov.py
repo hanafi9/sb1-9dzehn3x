@@ -15,7 +15,7 @@ sys.path[:0] = [ROOT, os.path.join(ROOT, "vision"), os.path.join(ROOT, "voice")]
 
 from mrl_client import AsyncMrlClient, MrlClient, load_config  # noqa: E402
 from segmenter import UtteranceSegmenter  # noqa: E402
-from text_utils import is_hallucination, match_command, normalize, strip_wake_word  # noqa: E402
+from text_utils import find_wake_word_anywhere, is_hallucination, match_command, normalize, strip_wake_word  # noqa: E402
 from tracking import AxisController, normalized_error, pick_target  # noqa: E402
 
 AXIS = {"min": 30, "max": 150, "rest": 90, "gain": 12.0, "deadband": 0.08, "max_step": 4.0, "invert": False}
@@ -102,6 +102,16 @@ class TextTest(unittest.TestCase):
             self.assertTrue(found, heard)
             self.assertEqual(rest, "regarde à gauche", heard)
         self.assertFalse(strip_wake_word("il fait beau aujourd'hui", ["inmoov", "robot"])[0])
+
+    def test_wake_word_in_the_middle_of_tv(self):
+        ww = ["kamil", "robot", "camille"]
+        self.assertEqual(find_wake_word_anywhere(
+            "Allume Lustre. Dans l'opinion, il y a vraiment une libération de la parole. Camille Allume Lustre.", ww),
+            "Allume Lustre.")
+        self.assertEqual(find_wake_word_anywhere("que tu me vois ? Camille, est-ce que tu me vois ?", ww),
+                         "est-ce que tu me vois")
+        self.assertIsNone(find_wake_word_anywhere("toute la famille était réunie hier soir", ww))
+        self.assertIsNone(find_wake_word_anywhere("la campagne électorale continue", ww))
 
     def test_wake_word_alone(self):
         self.assertEqual(strip_wake_word("InMoov ?", ["inmoov"]), (True, ""))
