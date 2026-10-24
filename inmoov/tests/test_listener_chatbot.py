@@ -129,6 +129,39 @@ class ChatbotTest(unittest.TestCase):
         self.assertAlmostEqual(normal, 15, delta=0.5)
         self.assertAlmostEqual(question, 25, delta=0.5)
 
+    def test_tv_and_radio_are_ignored_during_follow_up(self):
+        import numpy as np
+        lst = listener(FakeTts(), wake_words=["kamil"])
+        asked = []
+        lst.brain = types.SimpleNamespace(ask=lambda t, **k: asked.append((t, k)) or "D'accord !")
+        lst.awake_until = time.monotonic() + 10                 # fenêtre de suite ouverte
+        lst._last_audio = np.zeros(16000 * 12, dtype=np.float32)
+        lst.handle("le gouvernement a annoncé ce matin de nouvelles mesures")   # 12 s de télé
+        self.assertEqual(asked, [])
+        self.assertEqual(lst.awake_until, 0.0)                  # fenêtre refermée
+        lst.awake_until = time.monotonic() + 10
+        lst._last_audio = np.zeros(16000 * 2, dtype=np.float32)
+        lst.voices = types.SimpleNamespace(identify=lambda a: (None, 0.2))     # voix inconnue
+        lst.handle("on se retrouve après la pub")
+        self.assertEqual(asked, [])
+        lst.voices = types.SimpleNamespace(identify=lambda a: ("Hanafi", 0.8))
+        lst.awake_until = time.monotonic() + 10
+        lst.handle("et toi, ça va ?")                            # voix connue : pour lui
+        self.assertEqual(asked[-1][1]["direct"], False)
+        lst._last_audio = np.zeros(16000 * 12, dtype=np.float32)
+        lst.handle("Kamil, raconte-moi une très longue histoire de pirates")    # avec son prénom : toujours
+        self.assertEqual(asked[-1][1]["direct"], True)
+
+    def test_claude_silence_closes_the_window(self):
+        tts = FakeTts()
+        lst = listener(tts, wake_words=["kamil"])
+        lst.brain = types.SimpleNamespace(ask=lambda t, **k: "")    # Claude : « [silence] »
+        lst.awake_until = time.monotonic() + 10
+        lst.handle("on se retrouve après la pub")
+        self.assertEqual(lst.mrl.calls, [])                     # pas de chatbot de secours
+        self.assertEqual(tts.said, [])
+        self.assertEqual(lst.awake_until, 0.0)
+
     def test_response_delay_is_logged_by_step(self):
         lst = listener(FakeTts())
         lst.cfg["end_silence_ms"] = 700

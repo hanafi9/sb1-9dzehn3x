@@ -36,9 +36,9 @@ DEFAULTS = {
     "gone_after_s": 10,          # plus personne depuis ce temps = départ
     "motion_threshold": 0.03,    # part de l'image qui bouge pour compter un mouvement
     "motion_every_s": 60,        # au plus un mouvement noté par minute et par caméra
-    "object_confirm": 3,         # vu 3 fois de suite avant de le noter
-    "object_gone_s": 30,
-    "ignored_objects": ["personne"],
+    "object_confirm": 5,         # vu 5 fois de suite avant de le noter
+    "object_gone_s": 120,        # absent 2 min avant de le dire disparu (le Coral « clignote » sur les meubles)
+    "ignored_objects": ["personne", "chaise", "table", "lit", "canapé", "plante en pot", "télévision"],
     "notify_service": None,      # ex. "notify.mobile_app_mon_telephone" (Home Assistant)
 }
 

@@ -356,9 +356,11 @@ class Listener:
                 return
             text = rest
         self.awake_until = 0.0
+        speaker = self._identify()
+        if not found and self._background(speaker):
+            return
         if self.reactions is not None:
             self.reactions.on_conversation()
-        speaker = self._identify()
 
         phrase, actions = match_command(text, self.cfg["commands"], self.cfg["fuzzy_threshold"])
         if actions:
@@ -377,11 +379,13 @@ class Listener:
         try:
             if self.brain is not None:
                 try:
-                    said = self.brain.ask(text, speaker=speaker)
+                    said = self.brain.ask(text, speaker=speaker, direct=found)
                     answered = said is not None
                 except Exception:  # ex. clé API absente : le robot doit continuer d'écouter
                     log.exception("Erreur inattendue de l'IA")
                     self.brain.reset()
+                if said == "":
+                    return          # Claude a jugé que ce n'était pas pour lui : silence, sans relance
                 if not answered:
                     log.warning("Claude indisponible")
 
@@ -460,6 +464,18 @@ class Listener:
                     self.handle(text)
                 # ce qui a été capté pendant le calcul est périmé
                 self._flush_audio()
+
+    def _background(self, speaker):
+        """Phrase sans « Kamil » pendant la fenêtre de suite : télé, radio ou autre conversation ?
+        Écartée si c'est un long discours continu, ou une voix inconnue (reconnaissance des voix active)."""
+        seconds = len(self._last_audio) / float(SAMPLE_RATE) if self._last_audio is not None else 0.0
+        if seconds >= self.cfg.get("follow_up_max_audio_s", 8):
+            log.info("(ignoré : %.0f s de parole continue sans « Kamil », sans doute télé ou radio)", seconds)
+            return True
+        if speaker == "" and (self.cfg.get("speaker_id") or {}).get("follow_up_known_voices_only", True):
+            log.info("(ignoré : voix inconnue sans « Kamil », sans doute télé, radio ou autre conversation)")
+            return True
+        return False
 
     def _identify(self):
         """Prénom de la personne qui vient de parler, "" si voix inconnue, None si désactivé."""

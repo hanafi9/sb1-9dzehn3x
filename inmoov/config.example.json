@@ -74,7 +74,10 @@
       "_aide": "Surveillance (voice/watch.py) : journal des arrivées, départs, mouvements et objets vus par les 2 caméras (data/journal.jsonl) avec photos (data/surveillance). Demandez « qu'est-ce qui s'est passé ? », « montre-moi qui est passé », « surveille la maison » (mode garde). notify_service : service Home Assistant qui prévient un téléphone en mode garde, ex. notify.mobile_app_mon_telephone.",
       "motion_threshold": 0.03,
       "max_snapshots": 300,
-      "notify_service": null
+      "notify_service": null,
+      "ignored_objects": ["personne", "chaise", "table", "lit", "canapé", "plante en pot", "télévision"],
+      "object_confirm": 5,
+      "object_gone_s": 120
     },
     "home_assistant": {
       "enabled": false,
@@ -146,11 +149,12 @@
     "auto_gain_max": 20,
     "cloud_tts": {
       "enabled": false,
-      "_aide": "Voix en ligne OpenAI (gpt-4o-mini-tts), plus naturelle et plus claire que Piper ; clé OPENAI_API_KEY dans anthropic.env ; Piper prend le relais sans Internet. voice : onyx (grave), cedar, ash, echo, marin… ; instructions : le ton voulu, en français.",
+      "_aide": "Voix en ligne OpenAI (gpt-4o-mini-tts), plus naturelle et plus claire que Piper ; clé OPENAI_API_KEY dans anthropic.env ; Piper prend le relais sans Internet. voice : ash (jeune, clair), echo (léger), verse, onyx (grave)… ; instructions : le ton voulu, en français (null = jeune homme de 28 ans, voix claire et légèrement aiguë). Écouter : voice/voices_test.py --cloud. fallback_cooldown_s : après une panne, Piper parle seul ce temps-là (pas de mélange de deux voix).",
       "model": "gpt-4o-mini-tts",
-      "voice": "onyx",
-      "instructions": "Voix d'homme mûr, posée et chaleureuse, diction très claire et articulée, français de France, rythme naturel, sourire dans la voix.",
-      "speed": null
+      "voice": "ash",
+      "instructions": null,
+      "speed": null,
+      "fallback_cooldown_s": 120
     },
     "cloud_stt": {
       "enabled": false,
@@ -168,7 +172,9 @@
       "threshold": 0.55,
       "owner": null,
       "owner_only_tools": [],
-      "owner_only_commands": false
+      "owner_only_commands": false,
+      "_follow_up_aide": "follow_up_known_voices_only : pendant la conversation sans « Kamil », seules les voix enregistrées sont écoutées (la télé et la radio sont ignorées).",
+      "follow_up_known_voices_only": true
     },
     "whisper_model": "base",
     "_fallback_aide": "Si le 1er modèle n'est pas sûr de lui (confiance sous fallback_below_confidence) pour une phrase adressée au robot, elle est relue par un modèle plus juste mais ~3 fois plus lent. null = désactivé.",
@@ -195,6 +201,8 @@
     "_follow_up_aide": "Après chaque réponse du robot, on peut continuer la conversation sans redire le mot de réveil pendant follow_up_s secondes (0 = toujours le redire).",
     "follow_up_s": 15,
     "follow_up_question_s": 25,
+    "_follow_up_max_audio_aide": "Sans « Kamil », une phrase plus longue que ça (en secondes) est prise pour la télé ou la radio et ignorée ; Claude se tait aussi s'il juge que ce n'était pas pour lui.",
+    "follow_up_max_audio_s": 8,
     "vocabulary": "InMoov, MyRobotLab, Raspberry, bonjour, au revoir, regarde, gauche, droite, haut, bas, main, bras, tête",
     "chatbot_service": "i01.chatBot",
     "chatbot_method": "getResponse",

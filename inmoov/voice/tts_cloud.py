@@ -1,6 +1,7 @@
 """Voix en ligne (OpenAI, modèle gpt-4o-mini-tts) : plus naturelle et plus claire que Piper.
 
-Le ton se décrit en français dans « instructions » (ex. voix d'homme mûr, posée, très claire).
+Le ton se décrit en français dans « instructions » (par défaut : jeune homme de 28 ans, voix claire
+et légèrement aiguë). Voix conseillées pour un homme jeune : ash, echo, verse (onyx est grave).
 API : POST https://api.openai.com/v1/audio/speech
       {"model", "voice", "input", "instructions", "response_format": "pcm", "speed"}
 Réponse « pcm » : échantillons bruts 16 bits mono à 24 kHz, mis ici dans un fichier WAV.
@@ -14,6 +15,7 @@ import logging
 import os
 import tempfile
 import threading
+import time
 import urllib.error
 import urllib.request
 import wave
@@ -22,8 +24,10 @@ from cloud_stt import USER_AGENT
 
 log = logging.getLogger("tts")
 
-DEFAULT_INSTRUCTIONS = ("Voix d'homme mûr, posée et chaleureuse, diction très claire et articulée, "
-                        "français de France, rythme naturel, sourire dans la voix.")
+DEFAULT_VOICE = "ash"
+DEFAULT_INSTRUCTIONS = ("Jeune homme de 28 ans, voix claire et légèrement aiguë, jamais grave, énergique et joyeuse, "
+                        "diction très nette, français de France sans accent, rythme vif et naturel, sourire dans la voix. "
+                        "Garde exactement le même timbre et la même hauteur de voix d'une phrase à l'autre.")
 
 
 class CloudSpeaker:
@@ -31,7 +35,7 @@ class CloudSpeaker:
         """cfg : section voice.cloud_tts ; fallback : PiperSpeaker utilisé si le service échoue."""
         self.base_url = (cfg.get("base_url") or "https://api.openai.com/v1").rstrip("/")
         self.model = cfg.get("model") or "gpt-4o-mini-tts"
-        self.voice = cfg.get("voice") or "onyx"
+        self.voice = cfg.get("voice") or DEFAULT_VOICE
         self.instructions = cfg.get("instructions") or DEFAULT_INSTRUCTIONS
         self.speed = cfg.get("speed")
         self.key_env = cfg.get("api_key_env") or "OPENAI_API_KEY"
@@ -41,6 +45,9 @@ class CloudSpeaker:
         self.player = list(player)
         self.lock = threading.Lock()
         self.cache = {}
+        # après une panne, Piper garde la parole un moment : sinon les deux voix alternent d'une phrase à l'autre
+        self.cooldown = float(cfg.get("fallback_cooldown_s", 120))
+        self.failed_at = None
 
     def _fetch_pcm(self, text):
         key = os.environ.get(self.key_env, "")
@@ -67,13 +74,18 @@ class CloudSpeaker:
         """Fichier WAV de la phrase ; renvoie (chemin, durée en secondes)."""
         pcm = self.cache.get(text)
         if pcm is None:
+            if (self.fallback is not None and self.failed_at is not None
+                    and time.monotonic() - self.failed_at < self.cooldown):
+                return self.fallback.synthesize(text)
             try:
                 pcm = self._fetch_pcm(text)
             except RuntimeError as e:
                 if self.fallback is None:
                     raise
-                log.warning("%s : voix Piper à la place", e)
+                self.failed_at = time.monotonic()
+                log.warning("%s : voix Piper à la place pendant %.0f s", e, self.cooldown)
                 return self.fallback.synthesize(text)
+            self.failed_at = None
             if len(text) <= 60:
                 self.cache[text] = pcm
         fd, path = tempfile.mkstemp(suffix=".wav", prefix="inmoov-")

@@ -183,6 +183,18 @@ class StreamTest(unittest.TestCase):
         self.assertIn("surveillance", [t["name"] for t in self.requests[0]["tools"]])
         self.assertIn("12 h 00 : Arrivée", self.requests[1]["messages"][-1]["content"][0]["content"])
 
+    def test_silence_for_tv(self):
+        self.cfg["adaptive_effort"] = True
+        self.cfg["filler_after_s"] = 0.05
+        b = self.make([stream_body([("text", ["[silence]"])], "end_turn")], delay=0.3)
+        said = b.ask("le gouvernement a annoncé de nouvelles mesures pour les commerçants pourquoi", direct=False)
+        self.assertEqual(said, "")
+        self.assertEqual([e for e in self.events if e[0] == "dit"], [])     # ni « Alors… » ni réflexion
+        msg = self.requests[0]["messages"][-1]["content"]
+        self.assertTrue(msg.startswith("[Sans ton prénom : peut-être pas pour toi] "))
+        self.assertIn("[silence]", self.requests[0]["system"][0]["text"] if isinstance(
+            self.requests[0]["system"], list) else self.requests[0]["system"])
+
     def test_without_pipeline_no_stream(self):
         self.cfg["stream"] = False
         b = self.make([])

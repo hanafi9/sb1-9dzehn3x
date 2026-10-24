@@ -5,6 +5,8 @@
     ../.venv-voice/bin/python voices_test.py fr_FR-upmc-medium        # une voix (toutes ses variantes)
     ../.venv-voice/bin/python voices_test.py fr_FR-tom-medium --speeds 0.8 1.0 1.2
     ../.venv-voice/bin/python -m piper.download_voices | grep fr_     # liste officielle complète
+    ../.venv-voice/bin/python voices_test.py --cloud                  # voix en ligne OpenAI (ash, echo, verse…)
+    ../.venv-voice/bin/python voices_test.py --cloud ash echo --speeds 1.0 1.1
 
 Chaque voix manquante est téléchargée une fois dans ../models (20 à 120 Mo).
 La voix et la vitesse choisies se mettent ensuite dans config.json, section voice :
@@ -17,11 +19,13 @@ import os
 import subprocess
 import sys
 
+from tts_cloud import CloudSpeaker
 from tts_piper import PiperSpeaker
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 MODELS = os.path.normpath(os.path.join(HERE, "..", "models"))
 VOICES = ["fr_FR-tom-medium", "fr_FR-siwis-medium", "fr_FR-upmc-medium", "fr_FR-gilles-low", "fr_FR-mls-medium"]
+CLOUD_VOICES = ["ash", "echo", "verse", "ballad", "onyx"]
 SENTENCE = ("Bonjour ! Je suis Kamil, ton robot. J'ai une batterie pleine, des vis bien serrées "
             "et une grande envie de discuter. On commence ?")
 
@@ -41,7 +45,11 @@ def main():
                         help="length_scale : 0.8 = plus rapide, 1.2 = plus lent")
     parser.add_argument("--max-speakers", type=int, default=4, help="variantes essayées par voix à plusieurs locuteurs")
     parser.add_argument("--text", default=SENTENCE)
+    parser.add_argument("--cloud", action="store_true", help="voix en ligne OpenAI (clé OPENAI_API_KEY)")
+    parser.add_argument("--instructions", default=None, help="ton voulu (voix en ligne), en français")
     args = parser.parse_args()
+    if args.cloud:
+        return audition_cloud(args)
     os.makedirs(MODELS, exist_ok=True)
     for voice in args.voices:
         model = ensure(voice)
@@ -59,6 +67,21 @@ def main():
                 PiperSpeaker(model, length_scale=speed if speed != 1.0 else None, speaker_id=sid).speak(args.text)
     print("\nPour garder une voix : config.json → voice → \"piper_model\": \"models/<voix>.onnx\", "
           "\"piper_speaker_id\": <numéro ou null>, \"piper_length_scale\": <vitesse ou null>")
+
+
+def audition_cloud(args):
+    voices = args.voices if args.voices != VOICES else CLOUD_VOICES
+    for voice in voices:
+        for speed in args.speeds:
+            input("\nEntrée pour écouter : voix en ligne %s, vitesse %.1f" % (voice, speed))
+            speaker = CloudSpeaker({"voice": voice, "instructions": args.instructions,
+                                    "speed": speed if speed != 1.0 else None})
+            try:
+                speaker.speak(args.text)
+            except RuntimeError as e:
+                print("  %s" % e)
+                return
+    print("\nPour garder une voix : config.json → voice → cloud_tts → \"voice\": \"<voix>\", \"speed\": <vitesse ou null>")
 
 
 if __name__ == "__main__":

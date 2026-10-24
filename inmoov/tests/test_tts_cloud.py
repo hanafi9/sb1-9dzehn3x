@@ -56,7 +56,7 @@ class CloudTTSTest(unittest.TestCase):
         cls.server.shutdown()
         cls.server.server_close()
 
-    def test_mature_voice_and_wav(self):
+    def test_young_clear_voice_and_wav(self):
         os.environ["TEST_TTS_KEY"] = "cle"
         sp = CloudSpeaker(self.cfg)
         path, duration = sp.synthesize("Bonjour, je suis Kamil.")
@@ -66,8 +66,9 @@ class CloudTTSTest(unittest.TestCase):
         os.remove(path)
         route, body = FakeTTS.seen[-1]
         self.assertEqual(route, "/v1/audio/speech")
-        self.assertEqual((body["model"], body["voice"], body["response_format"]), ("gpt-4o-mini-tts", "onyx", "pcm"))
-        self.assertIn("mûr", body["instructions"])
+        self.assertEqual((body["model"], body["voice"], body["response_format"]), ("gpt-4o-mini-tts", "ash", "pcm"))
+        self.assertIn("28 ans", body["instructions"])
+        self.assertIn("aiguë", body["instructions"])
         n = len(FakeTTS.seen)
         os.remove(sp.synthesize("Bonjour, je suis Kamil.")[0])       # phrase courte : gardée en mémoire
         self.assertEqual(len(FakeTTS.seen), n)
@@ -80,6 +81,22 @@ class CloudTTSTest(unittest.TestCase):
         os.environ.pop("TEST_TTS_KEY")
         self.assertEqual(CloudSpeaker(self.cfg, fallback=piper).synthesize("Salut"), ("/tmp/piper.wav", 0.5))
         self.assertEqual(piper.said, ["Coucou", "Salut"])
+
+    def test_no_voice_mixing_after_failure(self):
+        piper = FakePiper()
+        os.environ["TEST_TTS_KEY"] = "cle"
+        sp = CloudSpeaker(dict(self.cfg, timeout_s=1), fallback=piper)
+        good = sp.base_url
+        sp.base_url = "http://127.0.0.1:9/v1"                  # panne sur la 1re phrase
+        sp.synthesize("Première phrase.")
+        sp.base_url = good                                     # le service revient…
+        n = len(FakeTTS.seen)
+        sp.synthesize("Deuxième phrase.")                      # … mais Piper garde la parole
+        self.assertEqual(len(FakeTTS.seen), n)
+        self.assertEqual(piper.said, ["Première phrase.", "Deuxième phrase."])
+        sp.failed_at -= 1000                                   # délai écoulé : retour à la voix en ligne
+        os.remove(sp.synthesize("Troisième phrase.")[0])
+        self.assertEqual(len(FakeTTS.seen), n + 1)
 
 
 if __name__ == "__main__":

@@ -30,6 +30,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 import gesture_player  # noqa: E402
 from mood import EMOTIONS  # noqa: E402
 from reasoning import FILLERS, choose_effort, thinking_phrase  # noqa: E402
+
+SILENCE = "[silence]"   # réponse de Claude quand la phrase entendue ne lui est pas adressée
 from text_utils import SentenceSplitter  # noqa: E402
 
 
@@ -52,6 +54,10 @@ geste rend la conversation plus vivante (par exemple tourner la tête vers la pe
 Si quelqu'un te demande un mouvement que tes outils ne permettent pas, dis-le simplement.
 Si tu n'as pas bien compris (la reconnaissance vocale fait parfois des erreurs), demande
 de répéter plutôt que d'inventer.
+Un message qui commence par « [Sans ton prénom : peut-être pas pour toi] » a été entendu sans
+qu'on t'appelle : c'est peut-être la télévision, la radio ou une conversation entre d'autres
+personnes. S'il ne t'est manifestement pas adressé (infos, débat, reportage, publicité, phrase sans
+lien avec toi), réponds exactement {silence} et rien d'autre ; ne commente pas la télé.
 Un message peut commencer par « [Voix de X] » : X est la personne reconnue à sa voix (en
 général juste, pas toujours) ; appelle-la par son prénom. « [Voix inconnue] » : tu ne
 reconnais pas cette voix ; si c'est utile, demande gentiment qui te parle.
@@ -373,7 +379,8 @@ class ClaudeBrain:
         humour = int((self.cfg.get("personality") or {}).get("humour", 2))
         personality = PERSONALITY_PROMPT.format(humour=HUMOUR[max(0, min(3, humour))])
         system = SYSTEM_PROMPT.format(name=self.cfg["robot_name"], owner=self.cfg["owner_name"], extra=extra,
-                                      mind=MIND_PROMPT if self.mind is not None else "", personality=personality)
+                                      mind=MIND_PROMPT if self.mind is not None else "", personality=personality,
+                                      silence=SILENCE)
         facts = self.memory.as_text() if self.memory is not None else ""
         if facts:
             system += MEMORY_INTRO.format(facts=facts)
@@ -436,7 +443,7 @@ class ClaudeBrain:
 
         def say_sentences(sentences):
             for sentence in sentences:
-                if sentence:
+                if sentence and SILENCE not in sentence:
                     first.set()
                     if timer is not None:
                         timer.cancel()
@@ -469,21 +476,28 @@ class ClaudeBrain:
             fallbacks="default",
         )
 
-    def ask(self, text, speaker=None):
+    def ask(self, text, speaker=None, direct=True):
         """Envoie la phrase entendue à Claude, exécute ses gestes, le fait parler.
 
         Renvoie le texte prononcé, ou None si Claude est injoignable
         (l'appelant peut alors se rabattre sur le chatbot d'InMoov2).
         """
         self.current_speaker = speaker
+        if not direct:
+            # entendu pendant la fenêtre de suite, sans « Kamil » : peut-être la télé ou la radio
+            text = "[Sans ton prénom : peut-être pas pour toi] " + text
         if speaker is not None:
             # reconnaissance des voix active : Claude sait qui parle (ou que la voix est inconnue)
             text = ("[Voix de %s] " % speaker if speaker else "[Voix inconnue] ") + text
         try:
-            return self._ask(text)
+            said = self._ask(text, adaptive=direct)
         finally:
             if self.wait_speech is not None:
                 self.wait_speech()   # tout est dit avant de réécouter
+        if said is not None and SILENCE in said:
+            log.info("Claude se tait : phrase qui ne lui est pas adressée")
+            return ""
+        return said
 
     def notice(self, event):
         """Ce que les caméras viennent de remarquer (reactions.py) : le robot réagit de lui-même.
@@ -521,7 +535,7 @@ class ClaudeBrain:
         try:
             for _ in range(self.cfg["max_tool_rounds"]):
                 t0 = time.monotonic()
-                # pas de « Alors… » pour une réaction spontanée (adaptive=False) : personne n'attend
+                # pas de « Alors… » pour une réaction spontanée ou une phrase peut-être pas pour lui
                 response = (self._create_streaming(filler=adaptive and not said_thinking and not spoken)
                             if self._streaming()
                             else self._create())
@@ -537,7 +551,7 @@ class ClaudeBrain:
                 if text_out:
                     log.info("Claude (%.1f s) : %s", time.monotonic() - t0, text_out)
                     spoken.append(text_out)
-                    if not self._streaming():   # en direct, c'est déjà en train d'être dit
+                    if not self._streaming() and SILENCE not in text_out:   # en direct : déjà en cours
                         self.speak(text_out)
 
                 tool_uses = [b for b in response.content if b.type == "tool_use"]
