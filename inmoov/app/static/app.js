@@ -70,7 +70,8 @@ loaders.dashboard = async () => {
       <div class="card"><h2>MyRobotLab</h2>
         <div class="row between"><span>${esc(s.mrl.url)}</span>${pill(s.mrl.ok, "connecté", "injoignable")}</div>
         ${s.mrl.ok ? `<p class="muted">Version ${esc(s.mrl.version)} · en marche depuis ${esc(s.mrl.uptime)}</p>` :
-          `<p class="muted">Démarrez MyRobotLab (myrobotlab.sh) puis InMoov2.</p>`}
+          `<p class="muted">MyRobotLab n'est pas lancé (il met 20 à 60 s à démarrer).</p>
+           <button data-dash-start="mrl">Démarrer MyRobotLab</button>`}
       </div>
       <div class="card"><h2>Matériel</h2>
         <div class="row between"><span>Coral USB</span>${pill(s.coral, "détecté", "absent")}</div>
@@ -926,7 +927,15 @@ $("#legs-poses").addEventListener("click", (e) => {
   });
 });
 
-$("#dash-cards").addEventListener("click", (e) => { if (e.target.dataset.goto) showTab(e.target.dataset.goto); });
+$("#dash-cards").addEventListener("click", (e) => {
+  if (e.target.dataset.goto) showTab(e.target.dataset.goto);
+  const name = e.target.dataset.dashStart;
+  if (name) withButton(e.target, async () => {
+    const r = await api("POST", `/api/programs/${name}/start`);
+    toast("MyRobotLab : " + r.results[name] + " (patientez 20 à 60 s)");
+    setTimeout(() => loaders.dashboard(), 20000);
+  });
+});
 
 // ------------------------------------------------------------ programmes (sans systemd)
 let logsTimer = null;
@@ -1098,13 +1107,13 @@ $("#bench-status").addEventListener("click", (e) => {
     const out = $("#bench-prog-log");
     try {
       const r = await api("POST", `/api/programs/${name}/start`);
-      toast(r.results[name] + " : on vérifie dans 8 s…");
+      toast(r.results[name] + (name === "mrl" ? " : MyRobotLab met 20 à 60 s à démarrer…" : " : on vérifie dans 8 s…"));
     } catch (err) {                       // ex. environnement Python absent : la raison s'affiche
       out.textContent = err.message;
       out.classList.remove("hidden");
       return;
     }
-    await new Promise((ok) => setTimeout(ok, 8000));
+    await new Promise((ok) => setTimeout(ok, name === "mrl" ? 15000 : 8000));
     const p = (await api("GET", "/api/programs")).programs[name];
     if (p.running) { out.classList.add("hidden"); toast(p.label + " : en marche"); benchRefresh(); return; }
     // le programme s'est arrêté tout de suite : on montre la fin de son journal
@@ -1121,6 +1130,7 @@ async function benchRefresh() {
   const v = s.vision;
   $("#bench-status").innerHTML = [
     pill(s.mrl, "MyRobotLab connecté", "MyRobotLab injoignable"),
+    s.mrl ? "" : '<button class="ghost" data-bench-start="mrl">Démarrer MyRobotLab</button>',
     pill(s.voice, "voix lancée", "voix arrêtée"),
     s.voice ? "" : '<button class="ghost" data-bench-start="voice">Démarrer la voix</button>',
     pill(s.tracker, "suivi de visage lancé", "suivi de visage arrêté"),

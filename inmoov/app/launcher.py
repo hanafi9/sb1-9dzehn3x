@@ -68,11 +68,14 @@ class Launcher:
         prog = PROGRAMS[name]
         if prog.get("kind") == "mrl":
             folder = self.mrl_dir()
+            args = (self.mrl_args() or "").split()
             script = os.path.join(folder, "myrobotlab.sh")
-            if not os.path.isfile(script):
-                raise ValueError("myrobotlab.sh introuvable dans %s (onglet Réglages : dossier de MyRobotLab)"
-                                 % (folder or "?"))
-            return ["/bin/bash", script] + (self.mrl_args() or "").split(), folder
+            if os.path.isfile(script):
+                return ["/bin/bash", script] + args, folder
+            if os.path.isfile(os.path.join(folder, "myrobotlab.jar")):   # installation sans le script
+                return ["java", "-jar", "myrobotlab.jar"] + args, folder
+            raise ValueError("ni myrobotlab.sh ni myrobotlab.jar dans %s (onglet Réglages : dossier de MyRobotLab)"
+                             % (folder or "?"))
         python = os.path.join(self.root, prog["venv"], "bin", "python")
         if not os.path.isfile(python):
             raise ValueError("environnement %s absent : programme pas encore installé (voir README)" % prog["venv"])
