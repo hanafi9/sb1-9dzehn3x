@@ -201,6 +201,18 @@ class ChatbotTest(unittest.TestCase):
         lst._maybe_react()
         self.assertEqual(guard, [True])
 
+    def test_second_kamil_is_detected(self):
+        import os
+        import tempfile
+        proc = tempfile.mkdtemp()
+        for pid, argv in ((101, ["../.venv-voice/bin/python", "speech_listener.py", "--config", "x"]),
+                          (102, ["nano", "speech_listener.py"]),
+                          (os.getpid(), ["python3", "speech_listener.py"])):
+            os.makedirs(os.path.join(proc, str(pid)))
+            with open(os.path.join(proc, str(pid), "cmdline"), "wb") as f:
+                f.write(b"\0".join(a.encode() for a in argv) + b"\0")
+        self.assertEqual(speech_listener.other_listeners(proc), [101])     # ni nano, ni soi-même
+
     def test_claude_silence_closes_the_window(self):
         tts = FakeTts()
         lst = listener(tts, wake_words=["kamil"])

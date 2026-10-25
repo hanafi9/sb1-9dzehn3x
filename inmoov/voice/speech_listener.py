@@ -625,6 +625,27 @@ class Listener:
         threading.Thread(target=lambda: log.info("Alerte envoyée au téléphone : %s", home.call_service(
             domain, name, {"title": "Kamil – mode garde", "message": alert})[1]), daemon=True).start()
 
+def other_listeners(proc_dir="/proc"):
+    """Numéros des autres speech_listener.py en marche (Linux), pour ne pas en lancer un deuxième."""
+    found = []
+    try:
+        entries = os.listdir(proc_dir)
+    except OSError:
+        return found
+    for entry in entries:
+        if not entry.isdigit() or int(entry) == os.getpid():
+            continue
+        try:
+            with open(os.path.join(proc_dir, entry, "cmdline"), "rb") as f:
+                argv = [a.decode("utf-8", "replace") for a in f.read().split(b"\0") if a]
+        except OSError:
+            continue
+        if (len(argv) > 1 and "python" in os.path.basename(argv[0])
+                and any(os.path.basename(a) == "speech_listener.py" for a in argv[1:3]) and "--list-devices" not in argv):
+            found.append(int(entry))
+    return sorted(found)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--config", default=os.path.join(os.path.dirname(__file__), "..", "config.json"))
@@ -640,6 +661,13 @@ def main():
         print(sd.query_devices())
         return 0
 
+    other = other_listeners()
+    if other:
+        # deux Kamil se disputeraient le micro (erreur PortAudio « Invalid number of channels »)
+        log.error("Kamil tourne déjà (processus %s, lancé par l'Atelier ou dans un autre terminal). "
+                  "Arrêtez-le d'abord : Atelier → Services → « Kamil : voix et IA » → Arrêter, "
+                  "ou : pkill -f speech_listener.py", ", ".join(map(str, other)))
+        return 1
     cfg = load_config(args.config)
     base = os.path.dirname(os.path.abspath(args.config))
     # chemins relatifs = relatifs au dossier de config.json
