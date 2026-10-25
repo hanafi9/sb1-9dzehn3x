@@ -255,6 +255,11 @@ def main():
                             "people": max(len(faces), sum(1 for o in objects if o["label"] == "personne"),
                                           1 if tracked else 0),
                             "tracking": tracked,
+                            # ce que la tête suit, et la zone centrale où elle ne bouge plus (Atelier)
+                            "target_box": [round(target[0] / w, 3), round(target[1] / h, 3),
+                                           round(target[2] / w, 3), round(target[3] / h, 3)]
+                                          if target is not None else None,
+                            "deadband": [vcfg["pan"].get("deadband", 0.0), vcfg["tilt"].get("deadband", 0.0)],
                             "motion": moving0,
                             "camera2": {"objects": objects2, "motion": moving2} if cam2 is not None else None,
                         })

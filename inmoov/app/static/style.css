@@ -266,18 +266,18 @@ a.button.ghost { background: transparent; color: var(--accent); }
 .bench-servo button.mark.on-bad { background: var(--bad); border-color: var(--bad); color: #fff; }
 .bench-cams { display: grid; gap: .8rem; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
 .bench-cams figure { margin: 0; }
-.bench-cams .cam { position: relative; aspect-ratio: 4 / 3; background: #000; border-radius: 8px; overflow: hidden; }
-.bench-cams img, .bench-cams canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
-.bench-cams .cam-off { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+.bench-cams .cam, .kamil-cams .cam { position: relative; aspect-ratio: 4 / 3; background: #000; border-radius: 8px; overflow: hidden; }
+.bench-cams img, .bench-cams canvas, .kamil-cams img, .kamil-cams canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.bench-cams .cam-off, .kamil-cams .cam-off { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
   color: #cbd5e1; font-size: .9rem; text-align: center; padding: 1rem; }
-.bench-cams .cam.live .cam-off { display: none; }
+.bench-cams .cam.live .cam-off, .kamil-cams .cam.live .cam-off { display: none; }
 .bench-cams figcaption { font-size: .85rem; margin-top: .3rem; }
 .meter { flex: 1; min-width: 120px; height: .8rem; background: var(--border); border-radius: 999px; overflow: hidden; }
 .meter > div { height: 100%; width: 0; background: var(--ok); transition: width .3s; }
 .bench-grid.wide-first { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); }
 @media (max-width: 760px) { .bench-grid.wide-first { grid-template-columns: minmax(0, 1fr); } }
 #bench-say { flex: 1; min-width: 0; }
-.bench-cams .cam:not(.live) img, .bench-cams .cam:not(.live) canvas { visibility: hidden; }
+.bench-cams .cam:not(.live) img, .bench-cams .cam:not(.live) canvas, .kamil-cams .cam:not(.live) img, .kamil-cams .cam:not(.live) canvas { visibility: hidden; }
 
 /* ------------------------------------------------------------ Kamil (interface interactive) */
 .kamil-layout { display: grid; gap: 1rem; grid-template-columns: minmax(300px, 420px) 1fr; align-items: start; }
@@ -348,7 +348,7 @@ a.button.ghost { background: transparent; color: var(--accent); }
 .kamil-stage[data-state="thinking"] .kamil-dots { opacity: 1; }
 @keyframes kamil-dot { 0%,100% { transform: translateY(0); opacity: .4; } 50% { transform: translateY(-7px); opacity: 1; } }
 
-.kamil-name { margin: 1rem 0 .1rem; font-size: 1.8rem; letter-spacing: .04em; }
+.kamil-name { margin: 1.5rem 0 .1rem; font-size: 1.8rem; letter-spacing: .04em; }
 .kamil-status { margin: 0; color: color-mix(in srgb, var(--k) 60%, #ffffff); font-weight: 600; }
 .kamil-sleep {
   position: absolute; inset: 0; z-index: 2; display: grid; place-content: center; gap: .75rem;
@@ -372,7 +372,13 @@ a.button.ghost { background: transparent; color: var(--accent); }
 .kamil-switch input:checked + .slider { background: var(--bad); }
 .kamil-switch input:checked + .slider::after { transform: translateX(18px); }
 
-.kamil-eye-card img { width: 100%; border-radius: 12px; display: block; margin-top: .5rem; background: #000; aspect-ratio: 4 / 3; object-fit: cover; }
+.kamil-cams { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; margin-top: .4rem; }
+.kamil-cams figure { margin: 0; cursor: zoom-in; }
+.kamil-cams figure.big { grid-column: 1 / -1; cursor: zoom-out; }
+.kamil-cams figcaption { font-size: .8rem; color: var(--muted); margin-top: .2rem; }
+.kamil-legend { display: flex; flex-wrap: wrap; align-items: center; gap: .2rem .55rem; font-size: .78rem; color: var(--muted); margin: .5rem 0 .2rem; }
+.kamil-legend .sw { width: 12px; height: 12px; border-radius: 3px; border: 2px solid var(--c); display: inline-block; margin-right: -.3rem; }
+.kamil-legend .sw.dash { border: 2px dashed #e5e7eb; }
 
 .kamil-chat { display: flex; flex-direction: column; min-height: 640px; margin-bottom: 0; }
 .kamil-bubbles {
@@ -419,11 +425,11 @@ body.kiosk .kiosk-tools a { text-decoration: none; padding: .4rem .7rem; border-
 body.kiosk .kamil-layout { height: 100%; grid-template-columns: minmax(340px, 40%) 1fr; }
 body.kiosk .kamil-left { height: 100%; grid-template-rows: 1fr auto auto; min-height: 0; }
 body.kiosk .kamil-stage { display: flex; flex-direction: column; justify-content: center; min-height: 0; }
-body.kiosk .kamil-ring { width: min(34vh, 320px); height: min(34vh, 320px); }
-body.kiosk .kamil-face { width: min(26vh, 240px); }
-body.kiosk .kamil-name { font-size: 2.4rem; margin-top: 1.6rem; }
+body.kiosk .kamil-ring { width: min(25vh, 300px); height: min(25vh, 300px); }
+body.kiosk .kamil-face { width: min(17vh, 220px); margin-top: 6px; }
+body.kiosk .kamil-name { font-size: clamp(1.6rem, 3.6vh, 2.4rem); margin-top: 1.4rem; }
 body.kiosk .kamil-status { font-size: 1.15rem; }
-body.kiosk .kamil-eye-card img { max-height: 22vh; aspect-ratio: auto; }
+
 body.kiosk .kamil-chat { height: 100%; min-height: 0; }
 body.kiosk .kamil-bubbles { max-height: none; min-height: 0; }
 body.kiosk .bubble { font-size: 1.12rem; }
@@ -436,7 +442,6 @@ body.kiosk .kamil-input input { font-size: 1.1rem; padding: .8rem 1rem; }
   body.kiosk .kamil-ring { width: min(22vh, 260px); height: min(22vh, 260px); }
   body.kiosk .kamil-face { width: min(17vh, 190px); }
   body.kiosk .kamil-name { font-size: 1.9rem; margin-top: 1rem; }
-  body.kiosk .kamil-eye-card img { max-height: 13vh; }
 }
 @media (max-width: 600px) and (orientation: portrait) {
   /* téléphone : la page défile, la conversation garde de la place */

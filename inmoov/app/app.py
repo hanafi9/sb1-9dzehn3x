@@ -817,7 +817,13 @@ def create_app(data_dir=None, run=None, mrl=None):
         vision = bench.read_vision_state(bench.vision_paths(cfg, base)["state"])
         people = max(int((vision or {}).get("faces") or 0), int((vision or {}).get("people") or 0)) if vision else None
         objects = sorted({o.get("label") for o in (vision or {}).get("objects") or [] if o.get("label")})
+        paths = bench.vision_paths(cfg, base)
+        cameras = []
+        for n in (0, 1):
+            age = bench.file_age(paths[n])
+            cameras.append({"id": n, "live": age is not None and age < 5})
         return jsonify({"ok": True, "alive": alive, "state": data.get("etat", "idle") if alive else "off",
+                        "vision": vision, "cameras": cameras,
                         "history": data.get("history", []), "voix": data.get("voix"),
                         "journal": data.get("journal"), "garde": data.get("garde"),
                         "mood": mood, "people": people, "objects": objects[:8],

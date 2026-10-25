@@ -62,6 +62,7 @@ function kamilTime(t) {
 async function kamilRefresh() {
   let k;
   try { k = await api("GET", "/api/kamil"); } catch (e) { return; }
+  kamil.state = k;
   const stage = $("#kamil-stage");
   stage.dataset.state = k.state;
   $("#kamil-name").textContent = k.name;
@@ -93,7 +94,7 @@ async function kamilRefresh() {
   }
   const guard = $("#kamil-guard");
   if (document.activeElement !== guard && k.garde !== undefined && k.garde !== null) guard.checked = !!k.garde;
-  $("#kamil-seen").textContent = k.objects && k.objects.length ? k.objects.join(", ") : "";
+  $("#kamil-seen").textContent = k.objects && k.objects.length ? "Je vois : " + k.objects.join(", ") : "";
 
   // conversation
   const h = k.history || [];
@@ -111,23 +112,27 @@ async function kamilRefresh() {
 }
 
 function kamilCamera() {
-  const img = $("#kamil-cam");
-  const probe = new Image();
-  probe.onload = () => { img.src = probe.src; img.classList.remove("hidden"); $("#kamil-nocam").classList.add("hidden"); };
-  probe.onerror = () => { img.classList.add("hidden"); $("#kamil-nocam").classList.remove("hidden"); };
-  probe.src = "/api/bench/camera/0.jpg?t=" + Date.now();
+  for (const fig of document.querySelectorAll(".kamil-cams figure")) {
+    const n = fig.dataset.kcam;
+    const cam = (kamil.state?.cameras || [])[n];
+    if (!cam || !cam.live) { $(".cam", fig).classList.remove("live"); continue; }
+    const img = new Image();   // préchargée : pas de clignotement
+    img.onload = () => {
+      $("img", fig).src = img.src;
+      $(".cam", fig).classList.add("live");
+      drawVision($("canvas", fig), kamil.state?.vision, n, img.naturalWidth, img.naturalHeight, $("#kamil-boxes").checked);
+    };
+    img.src = `/api/bench/camera/${n}.jpg?t=${Date.now()}`;
+  }
 }
 
 loaders.kamil = () => {
   kamil.lastCount = -1;
-  kamilRefresh();
-  kamilCamera();
+  kamilRefresh().then(kamilCamera);
   clearInterval(kamil.timer);
-  let n = 0;
   kamil.timer = setInterval(() => {
     if (currentTab !== "kamil") return clearInterval(kamil.timer);
-    kamilRefresh();
-    if (++n % 2 === 0) kamilCamera();     // une image toutes les 2 s
+    kamilRefresh().then(kamilCamera);     // une image par seconde, cadres à jour
   }, 1000);
 };
 
@@ -150,6 +155,14 @@ $("#kamil-suggest").addEventListener("click", (e) => {
   kamil.mode = "question";
   kamilSend(e.target.textContent).finally(() => { kamil.mode = keep; });
 });
+// un clic sur une caméra l'agrandit (un autre la réduit)
+document.querySelectorAll(".kamil-cams figure").forEach((fig) => fig.addEventListener("click", () => {
+  const big = !fig.classList.contains("big");
+  document.querySelectorAll(".kamil-cams figure").forEach((f) => f.classList.remove("big"));
+  fig.classList.toggle("big", big);
+  kamilCamera();
+}));
+$("#kamil-boxes").addEventListener("change", kamilCamera);
 document.querySelectorAll(".kamil-mode button").forEach((b) => b.addEventListener("click", () => {
   kamil.mode = b.dataset.mode;
   document.querySelectorAll(".kamil-mode button").forEach((x) => x.classList.toggle("on", x === b));
@@ -1329,19 +1342,22 @@ function benchCameras() {
 
 // Cadres des visages (vert) et des objets (bleu) détectés par le Coral, sur la caméra du suivi
 function benchBoxes(fig, n, natW, natH) {
-  const canvas = $("canvas", fig);
+  drawVision($("canvas", fig), bench.state?.vision, String(n), natW, natH, $("#bench-boxes").checked);
+}
+
+// Dessine sur l'image d'une caméra : zone centrale et cible suivies (caméra 1), visages, objets, mouvements
+function drawVision(canvas, v, n, natW, natH, show) {
   const w = canvas.width = canvas.clientWidth, h = canvas.height = canvas.clientHeight;
   const ctx = canvas.getContext("2d");
   ctx.clearRect(0, 0, w, h);
-  const v = bench.state?.vision;
-  if (!v || !$("#bench-boxes").checked || !natW) return;
+  if (!v || !show || !natW) return;
   const seen = n === "0" ? v : (v.camera2 || {});   // la 2e caméra a ses propres détections
   // l'image est centrée (object-fit: contain) : on calcule sa zone réelle
   const scale = Math.min(w / natW, h / natH);
   const iw = natW * scale, ih = natH * scale, ox = (w - iw) / 2, oy = (h - ih) / 2;
   const draw = (b, color, label) => {
     const [x0, y0, x1, y1] = b;
-    ctx.strokeStyle = color; ctx.lineWidth = 2;
+    ctx.strokeStyle = color; ctx.lineWidth = color === "#facc15" ? 3 : 2;
     ctx.strokeRect(ox + x0 * iw, oy + y0 * ih, (x1 - x0) * iw, (y1 - y0) * ih);
     ctx.font = "12px system-ui";
     const tx = ox + x0 * iw, ty = Math.max(0, oy + y0 * ih - 16);
@@ -1350,9 +1366,28 @@ function benchBoxes(fig, n, natW, natH) {
     ctx.fillStyle = "#fff";
     ctx.fillText(label, tx + 3, ty + 12);
   };
+  if (n === "0" && v.deadband) {
+    // zone centrale : quand la cible y est, la tête ne bouge plus
+    const [dx, dy] = v.deadband;
+    ctx.save();
+    ctx.setLineDash([6, 5]); ctx.strokeStyle = "rgba(229,231,235,.8)"; ctx.lineWidth = 1.5;
+    ctx.strokeRect(ox + (0.5 - dx / 2) * iw, oy + (0.5 - dy / 2) * ih, dx * iw, dy * ih);
+    ctx.setLineDash([]); ctx.beginPath();
+    ctx.moveTo(ox + iw / 2 - 8, oy + ih / 2); ctx.lineTo(ox + iw / 2 + 8, oy + ih / 2);
+    ctx.moveTo(ox + iw / 2, oy + ih / 2 - 8); ctx.lineTo(ox + iw / 2, oy + ih / 2 + 8);
+    ctx.stroke(); ctx.restore();
+  }
   ((seen.motion || {}).boxes || []).forEach((b) => draw(b, "#f97316", "mouvement"));
   (seen.objects || []).filter((o) => o.box).forEach((o) => draw(o.box, "#3b82f6", o.label));
   if (n === "0") (v.face_boxes || []).forEach((b) => draw(b, "#22c55e", `visage ${Math.round(b[4] * 100)} %`));
+  if (n === "0" && v.target_box) {
+    // la cible suivie, et le trait jusqu'au centre : ce que la tête cherche à rattraper
+    const [x0, y0, x1, y1] = v.target_box;
+    const cx = ox + (x0 + x1) / 2 * iw, cy = oy + (y0 + y1) / 2 * ih;
+    ctx.save(); ctx.lineWidth = 3; draw(v.target_box, "#facc15", "suivi : " + (v.tracking || "cible"));
+    ctx.strokeStyle = "rgba(250,204,21,.85)"; ctx.setLineDash([3, 4]); ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(ox + iw / 2, oy + ih / 2); ctx.lineTo(cx, cy); ctx.stroke(); ctx.restore();
+  }
 }
 
 function benchGroupStatus(g) {
