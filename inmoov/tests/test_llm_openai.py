@@ -69,6 +69,10 @@ class OpenAIBackupTest(unittest.TestCase):
         self.assertEqual((path, auth, body["model"]), ("/v1/chat/completions", "Bearer cle", "grok-test"))
         self.assertEqual(body["messages"][-1], {"role": "user", "content": "bonjour"})
         self.assertNotIn("tools", body)                          # pas de maison branchée
+        self.assertNotIn("reasoning_effort", body)
+        FakeOpenAI.replies = [answer("Coucou.")]
+        LocalBrain(dict(self.cfg, reasoning_effort="low"), "Kamil").ask("salut")
+        self.assertEqual(FakeOpenAI.seen[-1][2]["reasoning_effort"], "low")
 
     def test_home_assistant_tool(self):
         FakeOpenAI.replies = [

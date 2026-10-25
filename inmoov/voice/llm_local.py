@@ -4,8 +4,9 @@ Deux familles de serveurs :
 - "api": "ollama" (par défaut) : Ollama sur le Raspberry Pi 5 ou hailo-ollama sur l'AI HAT+ 2,
   sans Internet.  POST <url>/api/chat {"model", "messages", "stream": false}
 - "api": "openai" : tout service compatible OpenAI, en ligne :
-    OpenAI   : base_url https://api.openai.com/v1 , clé OPENAI_API_KEY
-    Grok/xAI : base_url https://api.x.ai/v1       , clé XAI_API_KEY
+    OpenAI   : base_url https://api.openai.com/v1      , clé OPENAI_API_KEY
+    Grok/xAI : base_url https://api.x.ai/v1            , clé XAI_API_KEY
+    Groq     : base_url https://api.groq.com/openai/v1 , clé GROQ_API_KEY (gratuit, avec limites)
   POST <base_url>/chat/completions ; la maison reste pilotable (outil home_assistant).
 
 Pas de vision ni de gestes ici : seulement parler, et agir sur la maison avec un service en ligne.
@@ -47,6 +48,8 @@ class LocalBrain:
         self.history = []
         self.max_turns = cfg.get("max_turns", 6)
         self.home = None        # HomeAssistant de Claude, si la maison est branchée
+        # modèles qui réfléchissent (ex. openai/gpt-oss-120b chez Groq) : "low" = réponse plus rapide
+        self.reasoning_effort = cfg.get("reasoning_effort")
 
     def name(self):
         return "%s (%s)" % (self.model, self.url)
@@ -87,6 +90,8 @@ class LocalBrain:
         messages = [{"role": "system", "content": system}] + list(self.history)
         for _ in range(4):   # au plus 3 commandes de maison enchaînées
             body = {"model": self.model, "messages": messages}
+            if self.reasoning_effort:
+                body["reasoning_effort"] = self.reasoning_effort
             if self.home is not None:
                 body["tools"] = [HOME_FUNCTION]
             msg = self._post("/chat/completions", body, {"Authorization": "Bearer " + key})["choices"][0]["message"]
