@@ -66,7 +66,17 @@ async function kamilRefresh() {
   stage.dataset.state = k.state;
   $("#kamil-name").textContent = k.name;
   $("#kamil-status").textContent = KAMIL_STATES[k.state] || k.state;
-  $("#kamil-sleep").classList.toggle("hidden", k.alive || k.voice_running);
+  // voix arrêtée, ou lancée mais muette depuis 30 s (ancienne version, bloquée) : on propose de la (re)lancer
+  if (k.alive) kamil.silentSince = null;
+  else if (k.voice_running && !kamil.silentSince) kamil.silentSince = Date.now();
+  const stuck = !k.alive && k.voice_running && Date.now() - kamil.silentSince > 30000;
+  kamil.alive = k.alive;
+  $("#kamil-sleep").classList.toggle("hidden", k.alive || (k.voice_running && !stuck));
+  $("#kamil-sleep-text").textContent = stuck
+    ? "Kamil est lancé mais ne répond pas à l'Atelier (ancienne version de sa voix ?)."
+    : "Kamil dort : sa voix n'est pas lancée.";
+  $("#kamil-wake").textContent = stuck ? "Redémarrer Kamil" : "Réveiller Kamil";
+  $("#kamil-wake").dataset.action = stuck ? "restart" : "start";
   if (!k.alive && k.voice_running) $("#kamil-status").textContent = "Je me réveille…";
 
   // infos : voix reconnue, personnes, dernier événement
@@ -124,6 +134,7 @@ loaders.kamil = () => {
 async function kamilSend(text) {
   text = text.trim();
   if (!text) return;
+  if (!kamil.alive) return toast("Kamil ne répond pas : redémarre sa voix (bouton sur son visage)", true);
   try {
     await api("POST", `/api/kamil/${kamil.mode}`, { value: text });
     $("#kamil-text").value = "";
@@ -151,7 +162,9 @@ $("#kamil-guard").addEventListener("change", async (e) => {
   catch (err) { toast(err.message, true); e.target.checked = !e.target.checked; }
 });
 $("#kamil-wake").addEventListener("click", (e) => withButton(e.target, async () => {
-  const r = await api("POST", "/api/programs/voice/start");
+  const action = e.target.dataset.action || "start";
+  const r = await api("POST", `/api/programs/voice/${action}`);
+  kamil.silentSince = null;
   toast("Kamil : " + r.results.voice + " (environ 10 s)");
 }));
 

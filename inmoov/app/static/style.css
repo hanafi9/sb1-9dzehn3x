@@ -298,38 +298,39 @@ a.button.ghost { background: transparent; color: var(--accent); }
 .kamil-stage[data-state="speaking"] { --k: #22c55e; }
 
 .kamil-ring {
-  position: relative; width: 210px; height: 210px; margin: .5rem auto 0; border-radius: 50%;
+  position: relative; width: 240px; height: 240px; margin: .5rem auto 0; border-radius: 50%;
   display: grid; place-items: center;
   background: radial-gradient(circle, color-mix(in srgb, var(--k) 22%, transparent) 0%, transparent 68%);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--k) 70%, transparent), 0 0 45px color-mix(in srgb, var(--k) 55%, transparent);
   animation: kamil-breathe 4s ease-in-out infinite; transition: box-shadow .5s;
 }
-.kamil-stage[data-state="off"] .kamil-ring { animation: none; opacity: .55; }
+.kamil-stage[data-state="off"] .kamil-ring { animation: none; opacity: .75; }
 @keyframes kamil-breathe { 0%,100% { transform: scale(1); } 50% { transform: scale(1.035); } }
 
-.kamil-head {
-  width: 132px; height: 120px; border-radius: 42% 42% 38% 38%;
-  background: linear-gradient(160deg, #f5f7fb, #c9d1e3); box-shadow: inset 0 -8px 16px rgba(0,0,0,.15), 0 6px 18px rgba(0,0,0,.35);
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+.kamil-face { width: 178px; height: auto; margin-top: 18px; overflow: visible;
+  filter: drop-shadow(0 10px 18px rgba(0,0,0,.45)); }
+.kamil-face .kf-iris-c { fill: var(--k); filter: drop-shadow(0 0 3px var(--k)); transition: fill .5s; }
+.kamil-face .kf-iris { transform-box: fill-box; transform-origin: center; animation: kf-gaze 9s ease-in-out infinite; }
+.kamil-face .kf-lid { transform-box: fill-box; transform-origin: top; transform: scaleY(0); animation: kf-blink 5.2s infinite; }
+.kamil-face .kf-jaw { transform-box: fill-box; transform-origin: top; transition: transform .25s; }
+@keyframes kf-blink { 0%, 93%, 100% { transform: scaleY(0); } 95.5% { transform: scaleY(1); } }
+@keyframes kf-gaze {
+  0%, 20% { transform: translate(0, 0); } 28%, 42% { transform: translate(-4px, 1px); }
+  50%, 64% { transform: translate(4px, 0); } 72%, 100% { transform: translate(0, 0); }
 }
-.kamil-eyes { display: flex; gap: 26px; }
-.kamil-eyes .eye {
-  width: 26px; height: 26px; border-radius: 50%; background: #0f172a; display: grid; place-items: center;
-  animation: kamil-blink 5.5s infinite; transform-origin: center;
-}
-.kamil-eyes .eye b { width: 9px; height: 9px; border-radius: 50%; background: var(--k); box-shadow: 0 0 10px var(--k); }
-.kamil-stage[data-state="off"] .kamil-eyes .eye { animation: none; transform: scaleY(.12); }
-.kamil-stage[data-state="thinking"] .kamil-eyes .eye b { transform: translate(5px, -5px); transition: transform .4s; }
-@keyframes kamil-blink { 0%,94%,100% { transform: scaleY(1); } 96% { transform: scaleY(.1); } }
-
-.kamil-mouth { display: flex; gap: 4px; align-items: center; height: 22px; }
-.kamil-mouth i { width: 6px; height: 4px; border-radius: 3px; background: #1e293b; }
-.kamil-stage[data-state="speaking"] .kamil-mouth i { background: var(--k); animation: kamil-talk .45s ease-in-out infinite alternate; }
-.kamil-mouth i:nth-child(2) { animation-delay: .1s !important; }
-.kamil-mouth i:nth-child(3) { animation-delay: .2s !important; }
-.kamil-mouth i:nth-child(4) { animation-delay: .05s !important; }
-.kamil-mouth i:nth-child(5) { animation-delay: .15s !important; }
-@keyframes kamil-talk { from { height: 4px; } to { height: 20px; } }
+@keyframes kf-talk { 0% { transform: translateY(0); } 50% { transform: translateY(9px); } 100% { transform: translateY(3px); } }
+@keyframes kf-glow { 0%, 100% { filter: drop-shadow(0 0 2px var(--k)); } 50% { filter: drop-shadow(0 0 9px var(--k)); } }
+/* éveillé : regarde droit devant, iris lumineux */
+.kamil-stage[data-state="awake"] .kf-iris { animation: none; transform: none; }
+.kamil-stage[data-state="awake"] .kf-iris-c { animation: kf-glow 1.4s ease-in-out infinite; }
+/* réfléchit : regarde en haut à droite */
+.kamil-stage[data-state="thinking"] .kf-iris { animation: none; transform: translate(4px, -3px); transition: transform .4s; }
+/* parle : la mâchoire bouge */
+.kamil-stage[data-state="speaking"] .kf-jaw { animation: kf-talk .32s ease-in-out infinite alternate; }
+.kamil-stage[data-state="speaking"] .kf-iris { animation: none; }
+/* endormi : yeux fermés, iris éteints */
+.kamil-stage[data-state="off"] .kf-lid { animation: none; transform: scaleY(1); }
+.kamil-stage[data-state="off"] .kamil-face { filter: drop-shadow(0 10px 18px rgba(0,0,0,.45)) grayscale(.6) brightness(.8); }
 
 .kamil-waves { position: absolute; inset: 0; pointer-events: none; }
 .kamil-waves span {
@@ -419,7 +420,7 @@ body.kiosk .kamil-layout { height: 100%; grid-template-columns: minmax(340px, 40
 body.kiosk .kamil-left { height: 100%; grid-template-rows: 1fr auto auto; min-height: 0; }
 body.kiosk .kamil-stage { display: flex; flex-direction: column; justify-content: center; min-height: 0; }
 body.kiosk .kamil-ring { width: min(34vh, 320px); height: min(34vh, 320px); }
-body.kiosk .kamil-head { transform: scale(1.35); }
+body.kiosk .kamil-face { width: min(26vh, 240px); }
 body.kiosk .kamil-name { font-size: 2.4rem; margin-top: 1.6rem; }
 body.kiosk .kamil-status { font-size: 1.15rem; }
 body.kiosk .kamil-eye-card img { max-height: 22vh; aspect-ratio: auto; }
@@ -433,7 +434,7 @@ body.kiosk .kamil-input input { font-size: 1.1rem; padding: .8rem 1rem; }
   body.kiosk .kamil-left { height: auto; grid-template-columns: 1.3fr 1fr; grid-template-rows: auto auto; }
   body.kiosk .kamil-stage { grid-row: span 2; padding: 1.2rem .5rem 1rem; }
   body.kiosk .kamil-ring { width: min(22vh, 260px); height: min(22vh, 260px); }
-  body.kiosk .kamil-head { transform: scale(1.1); }
+  body.kiosk .kamil-face { width: min(17vh, 190px); }
   body.kiosk .kamil-name { font-size: 1.9rem; margin-top: 1rem; }
   body.kiosk .kamil-eye-card img { max-height: 13vh; }
 }

@@ -43,16 +43,78 @@
         <div class="kamil-left">
           <div class="kamil-stage" id="kamil-stage" data-state="off">
             <div class="kamil-sleep hidden" id="kamil-sleep">
-              <p>Kamil dort : sa voix n'est pas lancée.</p>
+              <p id="kamil-sleep-text">Kamil dort : sa voix n'est pas lancée.</p>
               <button id="kamil-wake">Réveiller Kamil</button>
             </div>
             <div class="kamil-dots" aria-hidden="true"><i></i><i></i><i></i></div>
             <div class="kamil-ring" aria-hidden="true">
               <div class="kamil-waves"><span></span><span></span><span></span></div>
-              <div class="kamil-head">
-                <div class="kamil-eyes"><span class="eye"><b></b></span><span class="eye"><b></b></span></div>
-                <div class="kamil-mouth"><i></i><i></i><i></i><i></i><i></i></div>
-              </div>
+              <svg class="kamil-face" viewBox="0 0 200 250" role="img" aria-label="Visage de Kamil">
+                <defs>
+                  <radialGradient id="kf-skin" cx="42%" cy="30%" r="75%">
+                    <stop offset="0" stop-color="#ffffff"/><stop offset=".55" stop-color="#e9edf3"/>
+                    <stop offset="1" stop-color="#a9b2c2"/>
+                  </radialGradient>
+                  <linearGradient id="kf-side" x1="0" x2="1">
+                    <stop offset="0" stop-color="#8d97a8"/><stop offset=".5" stop-color="#d9dee7"/><stop offset="1" stop-color="#8d97a8"/>
+                  </linearGradient>
+                  <linearGradient id="kf-neck" x1="0" x2="1">
+                    <stop offset="0" stop-color="#4b5363"/><stop offset=".5" stop-color="#9aa3b3"/><stop offset="1" stop-color="#4b5363"/>
+                  </linearGradient>
+                  <radialGradient id="kf-socket" cx="50%" cy="40%" r="60%">
+                    <stop offset="0" stop-color="#3a4150"/><stop offset="1" stop-color="#151922"/>
+                  </radialGradient>
+                  <radialGradient id="kf-ball" cx="40%" cy="35%" r="65%">
+                    <stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#cfd6e2"/>
+                  </radialGradient>
+                  <clipPath id="kf-eye-l"><ellipse cx="70" cy="112" rx="17" ry="12"/></clipPath>
+                  <clipPath id="kf-eye-r"><ellipse cx="130" cy="112" rx="17" ry="12"/></clipPath>
+                </defs>
+                <!-- cou et épaules du casque -->
+                <path d="M78 206 h44 l6 44 h-56 z" fill="url(#kf-neck)"/>
+                <path d="M82 214 h36 M80 226 h40 M78 238 h44" stroke="#3b4250" stroke-width="2"/>
+                <!-- oreilles (capots latéraux) -->
+                <ellipse cx="22" cy="118" rx="13" ry="30" fill="url(#kf-side)"/>
+                <ellipse cx="178" cy="118" rx="13" ry="30" fill="url(#kf-side)"/>
+                <ellipse cx="22" cy="118" rx="5" ry="14" fill="#5b6475"/>
+                <ellipse cx="178" cy="118" rx="5" ry="14" fill="#5b6475"/>
+                <!-- crâne et visage -->
+                <path d="M100 8 C150 8 182 42 182 100 C182 140 172 160 160 176 L40 176 C28 160 18 140 18 100 C18 42 50 8 100 8 Z"
+                      fill="url(#kf-skin)"/>
+                <!-- jointures de l'impression 3D -->
+                <path d="M100 10 V60 M40 46 C70 36 130 36 160 46" stroke="#b8c0cd" stroke-width="1.4" fill="none"/>
+                <!-- arcades sourcilières -->
+                <path d="M46 96 C58 84 84 84 94 96" stroke="#9aa3b2" stroke-width="4" fill="none" stroke-linecap="round"/>
+                <path d="M106 96 C116 84 142 84 154 96" stroke="#9aa3b2" stroke-width="4" fill="none" stroke-linecap="round"/>
+                <!-- yeux : orbites, globes, iris (caméras), paupières -->
+                <ellipse cx="70" cy="112" rx="19" ry="14" fill="url(#kf-socket)"/>
+                <ellipse cx="130" cy="112" rx="19" ry="14" fill="url(#kf-socket)"/>
+                <g clip-path="url(#kf-eye-l)">
+                  <ellipse cx="70" cy="112" rx="17" ry="12" fill="url(#kf-ball)"/>
+                  <g class="kf-iris"><circle cx="70" cy="112" r="7.5" class="kf-iris-c"/><circle cx="70" cy="112" r="3.2" fill="#05070b"/>
+                    <circle cx="67.5" cy="109.5" r="1.6" fill="#fff" opacity=".9"/></g>
+                  <rect class="kf-lid" x="50" y="98" width="40" height="28" fill="#dfe4ec"/>
+                </g>
+                <g clip-path="url(#kf-eye-r)">
+                  <ellipse cx="130" cy="112" rx="17" ry="12" fill="url(#kf-ball)"/>
+                  <g class="kf-iris"><circle cx="130" cy="112" r="7.5" class="kf-iris-c"/><circle cx="130" cy="112" r="3.2" fill="#05070b"/>
+                    <circle cx="127.5" cy="109.5" r="1.6" fill="#fff" opacity=".9"/></g>
+                  <rect class="kf-lid" x="110" y="98" width="40" height="28" fill="#dfe4ec"/>
+                </g>
+                <!-- nez -->
+                <path d="M100 104 C97 122 92 134 92 140 C96 144 104 144 108 140 C108 134 103 122 100 104 Z" fill="#cdd3de"/>
+                <path d="M92 140 C96 144 104 144 108 140" stroke="#97a0b0" stroke-width="1.6" fill="none"/>
+                <!-- lèvre du haut -->
+                <path d="M74 158 C88 152 112 152 126 158 C112 162 88 162 74 158 Z" fill="#b9c1ce"/>
+                <!-- bouche (intérieur) visible quand la mâchoire s'ouvre -->
+                <path d="M78 160 C90 158 110 158 122 160 L120 172 C108 176 92 176 80 172 Z" fill="#141821"/>
+                <!-- mâchoire mobile -->
+                <g class="kf-jaw">
+                  <path d="M40 160 L160 160 C158 186 140 206 100 210 C60 206 42 186 40 160 Z" fill="url(#kf-skin)"/>
+                  <path d="M78 162 C90 166 110 166 122 162" stroke="#97a0b0" stroke-width="2" fill="none" stroke-linecap="round"/>
+                  <path d="M60 196 C80 206 120 206 140 196" stroke="#b8c0cd" stroke-width="1.4" fill="none"/>
+                </g>
+              </svg>
             </div>
             <h1 class="kamil-name" id="kamil-name">Kamil</h1>
             <p class="kamil-status" id="kamil-status">…</p>
