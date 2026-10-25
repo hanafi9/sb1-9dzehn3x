@@ -195,6 +195,19 @@ class StreamTest(unittest.TestCase):
         self.assertIn("[silence]", self.requests[0]["system"][0]["text"] if isinstance(
             self.requests[0]["system"], list) else self.requests[0]["system"])
 
+    def test_out_of_credit_is_said_clearly(self):
+        body = json.dumps({"type": "error", "error": {"type": "invalid_request_error", "message":
+                           "Your credit balance is too low to access the Anthropic API."}})
+        client = anthropic.Anthropic(api_key="test", max_retries=0, http_client=httpx.Client(
+            transport=httpx.MockTransport(lambda r: httpx.Response(400, content=body,
+                                                                   headers={"content-type": "application/json"}))))
+        b = ClaudeBrain(self.cfg, lambda *a: (True, None), lambda t: self.events.append(("dit (bloquant)", t)),
+                        client=client)
+        self.assertEqual(b.ask("bonjour"), "crédit épuisé")         # pas de chatbot de secours ensuite
+        self.assertIn("recharger le compte Anthropic", self.events[-1][1])
+        b.ask("tu m'entends ?")
+        self.assertEqual(self.events[-1][1], "Toujours plus de crédit, désolé.")
+
     def test_no_silence_when_called_by_name(self):
         b = self.make([stream_body([("text", ["[silence]"])], "end_turn")])
         said = b.ask("sait bien")

@@ -227,14 +227,23 @@ class Listener:
             # micro trop faible : la phrase est remontée à un bon niveau avant Whisper
             audio = normalize_peak(audio, max_gain=self.cfg.get("auto_gain_max", 20.0))
         self._last_audio = audio   # pour reconnaître la voix si la phrase s'adresse au robot
+        local = None
         if getattr(self, "cloud", None) is not None:
             from cloud_stt import CloudError
 
+            if (self.cfg.get("cloud_stt") or {}).get("save_quota") and time.monotonic() >= self.awake_until:
+                # télé allumée toute la journée : le Pi écoute d'abord, et seules les phrases
+                # avec « Kamil » partent en ligne (le quota gratuit de Groq est de 2000 phrases/jour)
+                local = self._whisper(self.model, audio, self.cfg["beam_size"])
+                heard = (local[0] + " " + local[2]).strip()
+                if not (strip_wake_word(heard, self.cfg["wake_words"])[0]
+                        or find_wake_word_anywhere(heard, self.cfg["wake_words"], threshold=0.75) is not None):
+                    return local[0]
             try:
                 return self.cloud.transcribe(audio)
             except CloudError as e:
                 log.warning("Reconnaissance en ligne impossible (%s) : Whisper du Pi", e)
-        text, confidence, doubtful = self._whisper(self.model, audio, self.cfg["beam_size"])
+        text, confidence, doubtful = local or self._whisper(self.model, audio, self.cfg["beam_size"])
         threshold = self.cfg.get("fallback_below_confidence", -0.45)
         # le 2e modèle ne sert que pour une phrase adressée au robot (mot de réveil, ou conversation
         # en cours) : inutile de perdre 5 s sur un bruit ou une discussion qui ne le concerne pas
@@ -445,6 +454,10 @@ class Listener:
             self._follow_up(question=isinstance(said, str) and said.rstrip().endswith("?"))
             return
 
+        if not self.cfg.get("chatbot_fallback", True):
+            log.warning("Pas de réponse (chatbot d'InMoov2 désactivé)")
+            self.say("Désolé, mon cerveau ne répond pas pour l'instant.")
+            return
         log.warning("On utilise le chatbot d'InMoov2")
 
         resp = self._call(self.cfg["chatbot_service"], self.cfg["chatbot_method"], text)

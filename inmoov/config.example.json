@@ -164,7 +164,9 @@
       "provider": "groq",
       "model": null,
       "language": "fr",
-      "timeout_s": 6
+      "timeout_s": 6,
+      "_save_quota_aide": "save_quota : le Pi transcrit d'abord ; seules les phrases avec « Kamil » (ou pendant une conversation) partent en ligne. Utile si la télé est souvent allumée (quota gratuit Groq : 2000 phrases par jour). Un peu plus lent pour la 1re phrase.",
+      "save_quota": false
     },
     "speaker_id": {
       "enabled": false,
@@ -206,6 +208,8 @@
     "_follow_up_max_audio_aide": "Sans « Kamil », une phrase plus longue que ça (en secondes) est prise pour la télé ou la radio et ignorée ; Claude se tait aussi s'il juge que ce n'était pas pour lui.",
     "follow_up_max_audio_s": 8,
     "vocabulary": "InMoov, MyRobotLab, Raspberry, bonjour, au revoir, regarde, gauche, droite, haut, bas, main, bras, tête",
+    "_chatbot_aide": "chatbot_fallback : si Claude ne répond pas, demander au chatbot d'InMoov2 (il répond en anglais) ; false = Kamil dit simplement qu'il ne peut pas répondre.",
+    "chatbot_fallback": true,
     "chatbot_service": "i01.chatBot",
     "chatbot_method": "getResponse",
     "mouth_service": "i01.mouth",

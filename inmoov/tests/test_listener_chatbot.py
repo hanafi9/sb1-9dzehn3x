@@ -53,6 +53,17 @@ def listener(tts, dry_run=False, wake_words=()):
 
 @unittest.skipIf(speech_listener is None, "numpy absent")
 class ChatbotTest(unittest.TestCase):
+    def test_chatbot_zero_and_disabled_chatbot(self):
+        tts = FakeTts()
+        lst = listener(tts)
+        lst.mrl = FakeMrl("0")                      # le chatbot n'a pas de réponse : on ne dit pas « zéro »
+        lst.handle("traduis la télé")
+        self.assertEqual(tts.said, [])
+        lst.cfg["chatbot_fallback"] = False         # chatbot anglais désactivé : phrase claire en français
+        lst.handle("bonjour")
+        self.assertEqual(tts.said, ["Désolé, mon cerveau ne répond pas pour l'instant."])
+        self.assertEqual(len(lst.mrl.calls), 1)
+
     def test_piper_speaks_chatbot_reply(self):
         tts = FakeTts()
         lst = listener(tts)

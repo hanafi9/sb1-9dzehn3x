@@ -603,6 +603,15 @@ class ClaudeBrain:
         except anthropic.APIStatusError as e:
             log.error("Erreur API Claude %s : %s", e.status_code, e.message)
             self.reset(summarize=False)
+            if "credit balance" in str(e.message).lower():
+                # compte Anthropic à recharger : inutile de répondre au hasard par le chatbot
+                now = time.monotonic()
+                if now - getattr(self, "_credit_warned", -1e9) > 600:
+                    self._credit_warned = now
+                    self.speak("Mon cerveau en ligne n'a plus de crédit. Il faut recharger le compte Anthropic.")
+                else:
+                    self.speak("Toujours plus de crédit, désolé.")
+                return "crédit épuisé"
             return None
         return " ".join(spoken)
 

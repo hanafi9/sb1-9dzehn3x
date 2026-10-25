@@ -59,6 +59,8 @@ def clean_chatbot_reply(reply):
         return None
     text = html.unescape(re.sub(r"<[^>]*>", " ", reply))
     text = re.sub(r"\s+([.,])", r"\1", re.sub(r"\s+", " ", text)).strip()
+    if re.fullmatch(r"[\d\s.,]*", text):   # « 0 » : le chatbot n'a pas de réponse
+        return None
     return text or None
 
 

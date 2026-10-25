@@ -102,6 +102,30 @@ class CloudSTTTest(unittest.TestCase):
         lst.cloud = CloudTranscriber(dict(self.cfg, base_url="http://127.0.0.1:9/v1", timeout_s=1))
         self.assertEqual(lst.transcribe(pcm), "texte du Pi")                      # secours local
 
+    def test_save_quota_sends_only_phrases_for_kamil(self):
+        for name in ("sounddevice", "webrtcvad", "faster_whisper"):
+            sys.modules.setdefault(name, types.ModuleType(name))
+        sys.modules["faster_whisper"].WhisperModel = object
+        import speech_listener
+        lst = object.__new__(speech_listener.Listener)
+        lst.cfg = {"language": "fr", "beam_size": 1, "max_no_speech_prob": 0.6, "min_avg_logprob": -1.0,
+                   "wake_words": ["kamil", "camille"], "cloud_stt": {"save_quota": True}}
+        lst.awake_until, lst.fallback_model = 0.0, None
+        heard = ["les informations de midi, la météo"]
+        lst.model = types.SimpleNamespace(transcribe=lambda audio, **kw: (
+            [types.SimpleNamespace(text=heard[0], avg_logprob=-0.2, no_speech_prob=0.0)], None))
+        sent = []
+        lst.cloud = types.SimpleNamespace(transcribe=lambda audio: sent.append(1) or "Kamil, quelle heure est-il ?")
+        pcm = (np.ones(16000, dtype=np.int16) * 2000).tobytes()
+        self.assertEqual(lst.transcribe(pcm), "les informations de midi, la météo")   # télé : reste sur le Pi
+        self.assertEqual(sent, [])
+        heard[0] = "Camille, quelle heure il est"
+        self.assertEqual(lst.transcribe(pcm), "Kamil, quelle heure est-il ?")         # pour Kamil : en ligne
+        heard[0] = "et la suite"
+        lst.awake_until = speech_listener.time.monotonic() + 10                        # conversation en cours
+        lst.transcribe(pcm)
+        self.assertEqual(len(sent), 2)
+
 
 if __name__ == "__main__":
     unittest.main()
