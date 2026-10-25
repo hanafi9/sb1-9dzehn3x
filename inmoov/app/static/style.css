@@ -431,10 +431,13 @@ body.kiosk .kamil-layout { height: 100%; grid-template-columns: minmax(340px, 40
 body.kiosk .kamil-left { height: 100%; grid-template-rows: minmax(0, 1fr) auto; min-height: 0; }
 body.kiosk .kamil-eye-card { padding-top: .6rem; padding-bottom: .5rem; }
 body.kiosk .kamil-eye-card h2 { margin: 0; }
-body.kiosk .kamil-cams { grid-template-columns: repeat(2, auto); justify-content: center; gap: 1.5rem; }
-body.kiosk .kamil-cams .cam { height: 26vh; width: auto; max-width: 100%; }
+/* kiosque : les deux caméras couvrent toute la largeur (l'image remplit son cadre, un peu rognée) */
+body.kiosk .kamil-cams { grid-template-columns: 1fr 1fr; gap: .75rem; }
+body.kiosk .kamil-cams .cam { height: 34vh; width: 100%; aspect-ratio: auto; max-height: none; }
+body.kiosk .kamil-cams img { object-fit: cover; }
+body.kiosk .kamil-cams figcaption { display: none; }
 body.kiosk .kamil-cams figure.big { grid-column: 1 / -1; }
-body.kiosk .kamil-cams figure.big .cam { height: 52vh; max-height: none; }
+body.kiosk .kamil-cams figure.big .cam { height: 60vh; }
 body.kiosk #kamil-seen { display: none; }
 body.kiosk .kamil-legend { margin: .3rem 0 0; }
 @media (max-height: 900px) and (orientation: landscape) {
@@ -457,7 +460,7 @@ body.kiosk .kamil-input input { font-size: 1.1rem; padding: .8rem 1rem; }
   body.kiosk .kamil-layout { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr) auto; }
   body.kiosk .kamil-left { height: auto; grid-template-columns: 1.3fr 1fr; grid-template-rows: auto; }
   body.kiosk .kamil-stage { padding: 1.2rem .5rem 1rem; }
-  body.kiosk .kamil-cams .cam { height: 18vh; }
+  body.kiosk .kamil-cams .cam { height: 20vh; }
   body.kiosk .kiosk-tools { top: auto; bottom: .7rem; }
   body.kiosk .kamil-ring { width: min(22vh, 260px); height: min(22vh, 260px); }
   body.kiosk .kamil-face { width: min(17vh, 190px); }

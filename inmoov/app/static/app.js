@@ -1383,8 +1383,10 @@ function drawVision(canvas, v, n, natW, natH, show) {
   ctx.clearRect(0, 0, w, h);
   if (!v || !show || !natW) return;
   const seen = n === "0" ? v : (v.camera2 || {});   // la 2e caméra a ses propres détections
-  // l'image est centrée (object-fit: contain) : on calcule sa zone réelle
-  const scale = Math.min(w / natW, h / natH);
+  // zone réelle de l'image : entière et centrée (contain), ou remplissant le cadre en débordant (cover, kiosque)
+  const img = canvas.parentElement.querySelector("img");
+  const cover = img && getComputedStyle(img).objectFit === "cover";
+  const scale = cover ? Math.max(w / natW, h / natH) : Math.min(w / natW, h / natH);
   const iw = natW * scale, ih = natH * scale, ox = (w - iw) / 2, oy = (h - ih) / 2;
   const draw = (b, color, label) => {
     const [x0, y0, x1, y1] = b;
