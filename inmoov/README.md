@@ -94,6 +94,12 @@ VOTRE_UTILISATEUR ALL=(root) NOPASSWD: /usr/bin/systemctl start inmoov-vision, /
 
 Démarrage automatique : service `systemd/inmoov-app.service` (voir section 5).
 
+**Sans ligne de commande** : onglet Services → « Programmes du robot ». L'Atelier lance lui-même
+MyRobotLab, les caméras (Coral), la voix et les capteurs, avec leurs journaux en direct
+(`app/data/logs/`). Cochez « au démarrage de l'Atelier » pour qu'ils se lancent tout seuls ; il suffit
+alors d'installer le seul service de l'Atelier : `bash systemd/install.sh` puis
+`sudo systemctl enable --now inmoov-app`.
+
 ### Bon à savoir
 
 - Le curseur d'un servo envoie une valeur **de 0 à 180** que MyRobotLab convertit entre **min** et

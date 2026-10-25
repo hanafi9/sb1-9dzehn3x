@@ -86,6 +86,28 @@ class AppTest(unittest.TestCase):
         self.assertTrue(s["coral"])
         self.assertEqual(s["services"]["inmoov-voice"]["state"], "active")
 
+    def test_programs_api(self):
+        r = self.c.get("/api/programs").get_json()
+        self.assertEqual(r["order"], ["mrl", "vision", "voice", "sensors"])            # ordre de démarrage
+        self.assertEqual(set(r["programs"]), set(r["order"]))
+        self.assertEqual(r["autostart"], [])
+        self.app.launcher.start = lambda n: "démarré"
+        self.app.launcher.status = lambda: {n: {"problem": None if n == "vision" else "pas installé"}
+                                            for n in ("mrl", "vision", "voice", "sensors")}
+        res = self.c.post("/api/programs/all/start").get_json()["results"]
+        self.assertEqual(res, {"mrl": "pas installé", "vision": "démarré", "voice": "pas installé",
+                               "sensors": "pas installé"})
+        self.assertEqual(self.c.post("/api/programs/vision/effacer").status_code, 400)
+        r = self.c.put("/api/programs/autostart", json={"names": ["vision", "voice", "pirate"]}).get_json()
+        self.assertEqual(r["autostart"], ["vision", "voice"])
+        self.assertEqual(self.c.get("/api/programs").get_json()["autostart"], ["vision", "voice"])
+        started = []
+        self.app.launcher.start = lambda n: started.append(n) or "démarré"
+        from unittest import mock
+        with mock.patch.object(atelier.time, "sleep"):                  # pas d'attente entre programmes
+            self.app.autostart()
+        self.assertEqual(started, ["vision", "voice"])
+
     def test_status_when_mrl_down(self):
         self.mrl.up = False
         s = self.c.get("/api/status").get_json()

@@ -18,6 +18,7 @@ import json
 import os
 import sys
 import threading
+import time
 
 from flask import Flask, Response, jsonify, request, send_from_directory
 
@@ -28,6 +29,7 @@ sys.path[:0] = [ROOT, os.path.join(ROOT, "legs")]
 import arduino_tools  # noqa: E402
 import bench  # noqa: E402
 import electrical  # noqa: E402
+import launcher as launcher_mod  # noqa: E402
 import servo_inventory  # noqa: E402
 import system_tools  # noqa: E402
 import manual  # noqa: E402
@@ -51,6 +53,7 @@ def default_mrl_dir():
 DEFAULT_SETTINGS = {
     "mrl_url": "http://127.0.0.1:8888",
     "mrl_dir": default_mrl_dir(),
+    "mrl_args": "",
     "arduino_cli": "arduino-cli",
     "robot_config": os.path.join(ROOT, "config.json"),
     "legs_config": os.path.join(ROOT, "legs", "legs_config.json"),
@@ -153,6 +156,7 @@ def create_app(data_dir=None, run=None, mrl=None):
     bench_store = JsonStore(os.path.join(data_dir, "bench_results.json"), {})
     jobs = JobRunner()
     legs = LegsManager()
+    launcher_store = JsonStore(os.path.join(data_dir, "launcher.json"), {"autostart": []})
 
     with open(os.path.join(HERE, "guide.json"), encoding="utf-8") as f:
         guide = json.load(f)
@@ -165,6 +169,11 @@ def create_app(data_dir=None, run=None, mrl=None):
 
     def mrl_client():
         return mrl or MrlClient(settings()["mrl_url"], timeout=3.0)
+
+    launcher = launcher_mod.Launcher(ROOT, os.path.join(data_dir, "logs"),
+                                     config_path=lambda: settings()["robot_config"],
+                                     mrl_dir=lambda: settings()["mrl_dir"],
+                                     mrl_args=lambda: settings().get("mrl_args", ""))
 
     app = Flask(__name__, static_folder=os.path.join(HERE, "static"), static_url_path="/static")
     password = os.environ.get("INMOOV_APP_PASSWORD")
@@ -770,6 +779,56 @@ def create_app(data_dir=None, run=None, mrl=None):
         gesture_player.delete(gestures_dir(), name)
         return jsonify({"ok": True})
 
+    # ---------------------------------------------------------- programmes (sans systemd)
+    @app.get("/api/programs")
+    @api
+    def programs():
+        return jsonify({"ok": True, "programs": launcher.status(), "order": list(launcher_mod.PROGRAMS),
+                        "autostart": launcher_store.load().get("autostart", [])})
+
+    @app.post("/api/programs/<name>/<action>")
+    @api
+    def program_action(name, action):
+        if action not in ("start", "stop", "restart"):
+            raise ValueError("action inconnue")
+        names = list(launcher_mod.PROGRAMS) if name == "all" else [name]
+        if name == "all" and action == "stop":
+            names.reverse()       # la voix d'abord, MyRobotLab en dernier
+        results = {}
+        for n in names:
+            if n not in launcher_mod.PROGRAMS:
+                raise ValueError("programme inconnu")
+            if name == "all" and action == "start" and launcher.status()[n]["problem"]:
+                results[n] = "pas installé"
+                continue
+            results[n] = getattr(launcher, action)(n)
+        return jsonify({"ok": True, "results": results})
+
+    @app.get("/api/programs/<name>/logs")
+    @api
+    def program_logs(name):
+        return jsonify({"ok": True, "logs": launcher.logs(name)})
+
+    @app.put("/api/programs/autostart")
+    @api
+    def program_autostart():
+        names = [n for n in body().get("names", []) if n in launcher_mod.PROGRAMS]
+        launcher_store.save({"autostart": names})
+        return jsonify({"ok": True, "autostart": names})
+
+    def autostart():
+        """Au lancement de l'Atelier : démarre les programmes cochés (MyRobotLab d'abord)."""
+        for n in launcher_mod.PROGRAMS:
+            if n in launcher_store.load().get("autostart", []):
+                try:
+                    print("Démarrage automatique de %s : %s" % (n, launcher.start(n)))
+                except Exception as e:   # un programme absent ne doit pas empêcher les autres
+                    print("Démarrage automatique de %s impossible : %s" % (n, e))
+                time.sleep(20 if n == "mrl" else 3)   # MyRobotLab met du temps à démarrer
+
+    app.launcher = launcher
+    app.autostart = autostart
+
     # ---------------------------------------------------------- services
     @app.post("/api/services/<name>/<action>")
     @api
@@ -854,7 +913,9 @@ def main():
               "puis ouvrez http://localhost:%d" % (a.port, a.port + 1, a.port + 1))
         return 1
     print("Atelier InMoov : ouvrez http://localhost:%d" % a.port)
-    create_app().run(host=a.host, port=a.port, threaded=True)
+    app = create_app()
+    threading.Thread(target=app.autostart, name="autostart", daemon=True).start()
+    app.run(host=a.host, port=a.port, threaded=True)
 
 
 def port_in_use(port):

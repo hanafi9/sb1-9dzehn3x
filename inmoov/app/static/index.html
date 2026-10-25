@@ -341,6 +341,19 @@
 
     <!-- Services -->
     <section id="tab-services" class="tab">
+      <div class="card">
+        <div class="row between wrap">
+          <h2>Programmes du robot</h2>
+          <div class="row wrap">
+            <button id="prog-start-all">Tout démarrer</button>
+            <button id="prog-stop-all" class="ghost">Tout arrêter</button>
+          </div>
+        </div>
+        <p class="muted">Lancés directement par l'Atelier, sans ligne de commande. Cochez « au démarrage »
+          pour qu'un programme se lance tout seul quand l'Atelier démarre.</p>
+      </div>
+      <div id="programs-list" class="grid"></div>
+      <h2 class="muted">Services systemd (si installés)</h2>
       <div id="services-list" class="grid"></div>
       <div class="card hidden" id="logs-card">
         <div class="row between">

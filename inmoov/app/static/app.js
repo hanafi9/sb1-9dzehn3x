@@ -77,7 +77,13 @@ loaders.dashboard = async () => {
         <div class="row between"><span>Ports série</span><span>${s.serial_ports.length ? esc(s.serial_ports.join(", ")) : "aucun"}</span></div>
         <div class="row between"><span>Jambes</span>${pill(s.legs_connected, "connectées", "non connectées")}</div>
       </div>
-      <div class="card"><h2>Services</h2>${services}</div>`;
+      <div class="card"><h2>Programmes</h2><div id="dash-programs" class="muted">…</div>
+        <button class="ghost" data-goto="services">Démarrer / arrêter</button></div>
+      <div class="card"><h2>Services systemd</h2>${services}</div>`;
+    const pr = await api("GET", "/api/programs");
+    $("#dash-programs").innerHTML = pr.order.map((n) => pr.programs[n]).map((p) =>
+      `<div class="row between"><span>${esc(p.label)}</span>${!p.installed ? '<span class="pill warn">pas installé</span>'
+        : pill(p.running, "en marche", "arrêté")}</div>`).join("");
   } catch (e) { toast(e.message, true); }
   const g = await api("GET", "/api/guide");
   const steps = g.phases.flatMap((p) => p.steps.map((s) => ({ ...s, phase: p.phase })));
@@ -920,8 +926,86 @@ $("#legs-poses").addEventListener("click", (e) => {
   });
 });
 
+$("#dash-cards").addEventListener("click", (e) => { if (e.target.dataset.goto) showTab(e.target.dataset.goto); });
+
+// ------------------------------------------------------------ programmes (sans systemd)
+let logsTimer = null;
+function showLogs(title, url) {
+  clearInterval(logsTimer);
+  const refresh = async () => {
+    if ($("#logs-card").classList.contains("hidden")) return clearInterval(logsTimer);
+    try {
+      const r = await api("GET", url);
+      const pre = $("#logs-text");
+      const atEnd = pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 20;
+      pre.textContent = r.logs;
+      if (atEnd) pre.scrollTop = pre.scrollHeight;     // suit la fin du journal
+    } catch (e) { clearInterval(logsTimer); }
+  };
+  $("#logs-title").textContent = title;
+  $("#logs-text").textContent = "…";
+  $("#logs-card").classList.remove("hidden");
+  $("#logs-card").scrollIntoView({ behavior: "smooth" });
+  refresh().then(() => { $("#logs-text").scrollTop = $("#logs-text").scrollHeight; });
+  logsTimer = setInterval(refresh, 3000);
+}
+
+function since(s) {
+  if (s === null || s === undefined) return "";
+  return s < 90 ? ` depuis ${s} s` : s < 5400 ? ` depuis ${Math.round(s / 60)} min` : ` depuis ${Math.round(s / 3600)} h`;
+}
+
+loaders.programs = async () => {
+  const r = await api("GET", "/api/programs");
+  $("#programs-list").innerHTML = r.order.map((name) => [name, r.programs[name]]).map(([name, p]) => `
+    <div class="card" data-program="${esc(name)}">
+      <div class="row between"><h2>${esc(p.label)}</h2>
+        ${!p.installed ? '<span class="pill warn">pas installé</span>' :
+          p.running ? `<span class="pill ok">en marche${esc(since(p.since_s))}</span>` : '<span class="pill bad">arrêté</span>'}
+      </div>
+      ${p.problem ? `<p class="muted">${esc(p.problem)}</p>` : ""}
+      <div class="row wrap">
+        <button data-prog="start" ${p.running || !p.installed ? "disabled" : ""}>Démarrer</button>
+        <button class="ghost" data-prog="restart" ${!p.installed ? "disabled" : ""}>Redémarrer</button>
+        <button class="ghost" data-prog="stop" ${!p.running ? "disabled" : ""}>Arrêter</button>
+        <button class="ghost" data-prog="logs">Journal</button>
+      </div>
+      <label class="check"><input type="checkbox" data-autostart ${r.autostart.includes(name) ? "checked" : ""}
+        ${!p.installed ? "disabled" : ""}> au démarrage de l'Atelier</label>
+    </div>`).join("");
+};
+$("#programs-list").addEventListener("click", (e) => {
+  const action = e.target.dataset.prog;
+  if (!action) return;
+  const card = e.target.closest("[data-program]");
+  const name = card.dataset.program;
+  withButton(e.target, async () => {
+    if (action === "logs") return showLogs("Journal : " + card.querySelector("h2").textContent, `/api/programs/${name}/logs`);
+    const r = await api("POST", `/api/programs/${name}/${action}`);
+    toast(card.querySelector("h2").textContent + " : " + r.results[name]);
+    if (action !== "stop") setTimeout(() => showLogs("Journal : " + card.querySelector("h2").textContent,
+                                                      `/api/programs/${name}/logs`), 800);
+    loaders.programs();
+  });
+});
+$("#programs-list").addEventListener("change", async (e) => {
+  if (!e.target.matches("[data-autostart]")) return;
+  const names = [...document.querySelectorAll("#programs-list [data-autostart]:checked")]
+    .map((c) => c.closest("[data-program]").dataset.program);
+  try { await api("PUT", "/api/programs/autostart", { names }); toast("Démarrage automatique enregistré"); }
+  catch (err) { toast(err.message, true); }
+});
+for (const [id, action] of [["#prog-start-all", "start"], ["#prog-stop-all", "stop"]]) {
+  $(id).addEventListener("click", (e) => withButton(e.target, async () => {
+    const r = await api("POST", `/api/programs/all/${action}`);
+    toast(Object.entries(r.results).map(([n, v]) => `${n} : ${v}`).join(" · "));
+    loaders.programs();
+  }));
+}
+
 // ------------------------------------------------------------ services
 loaders.services = async () => {
+  loaders.programs().catch((e) => toast(e.message, true));
   const s = await api("GET", "/api/status");
   $("#services-list").innerHTML = Object.entries(s.services).map(([name, v]) => `
     <div class="card" data-service="${esc(name)}">
@@ -941,11 +1025,7 @@ $("#services-list").addEventListener("click", (e) => {
   const name = e.target.closest("[data-service]").dataset.service;
   withButton(e.target, async () => {
     if (action === "logs") {
-      const r = await api("GET", `/api/services/${name}/logs`);
-      $("#logs-title").textContent = "Journal de " + name;
-      $("#logs-text").textContent = r.logs;
-      $("#logs-card").classList.remove("hidden");
-      $("#logs-card").scrollIntoView({ behavior: "smooth" });
+      showLogs("Journal de " + name, `/api/services/${name}/logs`);
     } else {
       await api("POST", `/api/services/${name}/${action}`);
       toast(name + " : " + action);
@@ -953,12 +1033,13 @@ $("#services-list").addEventListener("click", (e) => {
     }
   });
 });
-$("#logs-close").addEventListener("click", () => $("#logs-card").classList.add("hidden"));
+$("#logs-close").addEventListener("click", () => { clearInterval(logsTimer); $("#logs-card").classList.add("hidden"); });
 
 // ------------------------------------------------------------ réglages
 const SETTING_LABELS = {
   mrl_url: "Adresse de MyRobotLab",
-  mrl_dir: "Dossier d'installation de MyRobotLab (contient resource/Arduino/MrlComm)",
+  mrl_dir: "Dossier d'installation de MyRobotLab (contient myrobotlab.sh et resource/Arduino/MrlComm)",
+  mrl_args: "Options au lancement de MyRobotLab (vide en général ; ex. --config inmoov2)",
   arduino_cli: "Commande arduino-cli",
   robot_config: "Fichier config.json du robot",
   legs_config: "Fichier de configuration des jambes",

@@ -12,6 +12,8 @@ EnvironmentFile=-/home/pi/inmoov/app.env
 Environment=PATH=/home/pi/.local/bin:/usr/local/bin:/usr/bin:/bin
 ExecStart=/home/pi/inmoov/.venv-app/bin/python app.py --port 8090
 Restart=on-failure
+# les programmes lancés depuis l'Atelier (voix, caméras, MyRobotLab) continuent si l'Atelier redémarre
+KillMode=process
 RestartSec=5
 
 [Install]
