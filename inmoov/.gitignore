@@ -1,4 +1,7 @@
 config.json
+# copies de sauvegarde faites avant un changement de réglage
+config.json.*
+anthropic.env.*
 models/
 .venv*/
 __pycache__/
