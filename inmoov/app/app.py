@@ -183,6 +183,8 @@ def create_app(data_dir=None, run=None, mrl=None):
     def check_password():
         if not password:
             return None
+        if request.remote_addr in ("127.0.0.1", "::1"):
+            return None   # écran du robot lui-même (mode kiosque sur le Pi) : pas de mot de passe à taper
         auth = request.authorization
         if auth and auth.password and hmac.compare_digest(auth.password, password):
             return None
@@ -206,6 +208,11 @@ def create_app(data_dir=None, run=None, mrl=None):
     # ---------------------------------------------------------- pages
     @app.get("/")
     def index():
+        return send_from_directory(app.static_folder, "index.html")
+
+    @app.get("/kiosk")
+    def kiosk():
+        """Kamil en plein écran (écran du robot, tablette) : même page, sans barre ni onglets."""
         return send_from_directory(app.static_folder, "index.html")
 
     # ---------------------------------------------------------- tableau de bord

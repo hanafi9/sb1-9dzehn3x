@@ -402,3 +402,49 @@ a.button.ghost { background: transparent; color: var(--accent); }
 @media (prefers-reduced-motion: reduce) {
   .kamil-stage *, .kamil-ring { animation: none !important; }
 }
+
+/* ------------------------------------------------------------ mode kiosque (/kiosk) */
+.kiosk-tools { display: none; }
+body.kiosk .topbar, body.kiosk .tabs { display: none; }
+body.kiosk { overflow: hidden; }
+body.kiosk main { max-width: none; padding: .75rem; height: 100vh; height: 100dvh; }
+body.kiosk #tab-kamil { height: 100%; position: relative; }
+body.kiosk .kiosk-tools {
+  display: flex; gap: .4rem; position: absolute; right: .9rem; top: .7rem; z-index: 3; opacity: .35; transition: opacity .3s;
+}
+body.kiosk .kiosk-tools button, body.kiosk .kiosk-tools a { font-size: .8rem; padding: .25rem .6rem; }
+body.kiosk .kiosk-tools:hover { opacity: 1; }
+body.kiosk .kiosk-tools a { text-decoration: none; padding: .4rem .7rem; border-radius: 8px; border: 1px solid var(--border); }
+body.kiosk .kamil-layout { height: 100%; grid-template-columns: minmax(340px, 40%) 1fr; }
+body.kiosk .kamil-left { height: 100%; grid-template-rows: 1fr auto auto; min-height: 0; }
+body.kiosk .kamil-stage { display: flex; flex-direction: column; justify-content: center; min-height: 0; }
+body.kiosk .kamil-ring { width: min(34vh, 320px); height: min(34vh, 320px); }
+body.kiosk .kamil-head { transform: scale(1.35); }
+body.kiosk .kamil-name { font-size: 2.4rem; margin-top: 1.6rem; }
+body.kiosk .kamil-status { font-size: 1.15rem; }
+body.kiosk .kamil-eye-card img { max-height: 22vh; aspect-ratio: auto; }
+body.kiosk .kamil-chat { height: 100%; min-height: 0; }
+body.kiosk .kamil-bubbles { max-height: none; min-height: 0; }
+body.kiosk .bubble { font-size: 1.12rem; }
+body.kiosk .kamil-input input { font-size: 1.1rem; padding: .8rem 1rem; }
+@media (orientation: portrait) {
+  /* tablette tenue en hauteur : Kamil en haut, la conversation dessous */
+  body.kiosk .kamil-layout { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
+  body.kiosk .kamil-left { height: auto; grid-template-columns: 1.3fr 1fr; grid-template-rows: auto auto; }
+  body.kiosk .kamil-stage { grid-row: span 2; padding: 1.2rem .5rem 1rem; }
+  body.kiosk .kamil-ring { width: min(22vh, 260px); height: min(22vh, 260px); }
+  body.kiosk .kamil-head { transform: scale(1.1); }
+  body.kiosk .kamil-name { font-size: 1.9rem; margin-top: 1rem; }
+  body.kiosk .kamil-eye-card img { max-height: 13vh; }
+}
+@media (max-width: 600px) and (orientation: portrait) {
+  /* téléphone : la page défile, la conversation garde de la place */
+  body.kiosk { overflow: auto; }
+  body.kiosk main { height: auto; }
+  body.kiosk #tab-kamil, body.kiosk .kamil-layout { height: auto; }
+  body.kiosk .kamil-layout { grid-template-rows: none; }
+  body.kiosk .kamil-left { grid-template-columns: 1fr; }
+  body.kiosk .kamil-stage { grid-row: auto; }
+  body.kiosk .kamil-eye-card { display: none; }
+  body.kiosk .kamil-chat { height: 78vh; height: 78dvh; }
+}

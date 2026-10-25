@@ -334,10 +334,14 @@ class AppTest(unittest.TestCase):
         os.environ["INMOOV_APP_PASSWORD"] = "robot"
         try:
             c = atelier.create_app(data_dir=self.tmp, run=self.run, mrl=self.mrl).test_client()
-            self.assertEqual(c.get("/api/settings").status_code, 401)
+            remote = {"REMOTE_ADDR": "192.168.1.50"}                     # un téléphone du réseau
+            self.assertEqual(c.get("/api/settings", environ_base=remote).status_code, 401)
             import base64
             tok = base64.b64encode(b"x:robot").decode()
-            self.assertEqual(c.get("/api/settings", headers={"Authorization": "Basic " + tok}).status_code, 200)
+            self.assertEqual(c.get("/api/settings", environ_base=remote,
+                                   headers={"Authorization": "Basic " + tok}).status_code, 200)
+            # l'écran du robot (le Pi lui-même, mode kiosque) n'a pas de mot de passe à taper
+            self.assertEqual(c.get("/kiosk", environ_base={"REMOTE_ADDR": "127.0.0.1"}).status_code, 200)
         finally:
             del os.environ["INMOOV_APP_PASSWORD"]
 

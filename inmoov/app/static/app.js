@@ -1191,6 +1191,15 @@ $("#config-save").addEventListener("click", (e) => withButton(e.target, async ()
 }));
 
 // ------------------------------------------------------------ démarrage
+// mode kiosque : /kiosk (ou ?kiosk) = Kamil seul, en plein écran, sans barre ni onglets
+const KIOSK = location.pathname === "/kiosk" || new URLSearchParams(location.search).has("kiosk");
+if (KIOSK) document.body.classList.add("kiosk");
+$("#kiosk-full").addEventListener("click", () => {
+  const el = document.documentElement;
+  (document.fullscreenElement ? document.exitFullscreen() : el.requestFullscreen?.())?.catch?.(() => {});
+});
+document.addEventListener("fullscreenchange", () =>
+  $("#kiosk-full").classList.toggle("hidden", !!document.fullscreenElement));
 showTab("kamil");
 setInterval(() => { if (currentTab === "dashboard") loaders.dashboard(); }, 10000);
 
