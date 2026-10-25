@@ -931,7 +931,9 @@ $("#dash-cards").addEventListener("click", (e) => {
   if (e.target.dataset.goto) showTab(e.target.dataset.goto);
   const name = e.target.dataset.dashStart;
   if (name) withButton(e.target, async () => {
-    const r = await api("POST", `/api/programs/${name}/start`);
+    let r = await api("POST", `/api/programs/${name}/start`);
+    if (r.results[name] === "déjà en marche" && confirm("MyRobotLab tourne déjà mais ne répond pas. Le redémarrer ?"))
+      r = await api("POST", `/api/programs/${name}/restart`);
     toast("MyRobotLab : " + r.results[name] + " (patientez 20 à 60 s)");
     setTimeout(() => loaders.dashboard(), 20000);
   });
@@ -1106,7 +1108,12 @@ $("#bench-status").addEventListener("click", (e) => {
   withButton(e.target, async () => {
     const out = $("#bench-prog-log");
     try {
-      const r = await api("POST", `/api/programs/${name}/start`);
+      let r = await api("POST", `/api/programs/${name}/start`);
+      if (r.results[name] === "déjà en marche") {
+        // le programme existe mais ne répond pas (ex. MyRobotLab bloqué depuis des heures)
+        if (!confirm("Ce programme tourne déjà mais ne répond pas. Le redémarrer ?")) return;
+        r = await api("POST", `/api/programs/${name}/restart`);
+      }
       toast(r.results[name] + (name === "mrl" ? " : MyRobotLab met 20 à 60 s à démarrer…" : " : on vérifie dans 8 s…"));
     } catch (err) {                       // ex. environnement Python absent : la raison s'affiche
       out.textContent = err.message;
