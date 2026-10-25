@@ -25,9 +25,9 @@ from cloud_stt import USER_AGENT
 
 log = logging.getLogger("tts")
 
-DEFAULT_VOICE = "ash"
-DEFAULT_INSTRUCTIONS = ("Jeune homme de 28 ans, voix claire et légèrement aiguë, jamais grave, énergique et joyeuse, "
-                        "diction très nette, français de France sans accent, rythme vif et naturel, sourire dans la voix. "
+DEFAULT_VOICE = "cedar"     # voix d'homme conseillée par OpenAI (gpt-4o-mini-tts seulement)
+DEFAULT_INSTRUCTIONS = ("Jeune homme de 28 ans, voix douce, claire et chaleureuse, ni grave ni aiguë, calme et "
+                        "souriante, diction nette, français de France sans accent, débit naturel. "
                         "Garde exactement le même timbre et la même hauteur de voix d'une phrase à l'autre.")
 
 
@@ -58,11 +58,13 @@ class CloudSpeaker:
         if not key:
             raise RuntimeError("clé %s absente (anthropic.env)" % self.key_env)
         body = {"model": self.model, "voice": self.voice, "input": text, "response_format": "pcm"}
-        if self.instructions and not self.model.startswith("tts-1"):   # tts-1 ne gère pas les consignes
-            body["instructions"] = self.instructions
         speed = float(self.speed or 1.0) / self.pitch
+        if self.instructions and not self.model.startswith("tts-1"):   # tts-1 ne gère pas les consignes
+            # gpt-4o-mini-tts ignore « speed » : le débit se demande dans les consignes
+            pace = " Parle un peu vite." if speed > 1.05 else " Parle posément." if speed < 0.95 else ""
+            body["instructions"] = self.instructions + pace
         if abs(speed - 1.0) > 0.01:
-            body["speed"] = round(min(max(speed, 0.25), 4.0), 3)
+            body["speed"] = round(min(max(speed, 0.25), 4.0), 2)   # 2 décimales au plus (sinon erreur 400)
         req = urllib.request.Request(self.base_url + "/audio/speech", data=json.dumps(body).encode("utf-8"),
                                      method="POST", headers={"Authorization": "Bearer " + key,
                                                              "Content-Type": "application/json",

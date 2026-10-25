@@ -66,9 +66,9 @@ class CloudTTSTest(unittest.TestCase):
         os.remove(path)
         route, body = FakeTTS.seen[-1]
         self.assertEqual(route, "/v1/audio/speech")
-        self.assertEqual((body["model"], body["voice"], body["response_format"]), ("gpt-4o-mini-tts", "ash", "pcm"))
+        self.assertEqual((body["model"], body["voice"], body["response_format"]), ("gpt-4o-mini-tts", "cedar", "pcm"))
         self.assertIn("28 ans", body["instructions"])
-        self.assertIn("aiguë", body["instructions"])
+        self.assertIn("douce", body["instructions"])
         n = len(FakeTTS.seen)
         os.remove(sp.synthesize("Bonjour, je suis Kamil.")[0])       # phrase courte : gardée en mémoire
         self.assertEqual(len(FakeTTS.seen), n)
@@ -91,6 +91,14 @@ class CloudTTSTest(unittest.TestCase):
         os.remove(path)
         self.assertAlmostEqual(duration, 1 / 1.2)
         self.assertNotIn("speed", FakeTTS.seen[-1][1])        # 1.2 / 1.2 : le service parle normalement
+
+    def test_speed_rounded_and_asked_in_instructions(self):
+        os.environ["TEST_TTS_KEY"] = "cle"
+        sp = CloudSpeaker(dict(self.cfg, speed=1.2, pitch=1.1))
+        os.remove(sp.synthesize("Une phrase un peu longue pour ne pas être gardée en mémoire, voilà.")[0])
+        body = FakeTTS.seen[-1][1]
+        self.assertEqual(body["speed"], 1.09)                              # 1.2 / 1.1, 2 décimales
+        self.assertTrue(body["instructions"].endswith("Parle un peu vite."))   # gpt-4o-mini-tts ignore speed
 
     def test_no_voice_mixing_after_failure(self):
         piper = FakePiper()

@@ -150,7 +150,7 @@
     "auto_gain_max": 20,
     "cloud_tts": {
       "enabled": false,
-      "_aide": "Voix en ligne OpenAI : model tts-1 (timbre régulier, rapide ; instructions ignorées) ou gpt-4o-mini-tts (plus expressive, timbre qui varie un peu), plus naturelle et plus claire que Piper ; clé OPENAI_API_KEY dans anthropic.env ; Piper prend le relais sans Internet. voice : ash (jeune, clair), echo (léger), verse, onyx (grave)… ; instructions : le ton voulu, en français (null = jeune homme de 28 ans, voix claire et légèrement aiguë). pitch : hauteur de la voix (1.1 à 1.2 = plus aiguë, façon ado ; vitesse inchangée). Écouter : voice/voices_test.py --cloud --pitch 1.1 1.15. fallback_cooldown_s : après une panne, Piper parle seul ce temps-là (pas de mélange de deux voix).",
+      "_aide": "Voix en ligne OpenAI : model tts-1 (timbre régulier, rapide ; instructions ignorées) ou gpt-4o-mini-tts (plus expressive, timbre qui varie un peu), plus naturelle et plus claire que Piper ; clé OPENAI_API_KEY dans anthropic.env ; Piper prend le relais sans Internet. voice : cedar (homme, la plus naturelle ; gpt-4o-mini-tts seulement), ash (jeune, clair), echo (léger, doux), verse, onyx (grave)… ; instructions : le ton voulu, en français (null = jeune homme de 28 ans, voix claire et légèrement aiguë). pitch : hauteur de la voix (1.1 à 1.2 = plus aiguë, façon ado ; vitesse inchangée). Écouter : voice/voices_test.py --cloud --pitch 1.1 1.15. fallback_cooldown_s : après une panne, Piper parle seul ce temps-là (pas de mélange de deux voix).",
       "model": "tts-1",
       "voice": "ash",
       "instructions": null,
