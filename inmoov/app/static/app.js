@@ -1113,7 +1113,23 @@ $("#bench-status").addEventListener("click", (e) => {
       out.classList.remove("hidden");
       return;
     }
-    await new Promise((ok) => setTimeout(ok, name === "mrl" ? 15000 : 8000));
+    if (name === "mrl") {
+      // MyRobotLab : on attend qu'il réponde vraiment (jusqu'à 2 min), en montrant où il en est
+      for (let t = 0; t < 120; t += 5) {
+        await new Promise((ok) => setTimeout(ok, 5000));
+        const st = await api("GET", "/api/bench/state");
+        const pr = (await api("GET", "/api/programs")).programs.mrl;
+        if (st.mrl) { out.classList.add("hidden"); toast("MyRobotLab connecté"); benchRefresh(); return; }
+        if (!pr.running) break;                       // il s'est arrêté : on montre pourquoi
+        out.textContent = `MyRobotLab démarre… (${t + 5} s)\n\n` + (await api("GET", "/api/programs/mrl/logs")).logs
+          .split("\n").slice(-8).join("\n");
+        out.classList.remove("hidden");
+      }
+      out.textContent = "MyRobotLab ne répond pas. Fin de son journal :\n\n" + (await api("GET", "/api/programs/mrl/logs")).logs;
+      out.classList.remove("hidden");
+      return;
+    }
+    await new Promise((ok) => setTimeout(ok, 8000));
     const p = (await api("GET", "/api/programs")).programs[name];
     if (p.running) { out.classList.add("hidden"); toast(p.label + " : en marche"); benchRefresh(); return; }
     // le programme s'est arrêté tout de suite : on montre la fin de son journal
