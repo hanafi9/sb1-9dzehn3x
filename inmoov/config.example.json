@@ -205,6 +205,8 @@
     "_follow_up_aide": "Après chaque réponse du robot, on peut continuer la conversation sans redire le mot de réveil pendant follow_up_s secondes (0 = toujours le redire).",
     "follow_up_s": 15,
     "follow_up_question_s": 25,
+    "_app_bridge_aide": "Onglet « Kamil » de l'Atelier : Kamil y publie son état et la conversation (state_path) et y lit les demandes (commands_dir). enabled false pour couper.",
+    "app_bridge": {"enabled": true, "state_path": "/dev/shm/inmoov_kamil.json", "commands_dir": "/dev/shm/inmoov_kamil_cmd"},
     "_follow_up_max_audio_aide": "Sans « Kamil », une phrase plus longue que ça (en secondes) est prise pour la télé ou la radio et ignorée ; Claude se tait aussi s'il juge que ce n'était pas pour lui.",
     "follow_up_max_audio_s": 8,
     "vocabulary": "InMoov, MyRobotLab, Raspberry, bonjour, au revoir, regarde, gauche, droite, haut, bas, main, bras, tête",

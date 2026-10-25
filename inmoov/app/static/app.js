@@ -47,6 +47,114 @@ function showTab(name) {
   if (loaders[name]) loaders[name]();
 }
 
+// ------------------------------------------------------------ Kamil (interface interactive)
+const KAMIL_STATES = {
+  off: "Endormi", idle: "En veille — dis « Kamil » pour me parler", awake: "Je t'écoute…",
+  thinking: "Je réfléchis…", speaking: "Je parle",
+};
+const kamil = { timer: null, lastCount: -1, waiting: false, mode: "question" };
+
+function kamilTime(t) {
+  const d = new Date(t * 1000);
+  return d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+}
+
+async function kamilRefresh() {
+  let k;
+  try { k = await api("GET", "/api/kamil"); } catch (e) { return; }
+  const stage = $("#kamil-stage");
+  stage.dataset.state = k.state;
+  $("#kamil-name").textContent = k.name;
+  $("#kamil-status").textContent = KAMIL_STATES[k.state] || k.state;
+  $("#kamil-sleep").classList.toggle("hidden", k.alive || k.voice_running);
+  if (!k.alive && k.voice_running) $("#kamil-status").textContent = "Je me réveille…";
+
+  // infos : voix reconnue, personnes, dernier événement
+  $("#kamil-chips").innerHTML = [
+    k.voix ? `<span class="pill ok">🎙 ${esc(k.voix)}</span>` : "",
+    k.people !== null ? `<span class="pill">👀 ${k.people} personne${k.people > 1 ? "s" : ""}</span>` : "",
+    k.journal ? `<span class="pill" title="Dernier événement du journal">📓 ${esc(k.journal)}</span>` : "",
+  ].join("");
+  if (k.mood) {
+    const bars = [["Énergie", k.mood.energie, 0, 1, "#f59e0b"], ["Joie", k.mood.joie, -1, 1, "#22c55e"],
+                  ["Curiosité", k.mood.curiosite, 0, 1, "#8b5cf6"]];
+    $("#kamil-mood").innerHTML = bars.map(([label, v, lo, hi, color]) => `
+      <div class="bar"><span>${label}</span><div class="track"><i style="width:${Math.round(100 * ((v ?? lo) - lo) / (hi - lo))}%;background:${color}"></i></div></div>`).join("");
+  }
+  const guard = $("#kamil-guard");
+  if (document.activeElement !== guard && k.garde !== undefined && k.garde !== null) guard.checked = !!k.garde;
+  $("#kamil-seen").textContent = k.objects && k.objects.length ? k.objects.join(", ") : "";
+
+  // conversation
+  const h = k.history || [];
+  if (h.length !== kamil.lastCount || kamil.waiting) {
+    const box = $("#kamil-bubbles");
+    const last = h[h.length - 1];
+    if (kamil.waiting && last && last.qui === "kamil" && h.length !== kamil.lastCount) kamil.waiting = false;
+    box.innerHTML = h.length ? h.map((m) => `<div class="bubble ${m.qui === "toi" ? "toi" : "kamil"}">${esc(m.texte)}
+        <small>${m.qui === "toi" ? "Toi" : esc(k.name)} · ${kamilTime(m.t)}</small></div>`).join("") +
+      (kamil.waiting || k.state === "thinking" ? '<div class="bubble kamil typing"><span></span><span></span><span></span></div>' : "")
+      : `<p class="empty">Dis « ${esc(k.name)} » à voix haute, ou écris-lui en bas.<br>La conversation s'affiche ici en direct.</p>`;
+    if (h.length !== kamil.lastCount) box.scrollTop = box.scrollHeight;
+    kamil.lastCount = h.length;
+  }
+}
+
+function kamilCamera() {
+  const img = $("#kamil-cam");
+  const probe = new Image();
+  probe.onload = () => { img.src = probe.src; img.classList.remove("hidden"); $("#kamil-nocam").classList.add("hidden"); };
+  probe.onerror = () => { img.classList.add("hidden"); $("#kamil-nocam").classList.remove("hidden"); };
+  probe.src = "/api/bench/camera/0.jpg?t=" + Date.now();
+}
+
+loaders.kamil = () => {
+  kamil.lastCount = -1;
+  kamilRefresh();
+  kamilCamera();
+  clearInterval(kamil.timer);
+  let n = 0;
+  kamil.timer = setInterval(() => {
+    if (currentTab !== "kamil") return clearInterval(kamil.timer);
+    kamilRefresh();
+    if (++n % 2 === 0) kamilCamera();     // une image toutes les 2 s
+  }, 1000);
+};
+
+async function kamilSend(text) {
+  text = text.trim();
+  if (!text) return;
+  try {
+    await api("POST", `/api/kamil/${kamil.mode}`, { value: text });
+    $("#kamil-text").value = "";
+    if (kamil.mode === "question") kamil.waiting = true;
+    else toast("Kamil va le dire");
+    kamilRefresh();
+  } catch (e) { toast(e.message, true); }
+}
+$("#kamil-form").addEventListener("submit", (e) => { e.preventDefault(); kamilSend($("#kamil-text").value); });
+$("#kamil-suggest").addEventListener("click", (e) => {
+  if (!e.target.classList.contains("chip")) return;
+  const keep = kamil.mode;
+  kamil.mode = "question";
+  kamilSend(e.target.textContent).finally(() => { kamil.mode = keep; });
+});
+document.querySelectorAll(".kamil-mode button").forEach((b) => b.addEventListener("click", () => {
+  kamil.mode = b.dataset.mode;
+  document.querySelectorAll(".kamil-mode button").forEach((x) => x.classList.toggle("on", x === b));
+  $("#kamil-text").placeholder = kamil.mode === "question" ? "Écris à Kamil…" : "Phrase que Kamil dira à voix haute…";
+  $("#kamil-text").focus();
+}));
+$("#kamil-guard").addEventListener("change", async (e) => {
+  try { await api("POST", "/api/kamil/garde", { value: e.target.checked });
+        toast(e.target.checked ? "Mode garde activé" : "Mode garde désactivé"); }
+  catch (err) { toast(err.message, true); e.target.checked = !e.target.checked; }
+});
+$("#kamil-wake").addEventListener("click", (e) => withButton(e.target, async () => {
+  const r = await api("POST", "/api/programs/voice/start");
+  toast("Kamil : " + r.results.voice + " (environ 10 s)");
+}));
+
 // ------------------------------------------------------------ tableau de bord
 function servicePill(state) {
   if (state === "active") return pill(true, "actif", "");
@@ -1083,7 +1191,7 @@ $("#config-save").addEventListener("click", (e) => withButton(e.target, async ()
 }));
 
 // ------------------------------------------------------------ démarrage
-showTab("dashboard");
+showTab("kamil");
 setInterval(() => { if (currentTab === "dashboard") loaders.dashboard(); }, 10000);
 
 // ------------------------------------------------------------ banc d'essai

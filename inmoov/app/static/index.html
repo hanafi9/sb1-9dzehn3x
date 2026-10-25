@@ -17,7 +17,8 @@
   </header>
 
   <nav class="tabs" role="tablist">
-    <button data-tab="dashboard" class="active">Tableau de bord</button>
+    <button data-tab="kamil" class="active">Kamil</button>
+    <button data-tab="dashboard">Tableau de bord</button>
     <button data-tab="bench">Banc d'essai</button>
     <button data-tab="docs">Documentation</button>
     <button data-tab="guide">Guide de montage</button>
@@ -32,8 +33,63 @@
   </nav>
 
   <main>
+    <!-- Kamil : interface interactive -->
+    <section id="tab-kamil" class="tab active">
+      <div class="kamil-layout">
+        <div class="kamil-left">
+          <div class="kamil-stage" id="kamil-stage" data-state="off">
+            <div class="kamil-sleep hidden" id="kamil-sleep">
+              <p>Kamil dort : sa voix n'est pas lancée.</p>
+              <button id="kamil-wake">Réveiller Kamil</button>
+            </div>
+            <div class="kamil-dots" aria-hidden="true"><i></i><i></i><i></i></div>
+            <div class="kamil-ring" aria-hidden="true">
+              <div class="kamil-waves"><span></span><span></span><span></span></div>
+              <div class="kamil-head">
+                <div class="kamil-eyes"><span class="eye"><b></b></span><span class="eye"><b></b></span></div>
+                <div class="kamil-mouth"><i></i><i></i><i></i><i></i><i></i></div>
+              </div>
+            </div>
+            <h1 class="kamil-name" id="kamil-name">Kamil</h1>
+            <p class="kamil-status" id="kamil-status">…</p>
+          </div>
+          <div class="card kamil-info">
+            <div class="kamil-chips" id="kamil-chips"></div>
+            <div class="kamil-mood" id="kamil-mood"></div>
+            <label class="kamil-switch"><input type="checkbox" id="kamil-guard">
+              <span class="slider"></span><span>Mode garde</span></label>
+          </div>
+          <div class="card kamil-eye-card">
+            <div class="row between"><h2>Ce que je vois</h2><span class="muted" id="kamil-seen"></span></div>
+            <img id="kamil-cam" alt="caméra de Kamil">
+            <p class="muted hidden" id="kamil-nocam">Caméras arrêtées (programme « Caméras et suivi »).</p>
+          </div>
+        </div>
+        <div class="card kamil-chat">
+          <div class="row between"><h2>Conversation</h2><span class="muted" id="kamil-heard-by"></span></div>
+          <div class="kamil-bubbles" id="kamil-bubbles"></div>
+          <div class="kamil-suggest" id="kamil-suggest">
+            <button class="chip">Qu'est-ce que tu vois ?</button>
+            <button class="chip">Raconte-moi une blague</button>
+            <button class="chip">Quelle heure est-il ?</button>
+            <button class="chip">Comment tu te sens ?</button>
+          </div>
+          <form class="kamil-input" id="kamil-form">
+            <div class="kamil-mode" role="radiogroup">
+              <button type="button" data-mode="question" class="on">Parler à Kamil</button>
+              <button type="button" data-mode="dire">Lui faire dire</button>
+            </div>
+            <div class="row">
+              <input id="kamil-text" maxlength="300" size="1" autocomplete="off" placeholder="Écris à Kamil…">
+              <button type="submit" id="kamil-send">Envoyer</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+
     <!-- Tableau de bord -->
-    <section id="tab-dashboard" class="tab active">
+    <section id="tab-dashboard" class="tab">
       <div class="grid" id="dash-cards"></div>
       <div class="card">
         <h2>Avancement du montage</h2>

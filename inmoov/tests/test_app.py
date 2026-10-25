@@ -86,6 +86,29 @@ class AppTest(unittest.TestCase):
         self.assertTrue(s["coral"])
         self.assertEqual(s["services"]["inmoov-voice"]["state"], "active")
 
+    def test_kamil_tab_api(self):
+        import kamil_bridge
+        d = tempfile.mkdtemp()
+        cfg = json.load(open(os.path.join(ROOT, "config.example.json"), encoding="utf-8"))
+        cfg["voice"]["app_bridge"] = {"state_path": os.path.join(d, "k.json"), "commands_dir": os.path.join(d, "cmd")}
+        cfg["brain"]["robot_name"] = "Kamil"
+        with open(os.path.join(d, "config.json"), "w", encoding="utf-8") as f:
+            json.dump(cfg, f)
+        self.c.put("/api/settings", json={"robot_config": os.path.join(d, "config.json")})
+        k = self.c.get("/api/kamil").get_json()
+        self.assertEqual((k["state"], k["alive"], k["name"]), ("off", False, "Kamil"))       # voix pas lancée
+        b = kamil_bridge.LocalBridge(cfg["voice"]["app_bridge"])
+        b.state("awake")
+        b.publish("entendu", "Kamil, bonjour")
+        k = self.c.get("/api/kamil").get_json()
+        self.assertEqual((k["state"], k["alive"], k["history"][0]["texte"]), ("awake", True, "Kamil, bonjour"))
+        self.assertTrue(self.c.post("/api/kamil/question", json={"value": "  Quelle   heure ?  "}).get_json()["ok"])
+        self.assertEqual(self.c.post("/api/kamil/question", json={"value": "   "}).status_code, 400)
+        self.assertEqual(self.c.post("/api/kamil/effacer", json={"value": "x"}).status_code, 400)
+        b.poll()
+        self.assertEqual(b.commands.get_nowait(), ("question", "Quelle heure ?"))
+        shutil.rmtree(d)
+
     def test_programs_api(self):
         r = self.c.get("/api/programs").get_json()
         self.assertEqual(r["order"], ["mrl", "vision", "voice", "sensors"])            # ordre de démarrage

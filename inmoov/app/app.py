@@ -38,6 +38,7 @@ import wiring  # noqa: E402
 sys.path.insert(0, os.path.join(ROOT, "voice"))
 import gesture_player  # noqa: E402
 from memory_store import MemoryStore  # noqa: E402
+import kamil_bridge  # noqa: E402
 from jobs import JobRunner  # noqa: E402
 from mrl_client import MrlClient  # noqa: E402
 
@@ -777,6 +778,57 @@ def create_app(data_dir=None, run=None, mrl=None):
     @api
     def delete_gesture(name):
         gesture_player.delete(gestures_dir(), name)
+        return jsonify({"ok": True})
+
+    # ---------------------------------------------------------- Kamil (onglet interactif)
+    def bridge_cfg():
+        cfg, base = robot_cfg()
+        c = dict(kamil_bridge.DEFAULTS)
+        c.update(cfg.get("voice", {}).get("app_bridge") or {})
+        return cfg, base, c
+
+    @app.get("/api/kamil")
+    @api
+    def kamil_state():
+        cfg, base, bc = bridge_cfg()
+        try:
+            with open(bc["state_path"], encoding="utf-8") as f:
+                data = json.load(f)
+        except (OSError, ValueError):
+            data = {}
+        now = time.time()
+        alive = bool(data) and now - float(data.get("updated", 0)) < 15
+        mood = None
+        mood_path = cfg.get("brain", {}).get("mind", {}).get("mood_path")
+        if mood_path:
+            try:
+                with open(mood_path if os.path.isabs(mood_path) else os.path.join(base, mood_path),
+                          encoding="utf-8") as f:
+                    mood = json.load(f).get("state")
+            except (OSError, ValueError):
+                pass
+        vision = bench.read_vision_state(bench.vision_paths(cfg, base)["state"])
+        people = max(int((vision or {}).get("faces") or 0), int((vision or {}).get("people") or 0)) if vision else None
+        objects = sorted({o.get("label") for o in (vision or {}).get("objects") or [] if o.get("label")})
+        return jsonify({"ok": True, "alive": alive, "state": data.get("etat", "idle") if alive else "off",
+                        "history": data.get("history", []), "voix": data.get("voix"),
+                        "journal": data.get("journal"), "garde": data.get("garde"),
+                        "mood": mood, "people": people, "objects": objects[:8],
+                        "name": cfg.get("brain", {}).get("robot_name") or "Kamil",
+                        "voice_running": launcher.status()["voice"]["running"]})
+
+    @app.post("/api/kamil/<kind>")
+    @api
+    def kamil_command(kind):
+        _, _, bc = bridge_cfg()
+        value = body().get("value")
+        if kind in ("dire", "question"):
+            value = " ".join(str(value or "").split())[:300]
+            if not value:
+                raise ValueError("texte vide")
+        elif kind == "garde":
+            value = bool(value)
+        kamil_bridge.send_command(kind, value, bc["commands_dir"])
         return jsonify({"ok": True})
 
     # ---------------------------------------------------------- programmes (sans systemd)

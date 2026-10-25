@@ -189,25 +189,32 @@ class Listener:
         self.awake_until = 0.0
         self.mute_until = 0.0
         self.ha = None
-        if mqtt_cfg and mqtt_cfg.get("enabled"):
-            self._start_mqtt(mqtt_cfg, (brain_cfg or {}).get("mind") or {})
+        self._start_bridges(cfg.get("app_bridge") or {}, mqtt_cfg or {}, (brain_cfg or {}).get("mind") or {})
 
-    def _start_mqtt(self, mqtt_cfg, mind_cfg):
-        """Kamil dans Home Assistant (ha_mqtt.py) : états, caméras, « Kamil dit », mode garde."""
-        try:
-            from ha_mqtt import KamilMQTT
+    def _start_bridges(self, bridge_cfg, mqtt_cfg, mind_cfg):
+        """L'onglet Kamil de l'Atelier (kamil_bridge.py) et Home Assistant (ha_mqtt.py) : état de Kamil,
+        conversation, « dis… », questions écrites, mode garde."""
+        from kamil_bridge import Bridges, LocalBridge
 
-            self.ha = KamilMQTT(mqtt_cfg, mind_cfg.get("vision_state_path"))
-        except Exception as e:   # ex. paho-mqtt non installé : Kamil marche sans
-            log.warning("Home Assistant (MQTT) désactivé : %s", e)
-            return
+        self.ha = Bridges()
+        if bridge_cfg.get("enabled", True):
+            self.ha.add(LocalBridge(bridge_cfg))
+        mqtt = None
+        if mqtt_cfg.get("enabled"):
+            try:
+                from ha_mqtt import KamilMQTT
+
+                mqtt = self.ha.add(KamilMQTT(mqtt_cfg, mind_cfg.get("vision_state_path")))
+            except Exception as e:   # ex. paho-mqtt non installé : Kamil marche sans
+                log.warning("Home Assistant (MQTT) désactivé : %s", e)
         watcher = getattr(self, "watcher", None)
         if watcher is not None:
-            self.ha.guard_state = lambda: watcher.guard
+            self.ha.set_guard_state(lambda: watcher.guard)
             watcher.on_record = lambda entry: (self.ha.publish("journal", entry["text"]),
                                                self.ha.guard(watcher.guard))
         self.ha.state("idle")
-        self.ha.start()
+        if mqtt is not None:
+            mqtt.start()
 
     # --- audio -------------------------------------------------------------
     def _on_audio(self, indata, n_frames, time_info, status):
@@ -447,6 +454,8 @@ class Listener:
                 reply = self.local.ask(text)
                 if reply:
                     log.info("Réponse de l'IA locale : %s", reply)
+                    if getattr(self, "ha", None) is not None:
+                        self.ha.publish("reponse", reply)
                     self.say(reply)
                     answered = True
                 else:
@@ -562,8 +571,11 @@ class Listener:
                 self._notify_phone(alert)
         if self.segmenter.triggered:
             return   # quelqu'un est en train de parler : on ne lui coupe pas la parole
-        if getattr(self, "ha", None) is not None and time.monotonic() >= self.mute_until:
-            self._ha_command()
+        if getattr(self, "ha", None) is not None:
+            if hasattr(self.ha, "poll"):
+                self.ha.poll()           # demandes déposées par l'Atelier
+            if time.monotonic() >= self.mute_until:
+                self._ha_command()
         if self.brain is None:
             return
         if time.monotonic() < self.mute_until:
@@ -605,6 +617,7 @@ class Listener:
             self.ha.publish("reponse", value)
         elif kind == "question":
             self._last_audio = None   # pas de voix à reconnaître : la question est écrite
+            self.ha.publish("entendu", value)
             self.handle(value, addressed=True)
         elif kind == "garde":
             watcher = getattr(self, "watcher", None)
