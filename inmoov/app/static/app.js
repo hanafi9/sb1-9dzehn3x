@@ -1218,14 +1218,45 @@ $("#config-save").addEventListener("click", (e) => withButton(e.target, async ()
 
 // ------------------------------------------------------------ démarrage
 // mode kiosque : /kiosk (ou ?kiosk) = Kamil seul, en plein écran, sans barre ni onglets
+// plein écran (comme F11) : le navigateur ne l'accepte qu'après un clic ou un toucher
 const KIOSK = location.pathname === "/kiosk" || new URLSearchParams(location.search).has("kiosk");
 if (KIOSK) document.body.classList.add("kiosk");
-$("#kiosk-full").addEventListener("click", () => {
+function enterFullscreen() {
+  document.body.classList.add("kiosk");      // affichage Kamil seul, sans barre ni onglets
+  showTab("kamil");
   const el = document.documentElement;
-  (document.fullscreenElement ? document.exitFullscreen() : el.requestFullscreen?.())?.catch?.(() => {});
+  const req = el.requestFullscreen || el.webkitRequestFullscreen;
+  if (req) Promise.resolve(req.call(el)).catch(() => toast("Le navigateur refuse le plein écran : appuie sur F11", true));
+  else toast("Plein écran non disponible ici : appuie sur F11", true);
+}
+function exitFullscreen() {
+  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  if (!KIOSK) document.body.classList.remove("kiosk");
+}
+$("#fullscreen-btn").addEventListener("click", enterFullscreen);
+$("#kiosk-exit").addEventListener("click", (e) => {
+  if (KIOSK) return;                  // page /kiosk : le lien ramène à l'Atelier
+  e.preventDefault();                 // plein écran ouvert depuis l'Atelier : on en sort simplement
+  exitFullscreen();
 });
-document.addEventListener("fullscreenchange", () =>
-  $("#kiosk-full").classList.toggle("hidden", !!document.fullscreenElement));
+$("#kiosk-full").addEventListener("click", () => (document.fullscreenElement ? exitFullscreen() : enterFullscreen()));
+document.addEventListener("fullscreenchange", () => {
+  const full = !!document.fullscreenElement;
+  $("#kiosk-full").textContent = full ? "✕ Quitter le plein écran" : "⛶ Plein écran";
+  $("#kiosk-hint").classList.add("hidden");
+  if (!full && !KIOSK) document.body.classList.remove("kiosk");   // Échap : retour à l'Atelier
+});
+if (KIOSK && !document.fullscreenElement) {
+  // page /kiosk : le premier toucher de l'écran passe en plein écran
+  $("#kiosk-hint").classList.remove("hidden");
+  const first = (e) => {
+    if (e.target.closest("button, input, a, label")) return;   // un vrai clic sur un bouton reste un clic
+    document.removeEventListener("pointerdown", first, true);
+    enterFullscreen();
+  };
+  document.addEventListener("pointerdown", first, true);
+  setTimeout(() => $("#kiosk-hint").classList.add("hidden"), 8000);
+}
 showTab("kamil");
 setInterval(() => { if (currentTab === "dashboard") loaders.dashboard(); }, 10000);
 

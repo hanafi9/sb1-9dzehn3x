@@ -13,7 +13,10 @@
       <span class="logo" aria-hidden="true">◉</span>
       <span>Atelier InMoov</span>
     </div>
-    <div id="mrl-pill" class="pill">MyRobotLab…</div>
+    <div class="row" style="margin:0">
+      <button id="fullscreen-btn" title="Kamil en plein écran (comme F11) — Échap pour sortir">⛶ Plein écran</button>
+      <div id="mrl-pill" class="pill">MyRobotLab…</div>
+    </div>
   </header>
 
   <nav class="tabs" role="tablist">
@@ -35,6 +38,7 @@
   <main>
     <!-- Kamil : interface interactive -->
     <section id="tab-kamil" class="tab active">
+      <div class="kiosk-hint hidden" id="kiosk-hint">Touchez l'écran pour passer en plein écran</div>
       <div class="kiosk-tools">
         <button class="ghost" id="kiosk-full" title="Plein écran">⛶ Plein écran</button>
         <a href="/" class="ghost" id="kiosk-exit" title="Retour à l'Atelier">⚙</a>

@@ -474,3 +474,10 @@ body.kiosk .kamil-input input { font-size: 1.1rem; padding: .8rem 1rem; }
   body.kiosk .kamil-eye-card { display: none; }
   body.kiosk .kamil-chat { height: 78vh; height: 78dvh; }
 }
+#fullscreen-btn { font-size: .85rem; padding: .3rem .75rem; }
+.kiosk-hint {
+  position: fixed; left: 50%; top: 1rem; transform: translateX(-50%); z-index: 20;
+  background: rgba(15, 23, 42, .88); color: #fff; padding: .55rem 1.1rem; border-radius: 99px;
+  font-size: .95rem; box-shadow: 0 6px 18px rgba(0,0,0,.35); pointer-events: none; animation: kamil-pop .3s ease-out;
+}
+body.kiosk .kiosk-tools { opacity: .55; }
