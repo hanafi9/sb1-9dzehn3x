@@ -1091,6 +1091,28 @@ loaders.bench = async () => {
   bench.camTimer = setInterval(() => (currentTab === "bench" ? benchCameras() : clearInterval(bench.camTimer)), 500);
 };
 
+$("#bench-status").addEventListener("click", (e) => {
+  const name = e.target.dataset.benchStart;
+  if (!name) return;
+  withButton(e.target, async () => {
+    const out = $("#bench-prog-log");
+    try {
+      const r = await api("POST", `/api/programs/${name}/start`);
+      toast(r.results[name] + " : on vérifie dans 8 s…");
+    } catch (err) {                       // ex. environnement Python absent : la raison s'affiche
+      out.textContent = err.message;
+      out.classList.remove("hidden");
+      return;
+    }
+    await new Promise((ok) => setTimeout(ok, 8000));
+    const p = (await api("GET", "/api/programs")).programs[name];
+    if (p.running) { out.classList.add("hidden"); toast(p.label + " : en marche"); benchRefresh(); return; }
+    // le programme s'est arrêté tout de suite : on montre la fin de son journal
+    out.textContent = p.label + " s'est arrêté. Fin du journal :\n\n" + (await api("GET", `/api/programs/${name}/logs`)).logs;
+    out.classList.remove("hidden");
+  });
+});
+
 async function benchRefresh() {
   let s;
   try { s = await api("GET", "/api/bench/state"); } catch (e) { return; }
@@ -1100,7 +1122,9 @@ async function benchRefresh() {
   $("#bench-status").innerHTML = [
     pill(s.mrl, "MyRobotLab connecté", "MyRobotLab injoignable"),
     pill(s.voice, "voix lancée", "voix arrêtée"),
+    s.voice ? "" : '<button class="ghost" data-bench-start="voice">Démarrer la voix</button>',
     pill(s.tracker, "suivi de visage lancé", "suivi de visage arrêté"),
+    s.tracker ? "" : '<button class="ghost" data-bench-start="vision">Démarrer le suivi</button>',
     pill(s.coral, "Coral détecté", "Coral absent", "Coral : inconnu"),
   ].join(" ");
   if (!v) {
