@@ -125,20 +125,6 @@
             <label class="kamil-switch"><input type="checkbox" id="kamil-guard">
               <span class="slider"></span><span>Mode garde</span></label>
           </div>
-          <div class="card kamil-eye-card">
-            <div class="row between"><h2>Ce que je vois</h2>
-              <label class="check"><input type="checkbox" id="kamil-boxes" checked> cadres</label></div>
-            <div class="kamil-cams">
-              <figure data-kcam="0"><div class="cam"><img alt="Caméra du suivi"><canvas></canvas>
-                <span class="cam-off">Caméra arrêtée</span></div><figcaption>Caméra du suivi</figcaption></figure>
-              <figure data-kcam="1"><div class="cam"><img alt="2e caméra"><canvas></canvas>
-                <span class="cam-off">Caméra arrêtée</span></div><figcaption>2e caméra</figcaption></figure>
-            </div>
-            <p class="kamil-legend"><span class="sw" style="--c:#facc15"></span>suivi
-              <span class="sw" style="--c:#22c55e"></span>visage <span class="sw" style="--c:#3b82f6"></span>objet
-              <span class="sw" style="--c:#f97316"></span>mouvement <span class="sw dash"></span>zone centrale</p>
-            <p class="muted" id="kamil-seen"></p>
-          </div>
         </div>
         <div class="card kamil-chat">
           <div class="row between"><h2>Conversation</h2><span class="muted" id="kamil-heard-by"></span></div>
@@ -160,6 +146,20 @@
             </div>
           </form>
         </div>
+        <div class="card kamil-eye-card">
+            <div class="row between"><h2>Ce que je vois</h2>
+              <label class="check"><input type="checkbox" id="kamil-boxes" checked> cadres</label></div>
+            <div class="kamil-cams">
+              <figure data-kcam="0"><div class="cam"><img alt="Caméra du suivi"><canvas></canvas>
+                <span class="cam-off">Caméra arrêtée</span></div><figcaption>Caméra du suivi</figcaption></figure>
+              <figure data-kcam="1"><div class="cam"><img alt="2e caméra"><canvas></canvas>
+                <span class="cam-off">Caméra arrêtée</span></div><figcaption>2e caméra</figcaption></figure>
+            </div>
+            <p class="kamil-legend"><span class="sw" style="--c:#facc15"></span>suivi
+              <span class="sw" style="--c:#22c55e"></span>visage <span class="sw" style="--c:#3b82f6"></span>objet
+              <span class="sw" style="--c:#f97316"></span>mouvement <span class="sw dash"></span>zone centrale</p>
+            <p class="muted" id="kamil-seen"></p>
+          </div>
       </div>
     </section>
 
