@@ -290,11 +290,12 @@
   },
   "local_llm": {
     "enabled": false,
+    "api": "ollama",
     "url": "http://127.0.0.1:11434",
     "model": "qwen2.5:1.5b",
     "timeout_s": 60,
     "max_turns": 6,
-    "_aide": "IA de secours sans Internet : Ollama sur le Pi, ou hailo-ollama avec le Raspberry Pi AI HAT+ 2. Le nom du modèle dépend de ce qui est installé."
+    "_aide": "IA de secours quand Claude ne répond pas (pas d'Internet, plus de crédit : elle répond alors 5 min sans redemander à Claude). api ollama : Ollama sur le Pi ou hailo-ollama (AI HAT+ 2), sans Internet. api openai : service en ligne compatible OpenAI, qui garde la main sur la maison (Home Assistant) : OpenAI (base_url https://api.openai.com/v1, api_key_env OPENAI_API_KEY, model ex. gpt-4.1-mini) ou Grok (base_url https://api.x.ai/v1, api_key_env XAI_API_KEY, model ex. grok-4.3). Modèles disponibles : curl -s -H \"Authorization: Bearer $OPENAI_API_KEY\" https://api.openai.com/v1/models"
   },
   "mqtt": {
     "enabled": false,

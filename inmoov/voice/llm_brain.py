@@ -532,6 +532,12 @@ class ClaudeBrain:
                 self.wait_speech()
 
     def _ask(self, text, adaptive=True):
+        if time.monotonic() < getattr(self, "_no_credit_until", 0.0):
+            # crédit épuisé il y a peu : on ne perd pas 5 s à redemander à Claude
+            if getattr(self, "has_backup", False):
+                return None          # l'IA de secours (OpenAI, Grok, Ollama…) répond à sa place
+            self.speak("Toujours plus de crédit, désolé.")
+            return "crédit épuisé"
         self._maybe_reset()
         said_thinking = False
         if self.cfg.get("adaptive_effort"):
@@ -604,13 +610,12 @@ class ClaudeBrain:
             log.error("Erreur API Claude %s : %s", e.status_code, e.message)
             self.reset(summarize=False)
             if "credit balance" in str(e.message).lower():
-                # compte Anthropic à recharger : inutile de répondre au hasard par le chatbot
-                now = time.monotonic()
-                if now - getattr(self, "_credit_warned", -1e9) > 600:
-                    self._credit_warned = now
-                    self.speak("Mon cerveau en ligne n'a plus de crédit. Il faut recharger le compte Anthropic.")
-                else:
-                    self.speak("Toujours plus de crédit, désolé.")
+                # compte Anthropic à recharger : Claude n'est plus redemandé pendant 5 min
+                self._no_credit_until = time.monotonic() + self.cfg.get("no_credit_pause_s", 300)
+                if getattr(self, "has_backup", False):
+                    log.warning("Crédit Claude épuisé : l'IA de secours répond pendant 5 min")
+                    return None
+                self.speak("Mon cerveau en ligne n'a plus de crédit. Il faut recharger le compte Anthropic.")
                 return "crédit épuisé"
             return None
         return " ".join(spoken)

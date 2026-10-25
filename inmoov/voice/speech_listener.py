@@ -151,7 +151,10 @@ class Listener:
             from llm_local import LocalBrain
 
             self.local = LocalBrain(local_cfg, (brain_cfg or {}).get("robot_name", "InMoov"))
-            log.info("IA locale de secours : %s (%s)", local_cfg["model"], local_cfg["url"])
+            log.info("IA de secours : %s", self.local.name())
+            if self.brain is not None:
+                self.brain.has_backup = True                         # crédit épuisé : elle prend le relais
+                self.local.home = getattr(self.brain, "home", None)  # et garde la main sur la maison
         self.vad = webrtcvad.Vad(cfg["vad_aggressiveness"])
         self.segmenter = UtteranceSegmenter(
             frame_ms=FRAME_MS,

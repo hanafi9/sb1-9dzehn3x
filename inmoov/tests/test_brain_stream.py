@@ -207,6 +207,10 @@ class StreamTest(unittest.TestCase):
         self.assertIn("recharger le compte Anthropic", self.events[-1][1])
         b.ask("tu m'entends ?")
         self.assertEqual(self.events[-1][1], "Toujours plus de crédit, désolé.")
+        b.has_backup = True                                         # OpenAI / Grok prend le relais
+        n = len(self.events)
+        self.assertIsNone(b.ask("et maintenant ?"))
+        self.assertEqual(len(self.events), n)                       # rien dit, pas de nouvel appel à Claude
 
     def test_no_silence_when_called_by_name(self):
         b = self.make([stream_body([("text", ["[silence]"])], "end_turn")])
