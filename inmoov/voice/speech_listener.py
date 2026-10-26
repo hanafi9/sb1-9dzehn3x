@@ -174,6 +174,11 @@ class Listener:
             compute_type=cfg["whisper_compute_type"],
             cpu_threads=cfg["whisper_threads"],
         )
+        # 1er calcul de Whisper toujours lent (mise en route) : fait ici, pas sur la 1re phrase
+        t0 = time.monotonic()
+        list(self.model.transcribe(np.zeros(SAMPLE_RATE, dtype=np.float32), language=cfg["language"], beam_size=1,
+                                   without_timestamps=True, vad_filter=False)[0])
+        log.info("Whisper prêt (mise en route %.1f s)", time.monotonic() - t0)
         self.cloud = None
         if (cfg.get("cloud_stt") or {}).get("enabled"):
             from cloud_stt import CloudTranscriber
@@ -247,7 +252,11 @@ class Listener:
             if (self.cfg.get("cloud_stt") or {}).get("save_quota") and time.monotonic() >= self.awake_until:
                 # télé allumée toute la journée : le Pi écoute d'abord, et seules les phrases
                 # avec « Kamil » partent en ligne (le quota gratuit de Groq est de 2000 phrases/jour)
-                local = self._whisper(self.model, audio, self.cfg["beam_size"])
+                # ce texte sert seulement à repérer « Kamil » : recherche simple (beam 1), 1,5 à 2 fois plus rapide
+                t0 = time.monotonic()
+                local = self._whisper(self.model, audio, (self.cfg.get("cloud_stt") or {}).get("screen_beam_size", 1))
+                log.info("(repérage du mot de réveil sur le Pi : %.1f s pour %.1f s de son)",
+                         time.monotonic() - t0, len(audio) / float(SAMPLE_RATE))
                 heard = (local[0] + " " + local[2]).strip()
                 if not (strip_wake_word(heard, self.cfg["wake_words"])[0]
                         or find_wake_word_anywhere(heard, self.cfg["wake_words"], threshold=0.75) is not None):
