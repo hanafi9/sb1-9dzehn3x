@@ -22,6 +22,8 @@ STATES = [
     {"entity_id": "remote.tv_salon", "state": "off", "attributes": {"friendly_name": "TV Salon"}},
     {"entity_id": "media_player.fire_tv_192_168_1_61", "state": "off", "attributes": {"friendly_name": "Fire TV"}},
     {"entity_id": "light.lustre", "state": "on", "attributes": {"friendly_name": "Lustre"}},
+    {"entity_id": "media_player.televiseur_du_salon", "state": "off", "attributes": {"friendly_name": "Téléviseur du salon"}},
+    {"entity_id": "button.denon_tv_audio", "state": "unknown", "attributes": {"friendly_name": "Denon TV Audio"}},
     {"entity_id": "lock.porte_entree", "state": "locked", "attributes": {"friendly_name": "Porte d'entrée"}},
 ]
 
@@ -105,7 +107,13 @@ class HomeAssistantTest(unittest.TestCase):
         self.assertIn("media_player.tv_salon", found)
         self.assertIn("remote.tv_salon", found)
         self.assertNotIn("lock.porte_entree", ha.find("porte entrée")[1])   # serrure : jamais proposée
-        self.assertEqual(ha.find("aquarium"), (True, "aucun appareil ne ressemble à « aquarium »"))
+        ok, found = ha.find("télé du salon")                                 # télé = TV = Téléviseur
+        self.assertTrue(found.startswith("media_player.televiseur_du_salon"))
+        ok, found = ha.find("tv TCL")                                        # personne ne s'appelle TCL
+        self.assertIn("ne correspond exactement", found)
+        self.assertIn("Ne commande pas un autre appareil", found)
+        self.assertIn("media_player.televiseur_du_salon", found)            # proposée, pas choisie
+        self.assertIn("aucun appareil ne correspond exactement à « aquarium »", ha.find("aquarium")[1])
         ok, said = ha.control("media_player.fire_tv_192_168_1_61", "turn_on", sleep=lambda s: None)
         self.assertEqual((ok, said), (True, "fait : turn_on sur media_player.fire_tv_192_168_1_61 (état : idle)"))
         self.assertEqual(FakeHA.requests[-1][0], "/api/services/media_player/turn_on")

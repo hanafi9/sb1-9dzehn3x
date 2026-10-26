@@ -320,8 +320,10 @@ DEVICE_TOOL = {
         "media_play, media_pause, volume_set, volume_mute, select_source, open_cover, close_cover, "
         "set_temperature, press… options = JSON des paramètres, ex. {\"volume_level\": 0.3}, "
         "{\"source\": \"Netflix\"}, {\"temperature\": 20}, sinon \"\". "
-        "Plusieurs résultats proches : choisis le plus logique (ex. media_player plutôt que remote pour "
-        "le son), ou demande lequel à la personne. Laisse vides les champs inutiles."
+        "Plusieurs résultats du même nom : choisis le plus logique (ex. media_player plutôt que remote "
+        "pour le son). Si aucun ne correspond exactement à ce qui est demandé (ex. on demande la télé TCL "
+        "et on ne trouve qu'une Fire TV), ne commande JAMAIS un autre appareil : dis ce que tu as trouvé "
+        "et demande lequel. Laisse vides les champs inutiles."
     ),
     "strict": True,
     "input_schema": {

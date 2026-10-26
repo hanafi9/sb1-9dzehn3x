@@ -37,9 +37,18 @@ DIRECT_SERVICES = {"turn_on", "turn_off", "toggle", "open_cover", "close_cover",
                    "press", "start", "stop", "return_to_base", "send_command", "select_option", "set_value"}
 
 
+# mots qui veulent dire la même chose (« télé TCL » doit trouver « Téléviseur du salon »)
+SYNONYMS = {"tele": "tv", "televiseur": "tv", "television": "tv", "tv": "tv", "ecran": "tv",
+            "lumiere": "lumiere", "lampe": "lumiere", "light": "lumiere", "lustre": "lustre",
+            "volet": "volet", "store": "volet", "cover": "volet", "prise": "prise", "switch": "prise"}
+# mots qui ne servent pas à trouver l'appareil
+STOP_WORDS = {"le", "la", "les", "l", "de", "du", "des", "d", "un", "une", "mon", "ma", "mes"}
+
+
 def _norm(text):
     text = unicodedata.normalize("NFKD", str(text).lower())
-    return "".join(c if c.isalnum() else " " for c in text if not unicodedata.combining(c)).split()
+    words = "".join(c if c.isalnum() else " " for c in text if not unicodedata.combining(c)).split()
+    return [SYNONYMS.get(w, w) for w in words if w not in STOP_WORDS]
 
 
 class HomeAssistant:
@@ -117,15 +126,25 @@ class HomeAssistant:
                 continue
             name = (st.get("attributes") or {}).get("friendly_name") or entity
             hay = _norm(name) + _norm(entity.replace("_", " "))
-            # chaque mot cherché : présent tel quel, ou très ressemblant (« tele » / « tv »… pas de miracle)
+            if entity.startswith("media_player."):
+                hay.append("tv")          # une télé est presque toujours un media_player
+            # chaque mot cherché : présent tel quel, ou très ressemblant
             score = sum(1.0 if w in hay else max((difflib.SequenceMatcher(None, w, h).ratio() for h in hay),
                                                  default=0) for w in words) / len(words)
             if score >= 0.6:
                 scored.append((score, entity, name, st.get("state")))
         scored.sort(key=lambda x: (-x[0], x[1]))
-        if not scored:
-            return True, "aucun appareil ne ressemble à « %s »" % query
-        return True, "\n".join("%s | %s | %s" % (e, n, s) for _, e, n, s in scored[:limit])
+        lines = ["%s | %s | %s" % (e, n, s) for sc, e, n, s in scored[:limit] if sc >= 0.99]
+        close = ["%s | %s | %s" % (e, n, s) for sc, e, n, s in scored[:limit] if sc < 0.99]
+        if lines:
+            return True, "\n".join(lines + (["(approchants :)"] + close[:3] if close else []))
+        # aucun nom ne contient tous les mots : on montre ce qui ressemble, sans rien choisir
+        others = close or ["%s | %s | %s" % (st["entity_id"], (st.get("attributes") or {}).get("friendly_name"),
+                                            st.get("state")) for st in states
+                           if st.get("entity_id", "").startswith("media_player.")][:limit]
+        return True, ("aucun appareil ne correspond exactement à « %s ». Ne commande pas un autre appareil "
+                      "au hasard : demande lequel à la personne. Appareils proches :\n%s"
+                      % (query, "\n".join(others) or "aucun"))
 
     def state(self, entity_id):
         """État actuel d'une entité (ex. "on", "idle"), ou None si illisible."""
