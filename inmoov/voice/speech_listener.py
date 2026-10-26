@@ -434,6 +434,10 @@ class Listener:
         if text:
             self.mute_until = time.monotonic() + 0.5 + len(text) * self.cfg["seconds_per_char"]
 
+    def _show_heard(self, text):
+        if getattr(self, "ha", None) is not None and text:
+            self.ha.publish("entendu", text)
+
     def handle(self, text, addressed=False):
         """addressed : phrase forcément pour Kamil (ex. question écrite dans Home Assistant)."""
         now = time.monotonic()
@@ -449,8 +453,10 @@ class Listener:
         if not awake and not found:
             log.info("(pas de mot de réveil) %s", text)
             return
+        heard = text
         if found:
             if not rest:
+                self._show_heard(heard)
                 self.awake_until = now + self.cfg["wake_window_s"]
                 self.say(self._wake_reply())
                 self.status("awake")
@@ -460,6 +466,8 @@ class Listener:
         speaker = self._identify()
         if not found and self._background(speaker):
             return
+        # dans la conversation (Atelier, Home Assistant) : seulement les phrases pour Kamil, pas la télé
+        self._show_heard(heard)
         if self.reactions is not None:
             self.reactions.on_conversation()
 
@@ -564,8 +572,6 @@ class Listener:
                 self.turn = {"end": t0 - self.cfg["end_silence_ms"] / 1000.0, "whisper": spent,
                              "heard": time.monotonic()}
                 log.info("Entendu (%.1f s audio, %.1f s calcul) : %s", len(pcm) / 2 / SAMPLE_RATE, spent, text)
-                if getattr(self, "ha", None) is not None and text:
-                    self.ha.publish("entendu", text)
                 if spent > 8:
                     log.warning("Whisper très lent (%.0f s) : processeur surchargé ou trop chaud ? "
                                 "(vcgencmd measure_temp ; top)", spent)
@@ -659,7 +665,6 @@ class Listener:
             self.ha.publish("reponse", value)
         elif kind == "question":
             self._last_audio = None   # pas de voix à reconnaître : la question est écrite
-            self.ha.publish("entendu", value)
             self.handle(value, addressed=True)
         elif kind == "garde":
             watcher = getattr(self, "watcher", None)

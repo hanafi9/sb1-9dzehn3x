@@ -248,6 +248,17 @@ class ChatbotTest(unittest.TestCase):
         lst._on_speech_done()                                # dernière phrase finie
         self.assertEqual(shown, ["thinking", "speaking", "idle"])
 
+    def test_only_phrases_for_kamil_go_to_the_conversation(self):
+        lst = listener(FakeTts(), wake_words=["kamil"])
+        published = []
+        lst.ha = types.SimpleNamespace(publish=lambda k, v: published.append((k, v)), state=lambda s: None)
+        lst._background = lambda speaker: False
+        lst._identify = lambda: None
+        lst.handle("et maintenant la météo du week-end")          # la télé : pas dans la conversation
+        self.assertEqual(published, [])
+        lst.handle("Kamil, quelle heure est-il ?")
+        self.assertEqual(published[0], ("entendu", "Kamil, quelle heure est-il ?"))
+
     def test_follow_up_without_wake_word(self):
         tts = FakeTts()
         lst = listener(tts, wake_words=["kamil"])
