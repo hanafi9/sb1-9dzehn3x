@@ -50,6 +50,8 @@ class FakeHA(BaseHTTPRequestHandler):
             for s in STATES:
                 if s["entity_id"] == body.get("entity_id") and "fire_tv" in s["entity_id"]:
                     s["state"] = {"turn_on": "idle", "turn_off": "off"}.get(self.path.rsplit("/", 1)[1], s["state"])
+                    if self.path.endswith("/select_source") and body.get("source", "").startswith("com."):
+                        s.setdefault("attributes", {})["app_id"] = body["source"]
             self.send_response(200)
             self.send_header("Content-Length", "2")
             self.end_headers()
@@ -129,6 +131,16 @@ class HomeAssistantTest(unittest.TestCase):
         self.assertEqual(FakeHA.requests[-1][2]["source"], "com.iproboxx.iproboxxtviptvbox")   # nom technique
         aliased.control("media_player.fire_tv_192_168_1_61", "select_source", {"source": "Netflix"})
         self.assertEqual(FakeHA.requests[-1][2]["source"], "Netflix")                           # inchangé
+        self.assertEqual(aliased.app_alias("iProBox"), None)                    # trop différent d'« IPRO2 »
+        aliased.app_aliases["iprobox"] = "com.iproboxx.iproboxxtviptvbox"
+        self.assertEqual(aliased.app_alias("E-Pro Box"), "com.iproboxx.iproboxxtviptvbox")   # mal entendu
+        ok, said = aliased.control("media_player.fire_tv_192_168_1_61", "select_source", {"source": "ipro2"},
+                                   sleep=lambda s: None)
+        self.assertTrue(ok)                                                     # application bien ouverte
+        ok, said = aliased.control("media_player.fire_tv_192_168_1_61", "select_source", {"source": "Inconnue"},
+                                   wait_s=0.3, sleep=lambda s: None)
+        self.assertFalse(ok)                                                    # Kamil ne dit pas « fait »
+        self.assertIn("n'a pas ouvert « Inconnue »", said)
         n = len(FakeHA.requests)
         self.assertFalse(ha.control("lock.porte_entree", "unlock")[0])            # domaine interdit
         self.assertFalse(ha.control("light.lustre", "delete_everything")[0])      # service inconnu

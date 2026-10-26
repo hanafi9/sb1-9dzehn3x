@@ -149,12 +149,29 @@ class HomeAssistant:
                       "au hasard : demande lequel à la personne. Appareils proches :\n%s"
                       % (query, "\n".join(others) or "aucun"))
 
+    def app_alias(self, spoken):
+        """Nom technique de l'application pour un nom dit à voix haute, même mal entendu
+        (« E-Pro Box » pour « iProBox ») ; None si rien ne ressemble assez."""
+        key = "".join(_norm(spoken))
+        if not key:
+            return None
+        if key in self.app_aliases:
+            return self.app_aliases[key]
+        best = max(self.app_aliases, key=lambda k: difflib.SequenceMatcher(None, key, k).ratio(), default=None)
+        if best and difflib.SequenceMatcher(None, key, best).ratio() >= 0.75:
+            return self.app_aliases[best]
+        return None
+
+    def _entity(self, entity_id):
+        try:
+            return self._get("/api/states/" + entity_id)
+        except (urllib.error.URLError, OSError, ValueError):
+            return None
+
     def state(self, entity_id):
         """État actuel d'une entité (ex. "on", "idle"), ou None si illisible."""
-        try:
-            return self._get("/api/states/" + entity_id).get("state")
-        except (urllib.error.URLError, OSError, ValueError, AttributeError):
-            return None
+        st = self._entity(entity_id)
+        return st.get("state") if isinstance(st, dict) else None
 
     def control(self, entity_id, service, options=None, wait_s=3.0, sleep=time.sleep):
         """Appelle un service sur une entité précise (ex. media_player.tv_salon, turn_on), puis vérifie
@@ -167,7 +184,7 @@ class HomeAssistant:
             return False, "service « %s » non autorisé (ex. turn_on, turn_off, toggle, media_play…)" % service
         data = dict(options or {})
         if service == "select_source" and isinstance(data.get("source"), str):
-            alias = self.app_aliases.get("".join(_norm(data["source"])))
+            alias = self.app_alias(data["source"])
             if alias:
                 data["source"] = alias      # l'application est lancée par son nom technique
         data["entity_id"] = entity_id
@@ -188,6 +205,19 @@ class HomeAssistant:
                 after = self.state(entity_id)
                 if after is not None and expected(after):
                     break
+        if service == "select_source" and wait_s > 0:
+            # l'application est-elle vraiment au premier plan ? (attributs app_id / source d'Android TV)
+            wanted, end, shown = str(data.get("source", "")), time.monotonic() + wait_s, None
+            while time.monotonic() < end:
+                sleep(0.5)
+                attrs = (self._entity(entity_id) or {}).get("attributes") or {}
+                shown = [v for v in (attrs.get("app_id"), attrs.get("source")) if v]
+                if not shown or wanted in shown:    # rien à vérifier (autre intégration), ou c'est bon
+                    break
+            if shown and wanted not in shown:
+                log.warning("Home Assistant direct : %s n'a pas ouvert %s (à l'écran : %s)", entity_id, wanted, shown[0])
+                return False, ("la demande est partie, mais %s n'a pas ouvert « %s » (application à l'écran : %s). "
+                               "Nom d'application inconnu de l'appareil ?" % (entity_id, wanted, shown[0]))
         if after == "unavailable":
             log.warning("Home Assistant direct : %s indisponible", entity_id)
             return False, "Home Assistant a accepté, mais %s est indisponible (appareil injoignable)" % entity_id
