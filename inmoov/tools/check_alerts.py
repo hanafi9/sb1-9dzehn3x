@@ -113,9 +113,9 @@ def check_mqtt(cfg, env):
             say(OK if value else INFO, "%s : %s" % (label, value[:80] if value else "rien (jamais publié)"))
 
 
-def ha_get(url, token, path):
+def ha_get(url, token, path, context=None):
     req = urllib.request.Request(url + path, headers={"Authorization": "Bearer " + token})
-    with urllib.request.urlopen(req, timeout=8) as resp:
+    with urllib.request.urlopen(req, timeout=8, context=context) as resp:
         return json.loads(resp.read().decode("utf-8"))
 
 
@@ -130,8 +130,12 @@ def check_ha(cfg, env, test):
         say(KO, "impossible de vérifier Home Assistant sans adresse ni jeton : vérifie l'entité à la main "
                 "(Outils de développement → États → kamil_derniere_alerte)")
         return
+    # même réglage https que Kamil (verify_ssl false ou ca_file pour un certificat local)
+    sys.path.insert(0, os.path.join(ROOT, "voice"))
+    from home_assistant import HomeAssistant
+    ctx = HomeAssistant(url, token, verify_ssl=ha.get("verify_ssl", True), ca_file=ha.get("ca_file")).context
     try:
-        states = ha_get(url, token, "/api/states")
+        states = ha_get(url, token, "/api/states", ctx)
     except urllib.error.HTTPError as e:
         say(KO, "Home Assistant a répondu %d (%s)" % (e.code, "jeton refusé" if e.code == 401 else url))
         return
@@ -151,7 +155,7 @@ def check_ha(cfg, env, test):
     phones = watch.get("notify_service") or []
     phones = [phones] if isinstance(phones, str) else phones
     try:
-        services = ha_get(url, token, "/api/services")
+        services = ha_get(url, token, "/api/services", ctx)
         notify = {"notify." + n for d in services if d.get("domain") == "notify" for n in d.get("services", {})}
     except Exception:
         notify = set()
@@ -169,7 +173,7 @@ def check_ha(cfg, env, test):
         req = urllib.request.Request("%s/api/services/%s/%s" % (url, domain, name), data=body, method="POST",
                                      headers={"Authorization": "Bearer " + token, "Content-Type": "application/json"})
         try:
-            with urllib.request.urlopen(req, timeout=8):
+            with urllib.request.urlopen(req, timeout=8, context=ctx):
                 say(OK, "%s : envoyée (si rien n'arrive : notifications de l'appli Home Assistant sur ce téléphone)" % p)
         except urllib.error.HTTPError as e:
             say(KO, "%s : Home Assistant a répondu %d %s" % (p, e.code, e.read().decode("utf-8", "replace")[:120]))
