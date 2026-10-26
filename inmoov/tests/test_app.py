@@ -102,6 +102,11 @@ class AppTest(unittest.TestCase):
         b.publish("entendu", "Kamil, bonjour")
         k = self.c.get("/api/kamil").get_json()
         self.assertEqual((k["state"], k["alive"], k["history"][0]["texte"]), ("awake", True, "Kamil, bonjour"))
+        self.assertIsNone(k["delai"])
+        b.publish("delai", json.dumps({"total": 3.4, "silence": 0.6, "ecoute": 1.1, "ia": 1.0, "voix": 0.7}))
+        self.assertEqual(self.c.get("/api/kamil").get_json()["delai"]["ia"], 1.0)   # délai par étape
+        b.publish("delai", "abîmé")
+        self.assertIsNone(self.c.get("/api/kamil").get_json()["delai"])
         self.assertTrue(self.c.post("/api/kamil/question", json={"value": "  Quelle   heure ?  "}).get_json()["ok"])
         self.assertEqual(self.c.post("/api/kamil/question", json={"value": "   "}).status_code, 400)
         self.assertEqual(self.c.post("/api/kamil/effacer", json={"value": "x"}).status_code, 400)
@@ -127,7 +132,7 @@ class AppTest(unittest.TestCase):
         self.assertEqual((got.status_code, got.data), (200, png))
         got.close()
         self.assertTrue(self.c.get("/api/kamil").get_json()["portrait"]["custom"])
-        r = self.c.put("/api/kamil/portrait/points", json={"eye_l": [0.4, 0.3], "eye_r": [0.6, 0.3], "chest": [0.5, 1.7]})
+        r = self.c.put("/api/kamil/portrait/points", json={"eye_l": [0.4, 0.3], "eye_r": [0.6, 0.3], "chest": [0.5, 1.7], "mouth": [0.5, 0.45]})
         self.assertEqual(r.get_json()["points"]["chest"], [0.5, 1.0])                         # borné à l'image
         self.assertEqual(self.c.get("/api/kamil").get_json()["portrait"]["points"]["eye_l"], [0.4, 0.3])
         jpg = b"\xff\xd8\xff\xe0" + b"\0" * 64

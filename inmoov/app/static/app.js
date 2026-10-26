@@ -85,6 +85,8 @@ async function kamilRefresh() {
     k.voix ? `<span class="pill ok">🎙 ${esc(k.voix)}</span>` : "",
     k.people !== null ? `<span class="pill">👀 ${k.people} personne${k.people > 1 ? "s" : ""}</span>` : "",
     k.journal ? `<span class="pill" title="Dernier événement du journal">📓 ${esc(k.journal)}</span>` : "",
+    k.delai ? `<span class="pill" title="Temps entre la fin de ta phrase et le début de sa réponse :
+silence de fin ${k.delai.silence} s + reconnaissance ${k.delai.ecoute} s + IA ${k.delai.ia} s + voix ${k.delai.voix} s">⏱ ${k.delai.total.toFixed(1).replace(".", ",")} s</span>` : "",
   ].join("");
   if (k.mood) {
     // humeur en jauges circulaires
@@ -144,15 +146,34 @@ function kamilPortrait(p) {
     img.dataset.version = p.version;
     img.onload = () => $(".kp-frame").style.setProperty("--ar", (img.naturalWidth / img.naturalHeight).toFixed(4));
     img.src = `/api/kamil/portrait?v=${p.version}`;
+    $("#kp-jaw img").src = img.src;
   }
   if (kamil.placing) return;
   for (const [id, key] of [["#kp-eye-l", "eye_l"], ["#kp-eye-r", "eye_r"], ["#kp-core", "chest"]]) {
     $(id).style.left = (p.points[key][0] * 100).toFixed(2) + "%";
     $(id).style.top = (p.points[key][1] * 100).toFixed(2) + "%";
   }
+  kamilMouthAt(p.points.mouth);
+}
+function kamilMouthAt(pt) {
+  const f = $(".kp-frame");
+  f.style.setProperty("--mx", pt[0].toFixed(4));
+  f.style.setProperty("--my", pt[1].toFixed(4));
 }
 
+// bouche : quand Kamil parle, la mâchoire s'ouvre et se ferme au rythme d'une parole (syllabes, petites pauses)
+setInterval(() => {
+  const f = $(".kp-frame");
+  const talking = kamil.state?.state === "speaking" && !kamil.placing;
+  if (!talking) { if (kamil.open) { kamil.open = 0; f.style.setProperty("--open", 0); } return; }
+  kamil.syll = (kamil.syll || 0) + 1;
+  const pause = Math.random() < 0.12;                       // une petite pause de temps en temps
+  kamil.open = pause ? 0 : kamil.syll % 2 ? 0.45 + Math.random() * 0.55 : Math.random() * 0.25;
+  f.style.setProperty("--open", kamil.open.toFixed(2));
+}, 110);
+
 const PLACE_STEPS = [["eye_l", "Touche l'œil de Kamil situé à ta gauche"], ["eye_r", "Touche son autre œil"],
+                     ["mouth", "Touche le milieu de sa bouche (entre les lèvres)"],
                      ["chest", "Touche la lumière de sa poitrine"]];
 function kamilPlaceStep() {
   const step = PLACE_STEPS[kamil.placing.points ? Object.keys(kamil.placing.points).length : 0];
@@ -170,14 +191,17 @@ $(".kp-frame").addEventListener("click", async (e) => {
   const pt = [(e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height];
   const key = PLACE_STEPS[Object.keys(kamil.placing.points).length][0];
   kamil.placing.points[key] = pt;
-  const el = { eye_l: "#kp-eye-l", eye_r: "#kp-eye-r", chest: "#kp-core" }[key];
-  $(el).style.left = pt[0] * 100 + "%";
-  $(el).style.top = pt[1] * 100 + "%";
+  if (key === "mouth") kamilMouthAt(pt);
+  else {
+    const el = { eye_l: "#kp-eye-l", eye_r: "#kp-eye-r", chest: "#kp-core" }[key];
+    $(el).style.left = pt[0] * 100 + "%";
+    $(el).style.top = pt[1] * 100 + "%";
+  }
   if (Object.keys(kamil.placing.points).length < PLACE_STEPS.length) return kamilPlaceStep();
   try {
     const res = await api("PUT", "/api/kamil/portrait/points", kamil.placing.points);
     kamil.portrait.points = res.points;
-    toast("Yeux et cœur placés");
+    toast("Yeux, bouche et cœur placés");
   } catch (err) { toast(err.message, true); }
   kamilPlaceEnd();
 });

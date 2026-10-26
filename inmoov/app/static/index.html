@@ -56,7 +56,7 @@
               <button type="button" class="kamil-look-btn" id="kamil-look-btn" title="Apparence de Kamil">🖼</button>
               <div class="kamil-look-menu hidden" id="kamil-look-menu">
                 <label class="kl-item">📤 Envoyer une image de Kamil…<input type="file" id="kamil-photo-file" accept="image/png,image/jpeg,image/webp" hidden></label>
-                <button type="button" class="kl-item" id="kamil-photo-points">🎯 Placer les yeux et le cœur</button>
+                <button type="button" class="kl-item" id="kamil-photo-points">🎯 Placer les yeux, la bouche et le cœur</button>
                 <button type="button" class="kl-item" id="kamil-photo-origin">🤖 Portrait d'origine de Kamil</button>
                 <button type="button" class="kl-item" id="kamil-photo-remove">✏️ Dessin animé</button>
               </div>
@@ -73,6 +73,9 @@
                 <img id="kamil-photo-img" alt="Kamil">
                 <span class="kp-eye" id="kp-eye-l"></span><span class="kp-eye" id="kp-eye-r"></span>
                 <span class="kp-core" id="kp-core"></span>
+                <!-- bouche : fente sombre, puis le menton (un morceau de la même image) qui descend quand il parle -->
+                <span class="kp-mouth" id="kp-mouth"></span>
+                <span class="kp-jaw" id="kp-jaw" aria-hidden="true"><img alt=""></span>
                 <span class="kp-sheen"></span>
               </div>
             </div>

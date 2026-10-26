@@ -142,12 +142,22 @@ class LegsManager:
 
 
 # ----------------------------------------------------------------- application
-# image de Kamil envoyée depuis l'onglet Kamil ; points = yeux et cœur lumineux (fractions de l'image),
+# image de Kamil envoyée depuis l'onglet Kamil ; points = yeux, cœur lumineux et milieu de la bouche
+# (fractions de l'image),
 # par défaut ceux du portrait de référence de Kamil (buste de face)
 PORTRAIT_TYPES = {b"\x89PNG\r\n\x1a\n": "png", b"\xff\xd8\xff": "jpg", b"RIFF": "webp"}
 PORTRAIT_MAX = 10 * 1024 * 1024
 PORTRAIT_DEFAULT = os.path.join(HERE, "static", "kamil_portrait.jpg")
-PORTRAIT_POINTS = {"eye_l": [0.425, 0.305], "eye_r": [0.57, 0.305], "chest": [0.504, 0.86]}
+PORTRAIT_POINTS = {"eye_l": [0.425, 0.305], "eye_r": [0.57, 0.305], "chest": [0.504, 0.86], "mouth": [0.5, 0.452]}
+
+
+def parse_delay(raw):
+    """Délai de la dernière réponse, étape par étape (publié par la voix de Kamil), ou None."""
+    try:
+        d = json.loads(raw or "null")
+        return {k: float(d[k]) for k in ("total", "silence", "ecoute", "ia", "voix")}
+    except (ValueError, TypeError, KeyError):
+        return None
 
 
 def create_app(data_dir=None, run=None, mrl=None):
@@ -837,6 +847,7 @@ def create_app(data_dir=None, run=None, mrl=None):
                         "mood": mood, "people": people, "objects": objects[:8],
                         "name": cfg.get("brain", {}).get("robot_name") or "Kamil",
                         "voice_running": launcher.status()["voice"]["running"],
+                        "delai": parse_delay(data.get("delai")) if alive else None,
                         "portrait": portrait_info()})
 
     # ------------------------------------------------------------ portrait de Kamil (image envoyée)
@@ -912,7 +923,7 @@ def create_app(data_dir=None, run=None, mrl=None):
     def kamil_portrait_points():
         b = body()
         pt = lambda p: [round(min(1.0, max(0.0, float(p[0]))), 4), round(min(1.0, max(0.0, float(p[1]))), 4)]
-        points = {"eye_l": pt(b["eye_l"]), "eye_r": pt(b["eye_r"]), "chest": pt(b["chest"])}
+        points = {k: pt(b[k]) for k in PORTRAIT_POINTS}
         portrait_store.save(dict(points, mode="photo"))
         return jsonify({"ok": True, "points": points})
 

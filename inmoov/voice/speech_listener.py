@@ -17,6 +17,7 @@ celle de Claude est envoyée à i01.mouth.speak.
 """
 
 import argparse
+import json
 import logging
 import os
 import queue
@@ -350,10 +351,14 @@ class Listener:
         now = time.monotonic()
         if not turn or "queued" not in turn or now - turn["end"] > 30:   # vieille phrase ignorée
             return
-        log.info("⏱ 1er son %.1f s après la fin de ta phrase = silence de fin %.1f + Whisper %.1f "
-                 "+ Claude (1re phrase) %.1f + Piper %.1f  [« %s »]",
-                 now - turn["end"], self.cfg["end_silence_ms"] / 1000.0, turn["whisper"],
-                 turn["queued"] - turn["heard"], now - turn["queued"], text[:40])
+        steps = {"total": now - turn["end"], "silence": self.cfg["end_silence_ms"] / 1000.0,
+                 "ecoute": turn["whisper"], "ia": turn["queued"] - turn["heard"], "voix": now - turn["queued"]}
+        # reconnaissance = Whisper du Pi et/ou en ligne ; voix = Piper ou voix en ligne (fichier téléchargé)
+        log.info("⏱ 1er son %.1f s après la fin de ta phrase = silence de fin %.1f + reconnaissance %.1f "
+                 "+ IA (1re phrase) %.1f + voix %.1f  [« %s »]",
+                 steps["total"], steps["silence"], steps["ecoute"], steps["ia"], steps["voix"], text[:40])
+        if getattr(self, "ha", None) is not None:   # affiché dans l'onglet Kamil de l'Atelier
+            self.ha.publish("delai", json.dumps({k: round(v, 1) for k, v in steps.items()}))
 
     def wait_speech(self):
         """Attend la fin de tout ce qui est dans la file de Piper."""

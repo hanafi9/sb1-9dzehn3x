@@ -231,7 +231,7 @@ class ChatbotTest(unittest.TestCase):
         with self.assertLogs("voice", "INFO") as logs:
             lst._on_first_sound("Bonjour !")
         self.assertIn("1er son 5.0 s", logs.output[0])
-        self.assertIn("Whisper 2.0 + Claude (1re phrase) 2.5 + Piper 0.5", logs.output[0])
+        self.assertIn("reconnaissance 2.0 + IA (1re phrase) 2.5 + voix 0.5", logs.output[0])
         self.assertIsNone(lst.turn)
 
     def test_follow_up_without_wake_word(self):
