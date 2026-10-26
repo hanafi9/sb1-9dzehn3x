@@ -344,7 +344,7 @@ a.button.ghost { background: transparent; color: var(--accent); }
 .kamil-bust .kb-head { transform-box: fill-box; transform-origin: 50% 100%;
   transform: translate(calc(var(--pan) * 16px), calc(var(--tilt) * 9px)) rotate(calc(var(--pan) * 5deg));
   transition: transform .6s cubic-bezier(.3, .7, .3, 1); }
-.kamil-bust .kb-face { transform: translate(calc(var(--pan) * 11px), calc(var(--tilt) * 6px)); transition: transform .6s cubic-bezier(.3, .7, .3, 1); }
+.kamil-bust .kb-face, .kamil-bust .kb-face-p { transform: translate(calc(var(--pan) * 11px), calc(var(--tilt) * 6px)); transition: transform .6s cubic-bezier(.3, .7, .3, 1); }
 .kamil-bust .kb-ear-l { transform: translateX(calc(var(--pan) * 6px)); transition: transform .6s; }
 .kamil-bust .kb-ear-r { transform: translateX(calc(var(--pan) * 6px)); transition: transform .6s; }
 .kamil-bust .kb-neck { transform: translateX(calc(var(--pan) * 5px)); transition: transform .6s; }
@@ -352,7 +352,14 @@ a.button.ghost { background: transparent; color: var(--accent); }
 .kamil-stage:not([data-gaze]) .kb-iris { animation: kb-gaze 9s ease-in-out infinite; }
 @keyframes kb-gaze { 0%, 20% { transform: translate(0, 0); } 28%, 42% { transform: translate(-4px, 1px); }
   50%, 64% { transform: translate(4px, 0); } 72%, 100% { transform: translate(0, 0); } }
-.kamil-bust .kb-iris-c { fill: var(--k); filter: drop-shadow(0 0 3px var(--k)); transition: fill .5s; }
+.kamil-bust .kb-iris-c { fill: var(--eye); filter: drop-shadow(0 0 3px var(--eye)); transition: fill .5s; }
+/* yeux cyan lumineux, comme l'image de référence ; ternes quand il dort */
+.kamil-stage { --eye: #67e8f9; }
+.kamil-stage[data-state="off"] { --eye: #334155; }
+.kamil-bust .kb-eyeglow { fill: var(--eye); opacity: .55; transition: opacity .4s, fill .5s; }
+.kamil-stage[data-state="speaking"] .kb-eyeglow, .kamil-stage[data-state="awake"] .kb-eyeglow { opacity: .85; }
+.kamil-stage[data-state="off"] .kb-eyeglow { opacity: 0; }
+.kamil-bust .kb-dot { fill: var(--eye); filter: drop-shadow(0 0 2px var(--eye)); }
 .kamil-bust .kb-core-c { stop-color: var(--k); transition: stop-color .5s; }
 .kamil-bust .kb-core { animation: kb-pulse 3s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
 @keyframes kb-pulse { 0%, 100% { opacity: .75; transform: scale(.92); } 50% { opacity: 1; transform: scale(1.08); } }
@@ -363,7 +370,7 @@ a.button.ghost { background: transparent; color: var(--accent); }
 .kamil-stage[data-state="speaking"] .kb-jaw { animation: kb-talk .32s ease-in-out infinite alternate; }
 .kamil-stage[data-state="speaking"] .kb-core { animation-duration: .6s; }
 .kamil-stage[data-state="awake"] .kb-iris-c { animation: kb-glow 1.4s ease-in-out infinite; }
-@keyframes kb-glow { 0%, 100% { filter: drop-shadow(0 0 2px var(--k)); } 50% { filter: drop-shadow(0 0 9px var(--k)); } }
+@keyframes kb-glow { 0%, 100% { filter: drop-shadow(0 0 2px var(--eye)); } 50% { filter: drop-shadow(0 0 9px var(--eye)); } }
 .kamil-stage[data-state="thinking"]:not([data-gaze]) .kb-iris { animation: none; transform: translate(4px, -3px); }
 .kamil-stage[data-state="thinking"] .kb-brow { transform: translateY(-3px); transition: transform .4s; }
 .kamil-stage[data-state="off"] .kb-lid { animation: none; transform: scaleY(1); }
@@ -401,7 +408,7 @@ a.button.ghost { background: transparent; color: var(--accent); }
 .kamil-stage[data-gaze] .kb-head-idle, .kamil-stage[data-state="off"] .kb-head-idle { animation: none; transform: none; }
 .kamil-stage[data-state="off"] .kb-head-idle { transform: rotate(4deg) translateY(6px); }
 /* les yeux s'allument plus fort quand il écoute ou parle */
-.kamil-stage[data-state="speaking"] .kb-iris-c { filter: drop-shadow(0 0 6px var(--k)); }
+.kamil-stage[data-state="speaking"] .kb-iris-c { filter: drop-shadow(0 0 6px var(--eye)); }
 
 .kamil-bottom { display: flex; justify-content: space-between; align-items: flex-end; gap: 1rem; z-index: 2; margin-top: .4rem; }
 .kamil-name { margin: 0; font-size: 2.1rem; line-height: 1.1; letter-spacing: .02em; text-transform: capitalize; }

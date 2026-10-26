@@ -81,8 +81,24 @@
                 <radialGradient id="kb-core" cx="50%" cy="50%" r="50%">
                   <stop offset="0" stop-color="#fff"/><stop offset=".35" class="kb-core-c"/><stop offset="1" stop-color="transparent"/>
                 </radialGradient>
-                <clipPath id="kb-eye-l"><ellipse cx="172" cy="111" rx="16" ry="6.5"/></clipPath>
-                <clipPath id="kb-eye-r"><ellipse cx="228" cy="111" rx="16" ry="6.5"/></clipPath>
+                <clipPath id="kb-eye-l"><path d="M164 113 C170 105 186 104 193 112 C186 118 170 119 164 113 Z"/></clipPath>
+                <clipPath id="kb-eye-r"><path d="M236 113 C230 105 214 104 207 112 C214 118 230 119 236 113 Z"/></clipPath>
+                <clipPath id="kb-face-clip"><path d="M200 48 C233 48 254 72 256 104 C258 134 251 156 240 174 C229 192 215 203 200 205 C185 203 171 192 160 174 C149 156 142 134 144 104 C146 72 167 48 200 48 Z"/></clipPath>
+                <radialGradient id="kb-helmet" cx="34%" cy="20%" r="85%">
+                  <stop offset="0" stop-color="#c9d8ea"/><stop offset=".22" stop-color="#7c93b3"/><stop offset=".6" stop-color="#3a4b66"/><stop offset="1" stop-color="#141c29"/>
+                </radialGradient>
+                <linearGradient id="kb-skin2" x1="0" y1="0" x2="1" y2=".25">
+                  <stop offset="0" stop-color="#9fb2cb"/><stop offset=".45" stop-color="#7389a8"/><stop offset=".8" stop-color="#465a78"/><stop offset="1" stop-color="#2c3a52"/>
+                </linearGradient>
+                <linearGradient id="kb-lip" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0" stop-color="#4a5d7c"/><stop offset="1" stop-color="#2d3b53"/>
+                </linearGradient>
+                <radialGradient id="kb-ring" cx="50%" cy="50%" r="50%">
+                  <stop offset="0" stop-color="#0a0f16"/><stop offset=".55" stop-color="#2c384a"/><stop offset=".8" stop-color="#55657d"/><stop offset="1" stop-color="#1a2230"/>
+                </radialGradient>
+                <filter id="kb-soft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="4"/></filter>
+                <filter id="kb-soft2" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="1.6"/></filter>
+                <filter id="kb-glowf" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="3"/></filter>
               </defs>
               <!-- torse : épaulières, plastron en plaques, cœur hexagonal -->
               <g class="kb-torso" stroke="#9fb6d6" stroke-opacity=".25" stroke-width="1">
@@ -129,44 +145,95 @@
               <!-- tête : tourne et s'incline comme le vrai robot -->
               <g class="kb-head">
                <g class="kb-head-idle">
-                <g class="kb-ear-l"><circle cx="122" cy="112" r="28" fill="url(#kb-disc)" stroke="#6a7f9e" stroke-width="2"/>
-                  <path d="M122 92 a20 20 0 1 0 .1 0 M122 99 a13 13 0 1 0 .1 0 M122 106 a6 6 0 1 0 .1 0" fill="none" stroke="#56667f" stroke-width="2"/></g>
-                <g class="kb-ear-r"><circle cx="278" cy="112" r="28" fill="url(#kb-disc)" stroke="#6a7f9e" stroke-width="2"/>
-                  <path d="M278 92 a20 20 0 1 0 .1 0 M278 99 a13 13 0 1 0 .1 0 M278 106 a6 6 0 1 0 .1 0" fill="none" stroke="#56667f" stroke-width="2"/></g>
-                <path d="M200 4 C258 4 288 44 286 102 C284 146 268 172 250 192 L150 192 C132 172 116 146 114 102 C112 44 142 4 200 4 Z"
-                      fill="url(#kb-armor)" stroke="#9fb6d6" stroke-opacity=".35"/>
-                <path d="M174 12 C182 30 218 30 226 12" stroke="#2a374c" stroke-width="2" fill="none"/>
-                <path d="M180 30 h40 l-4 9 h-32 z" fill="#1a2332"/>
+                <!-- crâne casqué, vu de face -->
+                <path d="M200 0 C254 0 284 36 284 90 C284 128 274 152 258 172 C248 184 236 190 226 194 L174 194 C164 190 152 184 142 172 C126 152 116 128 116 90 C116 36 146 0 200 0 Z"
+                      fill="url(#kb-helmet)" stroke="#a9bdd8" stroke-opacity=".35"/>
+                <ellipse cx="168" cy="30" rx="34" ry="16" fill="#e6eef8" opacity=".35" filter="url(#kb-soft)"/>
+                <path d="M186 14 h28 a5 5 0 0 1 5 5 v10 a5 5 0 0 1 -5 5 h-28 a5 5 0 0 1 -5 -5 v-10 a5 5 0 0 1 5 -5 Z" fill="#1b2433" stroke="#5b6e8c"/>
+                <path d="M188 21 h24 M188 27 h24" stroke="#3b4a60" stroke-width="2"/>
+                <path d="M140 64 C160 44 240 44 260 64 M128 120 C134 150 140 166 150 182 M272 120 C266 150 260 166 250 182"
+                      stroke="#18202d" stroke-width="2.4" fill="none"/>
+                <!-- disques des oreilles -->
+                <g class="kb-ear-l">
+                  <circle cx="124" cy="110" r="27" fill="url(#kb-ring)" stroke="#7f95b4" stroke-width="2.5"/>
+                  <path d="M124 87 a23 23 0 1 0 .1 0 M124 93 a17 17 0 1 0 .1 0 M124 99 a11 11 0 1 0 .1 0 M124 105 a5 5 0 1 0 .1 0"
+                        fill="none" stroke="#6f84a3" stroke-width="1.6" stroke-opacity=".8"/>
+                  <circle cx="124" cy="110" r="2.5" class="kb-dot"/>
+                </g>
+                <g class="kb-ear-r">
+                  <circle cx="276" cy="110" r="27" fill="url(#kb-ring)" stroke="#7f95b4" stroke-width="2.5"/>
+                  <path d="M276 87 a23 23 0 1 0 .1 0 M276 93 a17 17 0 1 0 .1 0 M276 99 a11 11 0 1 0 .1 0 M276 105 a5 5 0 1 0 .1 0"
+                        fill="none" stroke="#6f84a3" stroke-width="1.6" stroke-opacity=".8"/>
+                  <circle cx="276" cy="110" r="2.5" class="kb-dot"/>
+                </g>
                 <g class="kb-face">
-                  <path d="M200 42 C238 42 260 70 262 110 C263 148 248 176 226 194 L174 194 C152 176 137 148 138 110 C140 70 162 42 200 42 Z"
-                        fill="url(#kb-face-g)" stroke="#0d121a" stroke-width="2"/>
-                  <path class="kb-brow" d="M154 98 C166 90 186 90 194 98 M206 98 C214 90 234 90 246 98"
-                        stroke="#26334a" stroke-width="4" fill="none" stroke-linecap="round"/>
-                  <ellipse cx="172" cy="111" rx="18" ry="8.5" fill="#05080d"/>
-                  <ellipse cx="228" cy="111" rx="18" ry="8.5" fill="#05080d"/>
+                  <!-- visage humain : plaque sculptée -->
+                  <path d="M200 48 C233 48 254 72 256 104 C258 134 251 156 240 174 C229 192 215 203 200 205 C185 203 171 192 160 174 C149 156 142 134 144 104 C146 72 167 48 200 48 Z"
+                        fill="url(#kb-skin2)" stroke="#0b1018" stroke-width="1.6" stroke-opacity=".8"/>
+                  <g clip-path="url(#kb-face-clip)">
+                    <!-- ombres et lumières : front, orbites, pommettes, joues creuses -->
+                    <ellipse cx="186" cy="70" rx="30" ry="14" fill="#d8e3f1" opacity=".35" filter="url(#kb-soft)"/>
+                    <ellipse cx="178" cy="114" rx="20" ry="11" fill="#141c2a" opacity=".75" filter="url(#kb-soft)"/>
+                    <ellipse cx="222" cy="114" rx="20" ry="11" fill="#141c2a" opacity=".8" filter="url(#kb-soft)"/>
+                    <ellipse cx="166" cy="136" rx="12" ry="7" fill="#d8e3f1" opacity=".35" filter="url(#kb-soft)"/>
+                    <ellipse cx="160" cy="160" rx="10" ry="18" fill="#141c2a" opacity=".55" filter="url(#kb-soft)"/>
+                    <ellipse cx="244" cy="150" rx="14" ry="30" fill="#0b1018" opacity=".6" filter="url(#kb-soft)"/>
+                    <ellipse cx="234" cy="136" rx="10" ry="6" fill="#b8c7da" opacity=".2" filter="url(#kb-soft)"/>
+                    <!-- coutures de la plaque -->
+                    <path d="M147 122 C156 132 166 136 172 150 L170 172 M253 122 C244 132 234 136 228 150 L230 172 M200 50 V66"
+                          stroke="#141c2a" stroke-width="1.4" fill="none" opacity=".6"/>
+                    <!-- articulation de la mâchoire, avec voyants -->
+                    <path d="M160 166 L172 186 L178 184 L168 164 Z M240 166 L228 186 L222 184 L232 164 Z" fill="#070b12"/>
+                    <circle cx="167" cy="173" r="1.6" class="kb-dot"/><circle cx="233" cy="173" r="1.6" class="kb-dot"/>
+                  </g>
+                  <!-- le casque descend sur le front -->
+                  <path d="M144 98 C146 64 170 44 200 44 C230 44 254 64 256 98 C246 76 228 64 200 64 C172 64 154 76 144 98 Z"
+                        fill="url(#kb-helmet)" stroke="#0b1018" stroke-width="1.2"/>
+                  <path d="M150 88 C162 72 180 66 200 66 C220 66 238 72 250 88" stroke="#a9bdd8" stroke-opacity=".35" fill="none"/>
+                  <!-- sourcils / arcades -->
+                  <path class="kb-brow" d="M160 100 C170 93 186 92 196 99 M240 100 C230 93 214 92 204 99"
+                        stroke="#1a2333" stroke-width="3.2" fill="none" stroke-linecap="round"/>
+                  <path d="M162 97 C172 90 186 90 194 95" stroke="#c6d4e6" stroke-width="1.2" fill="none" opacity=".45"/>
+                  <!-- yeux en amande, lumineux -->
+                  <path d="M162 113 C169 103 187 102 195 112 C187 120 169 121 162 113 Z" fill="#05080d"/>
+                  <path d="M238 113 C231 103 213 102 205 112 C213 120 231 121 238 113 Z" fill="#05080d"/>
+                  <ellipse cx="179" cy="112" rx="12" ry="7" class="kb-eyeglow" filter="url(#kb-glowf)"/>
+                  <ellipse cx="221" cy="112" rx="12" ry="7" class="kb-eyeglow" filter="url(#kb-glowf)"/>
                   <g clip-path="url(#kb-eye-l)">
-                    <ellipse cx="172" cy="111" rx="16" ry="6.5" fill="#0d1a26"/>
-                    <g class="kb-iris"><ellipse cx="172" cy="111" rx="7" ry="5.5" class="kb-iris-c"/>
-                      <circle cx="172" cy="111" r="2.2" fill="#fff" opacity=".9"/></g>
-                    <rect class="kb-lid" x="154" y="102" width="36" height="18" fill="#56698a"/>
+                    <rect x="160" y="100" width="40" height="22" fill="#0a1824"/>
+                    <g class="kb-iris"><ellipse cx="179" cy="112" rx="6.5" ry="5" class="kb-iris-c"/>
+                      <circle cx="179" cy="112" r="2" fill="#fff" opacity=".95"/></g>
+                    <rect class="kb-lid" x="160" y="102" width="40" height="18" fill="#5b7192"/>
                   </g>
                   <g clip-path="url(#kb-eye-r)">
-                    <ellipse cx="228" cy="111" rx="16" ry="6.5" fill="#0d1a26"/>
-                    <g class="kb-iris"><ellipse cx="228" cy="111" rx="7" ry="5.5" class="kb-iris-c"/>
-                      <circle cx="228" cy="111" r="2.2" fill="#fff" opacity=".9"/></g>
-                    <rect class="kb-lid" x="210" y="102" width="36" height="18" fill="#56698a"/>
+                    <rect x="200" y="100" width="40" height="22" fill="#0a1824"/>
+                    <g class="kb-iris"><ellipse cx="221" cy="112" rx="6.5" ry="5" class="kb-iris-c"/>
+                      <circle cx="221" cy="112" r="2" fill="#fff" opacity=".95"/></g>
+                    <rect class="kb-lid" x="200" y="102" width="40" height="18" fill="#5b7192"/>
                   </g>
-                  <path d="M200 104 C198 124 193 136 192 142 C196 146 204 146 208 142 C207 136 202 124 200 104 Z" fill="#7488a7"/>
-                  <path d="M200 106 C199 122 197 132 196 138" stroke="#c3d2e6" stroke-width="1.4" fill="none" opacity=".7"/>
-                  <path d="M150 124 C158 148 170 162 182 170 M250 124 C242 148 230 162 218 170" stroke="#1f2a3c" stroke-width="2" fill="none"/>
-                  <path d="M180 160 C192 155 208 155 220 160 C208 164 192 164 180 160 Z" fill="#33435c"/>
-                  <path d="M182 162 C194 164 206 164 218 162 L216 172 C206 175 194 175 184 172 Z" fill="#05080d"/>
+                  <!-- nez droit -->
+                  <path d="M196 104 C195 120 190 132 186 141 C190 146 196 147 200 146 C204 147 210 146 214 141 C210 132 205 120 204 104 Z"
+                        fill="#566c8c" opacity=".55" filter="url(#kb-soft2)"/>
+                  <path d="M199 104 C199 120 197 132 196 140" stroke="#dbe5f2" stroke-width="2" fill="none" opacity=".55" stroke-linecap="round"/>
+                  <path d="M188 141 C192 146 196 146 200 145 C204 146 208 146 212 141" stroke="#141c2a" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+                  <path d="M190 142 a3 2 0 0 0 6 1 M204 143 a3 2 0 0 0 6 -1" fill="#0b1018" opacity=".8"/>
+                  <!-- sillons et lèvre supérieure -->
+                  <path d="M184 146 C178 154 177 162 180 168 M216 146 C222 154 223 162 220 168" stroke="#1d2738" stroke-width="1.3" fill="none" opacity=".4"/>
+                  <path d="M197 148 L196 157 M203 148 L204 157" stroke="#1d2738" stroke-width="1" opacity=".35"/>
+                  <path d="M182 162 C190 158 196 159 200 160 C204 159 210 158 218 162 C210 165 190 165 182 162 Z" fill="url(#kb-lip)"/>
+                  <path d="M184 163 C192 166 208 166 216 163 L214 174 C206 177 194 177 186 174 Z" fill="#04070b"/>
                 </g>
-                <g class="kb-jaw">
-                  <path d="M150 164 L250 164 C248 188 232 208 200 212 C168 208 152 188 150 164 Z" fill="url(#kb-face-g)" stroke="#0d121a" stroke-width="2"/>
-                  <path class="kb-chin" d="M184 168 C194 172 206 172 216 168 M166 186 L184 194 M234 186 L216 194"
-                        stroke="#26334a" stroke-width="2" fill="none" stroke-linecap="round"/>
-                </g>
+                <!-- mâchoire mobile : lèvre inférieure et menton -->
+                <g class="kb-face-p"><g class="kb-jaw">
+                  <path d="M168 164 L232 164 C234 178 230 190 222 197 C214 203 207 205 200 205 C193 205 186 203 178 197 C170 190 166 178 168 164 Z"
+                        fill="url(#kb-skin2)"/>
+                  <path d="M232 170 C232 182 228 191 222 197 C214 203 207 205 200 205 C193 205 186 203 178 197 C172 191 168 182 168 170"
+                        fill="none" stroke="#0b1018" stroke-width="1.6" stroke-opacity=".8"/>
+                  <path d="M184 166 C192 172 208 172 216 166 C210 170 190 170 184 166 Z" fill="url(#kb-lip)"/>
+                  <path class="kb-chin" d="M186 168 C194 173 206 173 214 168" stroke="#2b3850" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+                  <ellipse cx="196" cy="190" rx="10" ry="5" fill="#d8e3f1" opacity=".3" filter="url(#kb-soft2)"/>
+                  <path d="M188 184 C194 181 206 181 212 184" stroke="#1d2738" stroke-width="1.4" fill="none" opacity=".7"/>
+                </g></g>
                </g>
               </g>
             </svg>
