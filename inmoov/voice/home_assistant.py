@@ -34,7 +34,21 @@ DIRECT_SERVICES = {"turn_on", "turn_off", "toggle", "open_cover", "close_cover",
                    "set_cover_position", "media_play", "media_pause", "media_play_pause", "media_stop",
                    "media_next_track", "media_previous_track", "volume_up", "volume_down", "volume_set",
                    "volume_mute", "select_source", "set_temperature", "set_hvac_mode", "set_percentage",
-                   "press", "start", "stop", "return_to_base", "send_command", "select_option", "set_value"}
+                   "press", "start", "stop", "return_to_base", "send_command", "select_option", "set_value",
+                   "send_key", "type_text"}
+
+# télécommande de la Fire TV / Android TV (ADB « input keyevent ») : mot dit -> touche
+KEYS = {"haut": "DPAD_UP", "bas": "DPAD_DOWN", "gauche": "DPAD_LEFT", "droite": "DPAD_RIGHT",
+        "ok": "DPAD_CENTER", "valider": "DPAD_CENTER", "entrer": "DPAD_CENTER", "selectionner": "DPAD_CENTER",
+        "retour": "BACK", "accueil": "HOME", "menu": "MENU", "lecture": "MEDIA_PLAY_PAUSE",
+        "pause": "MEDIA_PLAY_PAUSE", "play": "MEDIA_PLAY_PAUSE", "suivant": "MEDIA_NEXT",
+        "precedent": "MEDIA_PREVIOUS", "avance": "MEDIA_FAST_FORWARD", "recul": "MEDIA_REWIND",
+        "rembobiner": "MEDIA_REWIND", "recherche": "SEARCH", "effacer": "DEL",
+        "volume_plus": "VOLUME_UP", "volume_moins": "VOLUME_DOWN", "muet": "VOLUME_MUTE"}
+for _k in list(KEYS.values()):
+    KEYS[_k.lower()] = _k              # les noms anglais (« dpad_up », « back »…) marchent aussi
+KEYS.update({"up": "DPAD_UP", "down": "DPAD_DOWN", "left": "DPAD_LEFT", "right": "DPAD_RIGHT",
+             "center": "DPAD_CENTER", "enter": "DPAD_CENTER", "back": "BACK", "home": "HOME"})
 
 
 # mots qui veulent dire la même chose (« télé TCL » doit trouver « Téléviseur du salon »)
@@ -49,6 +63,9 @@ def _norm(text):
     text = unicodedata.normalize("NFKD", str(text).lower())
     words = "".join(c if c.isalnum() else " " for c in text if not unicodedata.combining(c)).split()
     return [SYNONYMS.get(w, w) for w in words if w not in STOP_WORDS]
+
+
+KEYS_NORM = {"".join(_norm(name)): code for name, code in KEYS.items()}   # « Retour », « dpad_up »…
 
 
 class HomeAssistant:
@@ -162,6 +179,36 @@ class HomeAssistant:
             return self.app_aliases[best]
         return None
 
+    def _remote(self, entity_id, service, data):
+        """Télécommande par ADB : touches (« bas » ×3, « ok », « retour »…) ou texte tapé dans une recherche."""
+        if not entity_id.startswith("media_player."):
+            return False, "la télécommande ne marche qu'avec le media_player de la Fire TV / Android TV"
+        if service == "send_key":
+            keys = [k for k in str(data.get("key", "")).replace(",", " ").split() if k]
+            codes = []
+            for k in keys:
+                code = KEYS_NORM.get("".join(_norm(k)))
+                if not code:
+                    return False, "touche inconnue « %s » (haut, bas, gauche, droite, ok, retour, accueil, " \
+                                  "menu, lecture, pause, avance, recul, recherche…)" % k
+                codes.append("KEYCODE_" + code)
+            repeat = max(1, min(int(data.get("repeat") or 1), 20))
+            if not codes:
+                return False, "aucune touche donnée"
+            command = "input keyevent " + " ".join(codes * repeat)
+            done = "touche%s %s%s" % ("s" if len(codes) * repeat > 1 else "", " ".join(keys),
+                                      " ×%d" % repeat if repeat > 1 else "")
+        else:
+            text = str(data.get("text", ""))[:80]
+            if not text.strip():
+                return False, "aucun texte à taper"
+            # adb « input text » : espaces = %s, guillemets simples protégés pour le shell de la télé
+            command = "input text '%s'" % text.replace("'", "").replace(" ", "%s")
+            done = "texte « %s » tapé" % text
+        ok, said = self.call_service("androidtv", "adb_command", {"entity_id": entity_id, "command": command})
+        log.info("Home Assistant direct : télécommande %s « %s » -> %s", entity_id, command, said)
+        return (True, "%s sur %s" % (done, entity_id)) if ok else (False, said)
+
     def _launch_app(self, entity_id, app):
         """Fire TV / Android TV (intégration androidtv, ADB) : ouvre l'application directement, comme le
         menu de la télé (« select_source » échoue avec certaines applications). app = nom technique, ou
@@ -199,6 +246,8 @@ class HomeAssistant:
         if service not in DIRECT_SERVICES:
             return False, "service « %s » non autorisé (ex. turn_on, turn_off, toggle, media_play…)" % service
         data = dict(options or {})
+        if service in ("send_key", "type_text"):
+            return self._remote(entity_id, service, data)
         if service == "select_source" and isinstance(data.get("source"), str):
             alias = self.app_alias(data["source"])
             if alias:

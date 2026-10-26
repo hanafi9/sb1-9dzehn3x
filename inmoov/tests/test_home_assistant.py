@@ -143,6 +143,22 @@ class HomeAssistantTest(unittest.TestCase):
         self.assertEqual(aliased.app_alias("iProBox"), None)                    # trop différent d'« IPRO2 »
         aliased.app_aliases["iprobox"] = "com.iproboxx.iproboxxtviptvbox"
         self.assertEqual(aliased.app_alias("E-Pro Box"), "com.iproboxx.iproboxxtviptvbox")   # mal entendu
+        remote = HomeAssistant(self.url, token="bon-jeton")                     # télécommande
+        fire = "media_player.fire_tv_192_168_1_61"
+        ok, said = remote.control(fire, "send_key", {"key": "bas", "repeat": 3})
+        self.assertEqual(FakeHA.requests[-1][2]["command"],
+                         "input keyevent KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN")
+        self.assertEqual((ok, said), (True, "touches bas ×3 sur " + fire))
+        remote.control(fire, "send_key", {"key": "droite, OK", "repeat": ""})
+        self.assertEqual(FakeHA.requests[-1][2]["command"], "input keyevent KEYCODE_DPAD_RIGHT KEYCODE_DPAD_CENTER")
+        remote.control(fire, "send_key", {"key": "volume_plus dpad_up"})
+        self.assertEqual(FakeHA.requests[-1][2]["command"], "input keyevent KEYCODE_VOLUME_UP KEYCODE_DPAD_UP")
+        remote.control(fire, "send_key", {"key": "Retour"})
+        self.assertEqual(FakeHA.requests[-1][2]["command"], "input keyevent KEYCODE_BACK")
+        self.assertFalse(remote.control(fire, "send_key", {"key": "éjecter"})[0])      # touche inconnue
+        remote.control(fire, "type_text", {"text": "le roi lion"})
+        self.assertEqual(FakeHA.requests[-1][2]["command"], "input text 'le%sroi%slion'")
+        self.assertFalse(remote.control("light.lustre", "send_key", {"key": "bas"})[0])  # pas une télé
         plain = HomeAssistant(self.url, token="bon-jeton")                      # sans nom d'application connu :
         ok, said = plain.control("media_player.fire_tv_192_168_1_61", "select_source",
                                  {"source": "com.iproboxx.iproboxxtviptvbox"}, sleep=lambda s: None)
