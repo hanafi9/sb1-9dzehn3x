@@ -579,6 +579,8 @@ class Listener:
                     log.info("(ignoré : invention de Whisper sur du bruit)")
                 elif text:
                     self.handle(text)
+                if self.turn and "queued" not in self.turn:
+                    self.turn = None   # bruit ou phrase sans réponse : le chrono ne doit pas servir à la suivante
                 # ce qui a été capté pendant le calcul est périmé
                 self._flush_audio()
 
@@ -665,6 +667,7 @@ class Listener:
             self.ha.publish("reponse", value)
         elif kind == "question":
             self._last_audio = None   # pas de voix à reconnaître : la question est écrite
+            self.turn = None          # ni micro ni Whisper : pas de chrono « après ta phrase »
             self.handle(value, addressed=True)
         elif kind == "garde":
             watcher = getattr(self, "watcher", None)
