@@ -58,86 +58,116 @@
           <div class="kamil-body">
             <div class="kamil-halo" aria-hidden="true"><span></span><span></span><span></span></div>
             <div class="kamil-dots" aria-hidden="true"><i></i><i></i><i></i></div>
-            <svg class="kamil-bust" viewBox="0 0 400 430" role="img" aria-label="Kamil, robot humanoïde InMoov">
+            <svg class="kamil-bust" viewBox="0 0 400 430" role="img" aria-label="Kamil, robot humanoïde">
               <defs>
-                <radialGradient id="kb-skin" cx="40%" cy="28%" r="80%">
-                  <stop offset="0" stop-color="#ffffff"/><stop offset=".5" stop-color="#e8ecf2"/><stop offset="1" stop-color="#9da7b8"/>
+                <radialGradient id="kb-armor" cx="38%" cy="22%" r="85%">
+                  <stop offset="0" stop-color="#b9cbe2"/><stop offset=".35" stop-color="#6a7f9e"/><stop offset=".75" stop-color="#34435b"/><stop offset="1" stop-color="#1a2332"/>
                 </radialGradient>
-                <radialGradient id="kb-shell" cx="45%" cy="20%" r="90%">
-                  <stop offset="0" stop-color="#f6f8fb"/><stop offset=".6" stop-color="#cfd6e1"/><stop offset="1" stop-color="#7f8a9d"/>
+                <radialGradient id="kb-plate" cx="35%" cy="18%" r="90%">
+                  <stop offset="0" stop-color="#d4e0ef"/><stop offset=".4" stop-color="#7d92b0"/><stop offset="1" stop-color="#2a374c"/>
                 </radialGradient>
-                <linearGradient id="kb-metal" x1="0" x2="1">
-                  <stop offset="0" stop-color="#3e4554"/><stop offset=".5" stop-color="#a3acbb"/><stop offset="1" stop-color="#3e4554"/>
+                <radialGradient id="kb-face-g" cx="45%" cy="30%" r="75%">
+                  <stop offset="0" stop-color="#a9bad2"/><stop offset=".55" stop-color="#62779a"/><stop offset="1" stop-color="#2b3850"/>
+                </radialGradient>
+                <linearGradient id="kb-dark" x1="0" x2="1">
+                  <stop offset="0" stop-color="#0c1119"/><stop offset=".5" stop-color="#2a3446"/><stop offset="1" stop-color="#0c1119"/>
                 </linearGradient>
-                <linearGradient id="kb-side" x1="0" x2="1">
-                  <stop offset="0" stop-color="#8b95a7"/><stop offset=".5" stop-color="#dce1e9"/><stop offset="1" stop-color="#8b95a7"/>
+                <linearGradient id="kb-limb" x1="0" x2="1">
+                  <stop offset="0" stop-color="#1a2230"/><stop offset=".45" stop-color="#7488a7"/><stop offset=".7" stop-color="#3a4a63"/><stop offset="1" stop-color="#141b27"/>
                 </linearGradient>
-                <radialGradient id="kb-socket" cx="50%" cy="40%" r="60%">
-                  <stop offset="0" stop-color="#394050"/><stop offset="1" stop-color="#11151d"/>
-                </radialGradient>
-                <radialGradient id="kb-ball" cx="40%" cy="35%" r="65%">
-                  <stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#ccd3df"/>
+                <radialGradient id="kb-disc" cx="45%" cy="40%" r="60%">
+                  <stop offset="0" stop-color="#3c4a60"/><stop offset="1" stop-color="#0d121a"/>
                 </radialGradient>
                 <radialGradient id="kb-core" cx="50%" cy="50%" r="50%">
                   <stop offset="0" stop-color="#fff"/><stop offset=".35" class="kb-core-c"/><stop offset="1" stop-color="transparent"/>
                 </radialGradient>
-                <clipPath id="kb-eye-l"><ellipse cx="170" cy="112" rx="17" ry="12"/></clipPath>
-                <clipPath id="kb-eye-r"><ellipse cx="230" cy="112" rx="17" ry="12"/></clipPath>
+                <clipPath id="kb-eye-l"><ellipse cx="172" cy="111" rx="16" ry="6.5"/></clipPath>
+                <clipPath id="kb-eye-r"><ellipse cx="228" cy="111" rx="16" ry="6.5"/></clipPath>
               </defs>
-              <!-- torse : épaules, bras, plastron -->
-              <g class="kb-torso">
-                <path d="M118 300 L92 300 C70 300 60 320 58 345 L50 430 L102 430 L108 350 Z" fill="url(#kb-shell)"/>
-                <path d="M282 300 L308 300 C330 300 340 320 342 345 L350 430 L298 430 L292 350 Z" fill="url(#kb-shell)"/>
-                <circle cx="96" cy="300" r="40" fill="url(#kb-shell)"/>
-                <circle cx="304" cy="300" r="40" fill="url(#kb-shell)"/>
-                <circle cx="96" cy="300" r="14" fill="url(#kb-metal)" opacity=".7"/>
-                <circle cx="304" cy="300" r="14" fill="url(#kb-metal)" opacity=".7"/>
-                <path d="M128 268 C160 256 240 256 272 268 L292 300 L284 430 L116 430 L108 300 Z" fill="url(#kb-shell)"/>
-                <path d="M150 286 C180 278 220 278 250 286 M140 330 H260 M200 286 V430" stroke="#a7b0bf" stroke-width="1.6" fill="none"/>
-                <path d="M132 380 C170 392 230 392 268 380" stroke="#a7b0bf" stroke-width="1.6" fill="none"/>
-                <!-- cœur lumineux : la couleur de l'état -->
-                <circle cx="200" cy="352" r="30" fill="url(#kb-core)" class="kb-core"/>
-                <circle cx="200" cy="352" r="13" fill="none" stroke="#2b3240" stroke-width="3"/>
+              <!-- torse : épaulières, plastron en plaques, cœur hexagonal -->
+              <g class="kb-torso" stroke="#9fb6d6" stroke-opacity=".25" stroke-width="1">
+                <path d="M132 262 C160 250 240 250 268 262 L302 292 L292 430 L108 430 L98 292 Z" fill="#141b27"/>
+                <path d="M140 274 C164 264 188 266 194 278 L190 350 C166 360 140 352 122 336 L118 300 Z" fill="url(#kb-plate)"/>
+                <path d="M260 274 C236 264 212 266 206 278 L210 350 C234 360 260 352 278 336 L282 300 Z" fill="url(#kb-plate)"/>
+                <path d="M122 346 C150 362 176 368 192 366 L190 430 L114 430 Z" fill="url(#kb-armor)"/>
+                <path d="M278 346 C250 362 224 368 208 366 L210 430 L286 430 Z" fill="url(#kb-armor)"/>
+                <g fill="#0d121a" stroke="none">
+                  <circle cx="134" cy="296" r="2.2"/><circle cx="178" cy="340" r="2.2"/><circle cx="266" cy="296" r="2.2"/>
+                  <circle cx="222" cy="340" r="2.2"/>
+                </g>
+                <!-- bandes lumineuses : la couleur de l'état -->
+                <path class="kb-led" d="M130 376 L166 396 L184 396 M270 376 L234 396 L216 396 M200 352 V420"/>
+                <!-- cœur lumineux -->
+                <polygon points="200,296 221,308 221,332 200,344 179,332 179,308" fill="#0b1018" stroke="#5a6f8f" stroke-opacity="1" stroke-width="3"/>
+                <circle cx="200" cy="320" r="26" fill="url(#kb-core)" class="kb-core"/>
+                <circle cx="200" cy="320" r="10" fill="none" stroke="#0b1018" stroke-opacity="1" stroke-width="2.5"/>
               </g>
-              <!-- cou articulé (vérins) -->
+              <!-- bras : épaulière, articulation, bras ; ils bougent quand il parle -->
+              <g class="kb-arm kb-arm-l" stroke="#9fb6d6" stroke-opacity=".25" stroke-width="1">
+                <path d="M46 296 C38 340 40 392 46 430 L122 430 C128 392 134 340 132 296 Z" fill="url(#kb-limb)"/>
+                <path d="M58 360 C80 368 104 368 122 360 M62 400 H118" stroke="#0d121a" stroke-opacity=".8" stroke-width="2" fill="none"/>
+                <circle cx="112" cy="302" r="26" fill="url(#kb-disc)"/>
+                <path d="M112 284 a18 18 0 1 0 .1 0 M112 292 a10 10 0 1 0 .1 0" fill="none" stroke="#4d5d76" stroke-width="2" stroke-opacity="1"/>
+                <path d="M30 312 C28 266 62 242 104 244 C140 246 156 266 152 290 C130 284 108 290 96 312 C84 334 50 338 30 312 Z" fill="url(#kb-armor)"/>
+                <path class="kb-led" d="M64 316 L84 330"/><circle cx="60" cy="282" r="2.2" fill="#0d121a" stroke="none"/>
+              </g>
+              <g class="kb-arm kb-arm-r" stroke="#9fb6d6" stroke-opacity=".25" stroke-width="1">
+                <path d="M354 296 C362 340 360 392 354 430 L278 430 C272 392 266 340 268 296 Z" fill="url(#kb-limb)"/>
+                <path d="M342 360 C320 368 296 368 278 360 M338 400 H282" stroke="#0d121a" stroke-opacity=".8" stroke-width="2" fill="none"/>
+                <circle cx="288" cy="302" r="26" fill="url(#kb-disc)"/>
+                <path d="M288 284 a18 18 0 1 0 .1 0 M288 292 a10 10 0 1 0 .1 0" fill="none" stroke="#4d5d76" stroke-width="2" stroke-opacity="1"/>
+                <path d="M370 312 C372 266 338 242 296 244 C260 246 244 266 248 290 C270 284 292 290 304 312 C316 334 350 338 370 312 Z" fill="url(#kb-armor)"/>
+                <path class="kb-led" d="M336 316 L316 330"/><circle cx="340" cy="282" r="2.2" fill="#0d121a" stroke="none"/>
+              </g>
+              <!-- cou : vérins et câbles -->
               <g class="kb-neck">
-                <rect x="180" y="204" width="40" height="70" rx="8" fill="url(#kb-metal)"/>
-                <path d="M182 220 h36 M182 234 h36 M182 248 h36 M182 262 h36" stroke="#2b3240" stroke-width="2.5"/>
-                <path d="M162 214 L176 268 M238 214 L224 268" stroke="#596274" stroke-width="5" stroke-linecap="round"/>
+                <rect x="180" y="196" width="40" height="80" rx="10" fill="url(#kb-dark)"/>
+                <path d="M184 214 h32 M184 228 h32 M184 242 h32 M184 256 h32" stroke="#3b475b" stroke-width="2.5"/>
+                <path d="M158 190 C160 224 168 250 176 276 M242 190 C240 224 232 250 224 276" stroke="#1a2230" stroke-width="7" fill="none" stroke-linecap="round"/>
+                <path d="M164 196 C166 226 172 250 178 270" class="kb-led" style="stroke-width:1.6"/>
               </g>
               <!-- tête : tourne et s'incline comme le vrai robot -->
               <g class="kb-head">
-                <ellipse class="kb-ear-l" cx="122" cy="118" rx="13" ry="30" fill="url(#kb-side)"/>
-                <ellipse class="kb-ear-r" cx="278" cy="118" rx="13" ry="30" fill="url(#kb-side)"/>
-                <path d="M200 8 C250 8 282 42 282 100 C282 140 272 160 260 176 L140 176 C128 160 118 140 118 100 C118 42 150 8 200 8 Z"
-                      fill="url(#kb-skin)"/>
+               <g class="kb-head-idle">
+                <g class="kb-ear-l"><circle cx="122" cy="112" r="28" fill="url(#kb-disc)" stroke="#6a7f9e" stroke-width="2"/>
+                  <path d="M122 92 a20 20 0 1 0 .1 0 M122 99 a13 13 0 1 0 .1 0 M122 106 a6 6 0 1 0 .1 0" fill="none" stroke="#56667f" stroke-width="2"/></g>
+                <g class="kb-ear-r"><circle cx="278" cy="112" r="28" fill="url(#kb-disc)" stroke="#6a7f9e" stroke-width="2"/>
+                  <path d="M278 92 a20 20 0 1 0 .1 0 M278 99 a13 13 0 1 0 .1 0 M278 106 a6 6 0 1 0 .1 0" fill="none" stroke="#56667f" stroke-width="2"/></g>
+                <path d="M200 4 C258 4 288 44 286 102 C284 146 268 172 250 192 L150 192 C132 172 116 146 114 102 C112 44 142 4 200 4 Z"
+                      fill="url(#kb-armor)" stroke="#9fb6d6" stroke-opacity=".35"/>
+                <path d="M174 12 C182 30 218 30 226 12" stroke="#2a374c" stroke-width="2" fill="none"/>
+                <path d="M180 30 h40 l-4 9 h-32 z" fill="#1a2332"/>
                 <g class="kb-face">
-                  <path d="M200 10 V58 M140 46 C170 36 230 36 260 46" stroke="#b5bdca" stroke-width="1.4" fill="none"/>
-                  <path class="kb-brow" d="M146 96 C158 84 184 84 194 96 M206 96 C216 84 242 84 254 96"
-                        stroke="#97a0b0" stroke-width="4" fill="none" stroke-linecap="round"/>
-                  <ellipse cx="170" cy="112" rx="19" ry="14" fill="url(#kb-socket)"/>
-                  <ellipse cx="230" cy="112" rx="19" ry="14" fill="url(#kb-socket)"/>
+                  <path d="M200 42 C238 42 260 70 262 110 C263 148 248 176 226 194 L174 194 C152 176 137 148 138 110 C140 70 162 42 200 42 Z"
+                        fill="url(#kb-face-g)" stroke="#0d121a" stroke-width="2"/>
+                  <path class="kb-brow" d="M154 98 C166 90 186 90 194 98 M206 98 C214 90 234 90 246 98"
+                        stroke="#26334a" stroke-width="4" fill="none" stroke-linecap="round"/>
+                  <ellipse cx="172" cy="111" rx="18" ry="8.5" fill="#05080d"/>
+                  <ellipse cx="228" cy="111" rx="18" ry="8.5" fill="#05080d"/>
                   <g clip-path="url(#kb-eye-l)">
-                    <ellipse cx="170" cy="112" rx="17" ry="12" fill="url(#kb-ball)"/>
-                    <g class="kb-iris"><circle cx="170" cy="112" r="7.5" class="kb-iris-c"/><circle cx="170" cy="112" r="3.2" fill="#05070b"/>
-                      <circle cx="167.5" cy="109.5" r="1.6" fill="#fff" opacity=".9"/></g>
-                    <rect class="kb-lid" x="150" y="98" width="40" height="28" fill="#dde2ea"/>
+                    <ellipse cx="172" cy="111" rx="16" ry="6.5" fill="#0d1a26"/>
+                    <g class="kb-iris"><ellipse cx="172" cy="111" rx="7" ry="5.5" class="kb-iris-c"/>
+                      <circle cx="172" cy="111" r="2.2" fill="#fff" opacity=".9"/></g>
+                    <rect class="kb-lid" x="154" y="102" width="36" height="18" fill="#56698a"/>
                   </g>
                   <g clip-path="url(#kb-eye-r)">
-                    <ellipse cx="230" cy="112" rx="17" ry="12" fill="url(#kb-ball)"/>
-                    <g class="kb-iris"><circle cx="230" cy="112" r="7.5" class="kb-iris-c"/><circle cx="230" cy="112" r="3.2" fill="#05070b"/>
-                      <circle cx="227.5" cy="109.5" r="1.6" fill="#fff" opacity=".9"/></g>
-                    <rect class="kb-lid" x="210" y="98" width="40" height="28" fill="#dde2ea"/>
+                    <ellipse cx="228" cy="111" rx="16" ry="6.5" fill="#0d1a26"/>
+                    <g class="kb-iris"><ellipse cx="228" cy="111" rx="7" ry="5.5" class="kb-iris-c"/>
+                      <circle cx="228" cy="111" r="2.2" fill="#fff" opacity=".9"/></g>
+                    <rect class="kb-lid" x="210" y="102" width="36" height="18" fill="#56698a"/>
                   </g>
-                  <path d="M200 104 C197 122 192 134 192 140 C196 144 204 144 208 140 C208 134 203 122 200 104 Z" fill="#cbd2dd"/>
-                  <path d="M192 140 C196 144 204 144 208 140" stroke="#949dad" stroke-width="1.6" fill="none"/>
-                  <path d="M174 158 C188 152 212 152 226 158 C212 162 188 162 174 158 Z" fill="#b7bfcc"/>
-                  <path d="M178 160 C190 158 210 158 222 160 L220 172 C208 176 192 176 180 172 Z" fill="#141821"/>
+                  <path d="M200 104 C198 124 193 136 192 142 C196 146 204 146 208 142 C207 136 202 124 200 104 Z" fill="#7488a7"/>
+                  <path d="M200 106 C199 122 197 132 196 138" stroke="#c3d2e6" stroke-width="1.4" fill="none" opacity=".7"/>
+                  <path d="M150 124 C158 148 170 162 182 170 M250 124 C242 148 230 162 218 170" stroke="#1f2a3c" stroke-width="2" fill="none"/>
+                  <path d="M180 160 C192 155 208 155 220 160 C208 164 192 164 180 160 Z" fill="#33435c"/>
+                  <path d="M182 162 C194 164 206 164 218 162 L216 172 C206 175 194 175 184 172 Z" fill="#05080d"/>
                 </g>
                 <g class="kb-jaw">
-                  <path d="M140 160 L260 160 C258 186 240 206 200 210 C160 206 142 186 140 160 Z" fill="url(#kb-skin)"/>
-                  <path class="kb-chin" d="M178 162 C190 166 210 166 222 162" stroke="#949dad" stroke-width="2" fill="none" stroke-linecap="round"/>
+                  <path d="M150 164 L250 164 C248 188 232 208 200 212 C168 208 152 188 150 164 Z" fill="url(#kb-face-g)" stroke="#0d121a" stroke-width="2"/>
+                  <path class="kb-chin" d="M184 168 C194 172 206 172 216 168 M166 186 L184 194 M234 186 L216 194"
+                        stroke="#26334a" stroke-width="2" fill="none" stroke-linecap="round"/>
                 </g>
+               </g>
               </g>
             </svg>
           </div>

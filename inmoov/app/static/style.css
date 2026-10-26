@@ -369,6 +369,39 @@ a.button.ghost { background: transparent; color: var(--accent); }
 .kamil-stage[data-state="off"] .kb-lid { animation: none; transform: scaleY(1); }
 .kamil-stage[data-state="off"] .kb-core { animation: none; opacity: .25; }
 .kamil-stage[data-state="off"] .kamil-bust { filter: drop-shadow(0 22px 30px rgba(0,0,0,.55)) grayscale(.5) brightness(.8); animation: none; }
+/* bandes lumineuses du plastron, de la couleur de l'état */
+.kamil-bust .kb-led { fill: none; stroke: var(--k); stroke-width: 3; stroke-linecap: round; stroke-opacity: .9;
+  filter: drop-shadow(0 0 4px var(--k)); transition: stroke .5s; animation: kb-led 4s ease-in-out infinite; }
+@keyframes kb-led { 0%, 100% { opacity: .65; } 50% { opacity: 1; } }
+.kamil-stage[data-state="speaking"] .kb-led { animation-duration: .7s; }
+.kamil-stage[data-state="off"] .kb-led { animation: none; opacity: .15; }
+/* les bras : balancement au repos, gestes quand il parle */
+.kamil-bust .kb-arm { transform-box: view-box; transition: transform .6s; }
+.kamil-bust .kb-arm-l { transform-origin: 112px 300px; animation: kb-arm-l 6s ease-in-out infinite; }
+.kamil-bust .kb-arm-r { transform-origin: 288px 300px; animation: kb-arm-r 6s ease-in-out infinite 1.5s; }
+@keyframes kb-arm-l { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(-2deg) translateY(-2px); } }
+@keyframes kb-arm-r { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(2deg) translateY(-2px); } }
+.kamil-stage[data-state="speaking"] .kb-arm-l { animation: kb-gesture-l 2.4s ease-in-out infinite; }
+.kamil-stage[data-state="speaking"] .kb-arm-r { animation: kb-gesture-r 3.1s ease-in-out infinite .4s; }
+@keyframes kb-gesture-l { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-9deg) translateY(-4px); }
+  45% { transform: rotate(-4deg); } 70% { transform: rotate(-11deg) translateY(-5px); } }
+@keyframes kb-gesture-r { 0%, 100% { transform: rotate(0); } 30% { transform: rotate(7deg) translateY(-3px); }
+  60% { transform: rotate(12deg) translateY(-5px); } 80% { transform: rotate(3deg); } }
+.kamil-stage[data-state="thinking"] .kb-arm-r { animation: none; transform: rotate(6deg) translateY(-3px); }
+.kamil-stage[data-state="off"] .kb-arm { animation: none; transform: rotate(0) translateY(4px); }
+/* la tête vit d'elle-même tant que les servos ne donnent pas sa position */
+.kamil-bust .kb-head-idle { transform-box: view-box; transform-origin: 200px 200px; animation: kb-look 14s ease-in-out infinite; }
+@keyframes kb-look { 0%, 100% { transform: rotate(0) translateX(0); } 18% { transform: rotate(-3deg) translateX(-5px); }
+  30% { transform: rotate(-3deg) translateX(-5px); } 48% { transform: rotate(1deg); } 62% { transform: rotate(3.5deg) translateX(6px); }
+  74% { transform: rotate(3deg) translateX(5px) translateY(2px); } 88% { transform: rotate(0); } }
+.kamil-stage[data-state="speaking"] .kb-head-idle { animation: kb-nod 1.8s ease-in-out infinite; }
+@keyframes kb-nod { 0%, 100% { transform: rotate(0); } 30% { transform: rotate(-1.5deg) translateY(2px); } 65% { transform: rotate(1.5deg) translateY(-1px); } }
+.kamil-stage[data-state="thinking"] .kb-head-idle { animation: none; transform: rotate(-4deg) translateY(-2px); }
+.kamil-stage[data-state="awake"] .kb-head-idle { animation: none; transform: translateY(-3px); }
+.kamil-stage[data-gaze] .kb-head-idle, .kamil-stage[data-state="off"] .kb-head-idle { animation: none; transform: none; }
+.kamil-stage[data-state="off"] .kb-head-idle { transform: rotate(4deg) translateY(6px); }
+/* les yeux s'allument plus fort quand il écoute ou parle */
+.kamil-stage[data-state="speaking"] .kb-iris-c { filter: drop-shadow(0 0 6px var(--k)); }
 
 .kamil-bottom { display: flex; justify-content: space-between; align-items: flex-end; gap: 1rem; z-index: 2; margin-top: .4rem; }
 .kamil-name { margin: 0; font-size: 2.1rem; line-height: 1.1; letter-spacing: .02em; text-transform: capitalize; }
