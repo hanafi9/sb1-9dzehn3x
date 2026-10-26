@@ -132,10 +132,29 @@ class BrainTest(unittest.TestCase):
         tools = build_tools(cfg, MemoryStore("/tmp/nexiste-pas.json"))
         self.assertEqual([t["name"] for t in tools],
                          ["move_head", "hand", "rest_position", "look", "look_around", "gesture", "remember",
-                          "home_assistant", "surveillance"])
+                          "home_assistant", "home_device", "surveillance"])
         for t in tools:
             self.assertTrue(t["strict"])
             self.assertFalse(t["input_schema"]["additionalProperties"])
+
+
+    def test_home_device_tool(self):
+        import types
+        b = object.__new__(ClaudeBrain)
+        b.cfg = self.cfg
+        calls = []
+        b.home = types.SimpleNamespace(find=lambda q: calls.append(("find", q)) or (True, "media_player.tv | TV | off"),
+                                       control=lambda e, s, o: calls.append(("control", e, s, o)) or (True, "fait"))
+        b._run_tool("home_device", {"action": "chercher", "query": "tv", "entity_id": "", "service": "", "options": ""})
+        b._run_tool("home_device", {"action": "commander", "query": "", "entity_id": " media_player.tv ",
+                                    "service": "volume_set", "options": "{\"volume_level\": 0.2}"})
+        b._run_tool("home_device", {"action": "commander", "query": "", "entity_id": "media_player.tv",
+                                    "service": "turn_on", "options": ""})
+        self.assertEqual(calls, [("find", "tv"), ("control", "media_player.tv", "volume_set", {"volume_level": 0.2}),
+                                 ("control", "media_player.tv", "turn_on", {})])
+        with self.assertRaises(ValueError):
+            b._run_tool("home_device", {"action": "commander", "query": "", "entity_id": "media_player.tv",
+                                        "service": "turn_on", "options": "[1]"})
 
 
 @unittest.skipIf(anthropic is None, "paquet anthropic non installé")

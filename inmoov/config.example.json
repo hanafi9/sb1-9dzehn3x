@@ -89,6 +89,8 @@
       "url": "http://homeassistant.local:8123",
       "language": "fr",
       "agent_id": null,
+      "_direct_control_aide": "direct_control : si Assist ne connaît pas un appareil ou en trouve plusieurs du même nom, Kamil le cherche et le commande lui-même (lumières, prises, télés, volets, chauffage… jamais serrures ni alarme). false = Assist seulement.",
+      "direct_control": true,
       "verify_ssl": true,
       "_ssl_aide": "Home Assistant en https avec un certificat auto-signé (réseau local) : verify_ssl false, ou mieux ca_file = chemin du certificat."
     },

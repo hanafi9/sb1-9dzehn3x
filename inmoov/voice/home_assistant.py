@@ -9,16 +9,36 @@ Seuls les appareils « exposés à Assist » dans Home Assistant sont accessible
 (Paramètres → Assistants vocaux → Exposer) : c'est là qu'on choisit ce que le robot a le droit
 de commander. Le jeton n'est jamais écrit dans config.json : il vient de la variable
 d'environnement HOME_ASSISTANT_TOKEN (fichier anthropic.env, jamais envoyé sur GitHub).
+
+Commande directe (find / control) : quand Assist ne connaît pas l'appareil ou en trouve plusieurs
+du même nom, Kamil cherche lui-même l'entité (GET /api/states) puis appelle le service
+(POST /api/services/<domaine>/<service>). Seuls les domaines de DIRECT_DOMAINS sont commandables
+(lumières, prises, télés, volets…) : jamais de serrure ni d'alarme par ce chemin.
 """
 
+import difflib
 import json
 import logging
 import os
 import ssl
+import unicodedata
 import urllib.error
 import urllib.request
 
 log = logging.getLogger("home")
+
+DIRECT_DOMAINS = ("light", "switch", "media_player", "remote", "cover", "climate", "fan", "scene", "script",
+                  "input_boolean", "button", "vacuum", "humidifier", "select", "number")
+DIRECT_SERVICES = {"turn_on", "turn_off", "toggle", "open_cover", "close_cover", "stop_cover",
+                   "set_cover_position", "media_play", "media_pause", "media_play_pause", "media_stop",
+                   "media_next_track", "media_previous_track", "volume_up", "volume_down", "volume_set",
+                   "volume_mute", "select_source", "set_temperature", "set_hvac_mode", "set_percentage",
+                   "press", "start", "stop", "return_to_base", "send_command", "select_option", "set_value"}
+
+
+def _norm(text):
+    text = unicodedata.normalize("NFKD", str(text).lower())
+    return "".join(c if c.isalnum() else " " for c in text if not unicodedata.combining(c)).split()
 
 
 class HomeAssistant:
@@ -69,6 +89,55 @@ class HomeAssistant:
         if kind == "error":
             return False, speech or "Home Assistant n'a pas compris"
         return True, speech or "c'est fait"
+
+    # ------------------------------------------------------------ commande directe
+    def _get(self, path):
+        req = urllib.request.Request(self.url + path, headers={"Authorization": "Bearer " + self.token})
+        with urllib.request.urlopen(req, timeout=self.timeout, context=self.context) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+
+    def find(self, query, limit=8, domains=DIRECT_DOMAINS + ("sensor", "binary_sensor")):
+        """Entités dont le nom ressemble à la recherche ; renvoie (succès, lignes « entity_id | nom | état »)."""
+        if not self.token:
+            return False, "jeton Home Assistant absent (HOME_ASSISTANT_TOKEN dans anthropic.env)"
+        try:
+            states = self._get("/api/states")
+        except urllib.error.HTTPError as e:
+            return False, "Home Assistant a répondu %d" % e.code
+        except (urllib.error.URLError, OSError, ValueError) as e:
+            return False, "Home Assistant injoignable (%s)" % getattr(e, "reason", e)
+        words = _norm(query)
+        if not words:
+            return False, "recherche vide"
+        scored = []
+        for st in states:
+            entity = st.get("entity_id", "")
+            if entity.split(".", 1)[0] not in domains:
+                continue
+            name = (st.get("attributes") or {}).get("friendly_name") or entity
+            hay = _norm(name) + _norm(entity.replace("_", " "))
+            # chaque mot cherché : présent tel quel, ou très ressemblant (« tele » / « tv »… pas de miracle)
+            score = sum(1.0 if w in hay else max((difflib.SequenceMatcher(None, w, h).ratio() for h in hay),
+                                                 default=0) for w in words) / len(words)
+            if score >= 0.6:
+                scored.append((score, entity, name, st.get("state")))
+        scored.sort(key=lambda x: (-x[0], x[1]))
+        if not scored:
+            return True, "aucun appareil ne ressemble à « %s »" % query
+        return True, "\n".join("%s | %s | %s" % (e, n, s) for _, e, n, s in scored[:limit])
+
+    def control(self, entity_id, service, options=None):
+        """Appelle un service sur une entité précise (ex. media_player.tv_salon, turn_on)."""
+        domain = entity_id.split(".", 1)[0] if "." in entity_id else ""
+        if domain not in DIRECT_DOMAINS:
+            return False, "domaine « %s » non autorisé en commande directe" % domain
+        if service not in DIRECT_SERVICES:
+            return False, "service « %s » non autorisé (ex. turn_on, turn_off, toggle, media_play…)" % service
+        data = dict(options or {})
+        data["entity_id"] = entity_id
+        ok, said = self.call_service(domain, service, data)
+        log.info("Home Assistant direct : %s.%s %s -> %s", domain, service, data, said)
+        return ok, ("fait : %s sur %s" % (service, entity_id)) if ok else said
 
     def call_service(self, domain, service, data):
         """Appelle un service Home Assistant (ex. notify / mobile_app_telephone) ; renvoie (succès, message)."""

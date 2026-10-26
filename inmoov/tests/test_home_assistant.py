@@ -17,15 +17,37 @@ sys.path[:0] = [ROOT, os.path.join(ROOT, "voice")]
 from home_assistant import HomeAssistant  # noqa: E402
 
 
+STATES = [
+    {"entity_id": "media_player.tv_salon", "state": "off", "attributes": {"friendly_name": "TV Salon"}},
+    {"entity_id": "remote.tv_salon", "state": "off", "attributes": {"friendly_name": "TV Salon"}},
+    {"entity_id": "media_player.fire_tv_192_168_1_61", "state": "off", "attributes": {"friendly_name": "Fire TV"}},
+    {"entity_id": "light.lustre", "state": "on", "attributes": {"friendly_name": "Lustre"}},
+    {"entity_id": "lock.porte_entree", "state": "locked", "attributes": {"friendly_name": "Porte d'entrée"}},
+]
+
+
 class FakeHA(BaseHTTPRequestHandler):
     requests = []
 
     def log_message(self, *a):
         pass
 
+    def do_GET(self):
+        out = json.dumps(STATES).encode("utf-8")
+        self.send_response(200 if self.headers["Authorization"] == "Bearer bon-jeton" else 401)
+        self.send_header("Content-Length", str(len(out)))
+        self.end_headers()
+        self.wfile.write(out)
+
     def do_POST(self):
         body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
         FakeHA.requests.append((self.path, self.headers["Authorization"], body))
+        if self.path.startswith("/api/services/"):
+            self.send_response(200)
+            self.send_header("Content-Length", "2")
+            self.end_headers()
+            self.wfile.write(b"[]")
+            return
         if self.headers["Authorization"] != "Bearer bon-jeton":
             self.send_response(401)
             self.end_headers()
@@ -68,6 +90,27 @@ class HomeAssistantTest(unittest.TestCase):
         self.assertEqual(body, {"text": "allume la lumière du salon", "language": "fr"})
         self.assertEqual(ha.ask("quelle est la température ?"), (True, "La température est de 21 degrés"))
         self.assertEqual(FakeHA.requests[1][2]["conversation_id"], "c1")    # même conversation
+
+    def test_direct_find_and_control(self):
+        ha = HomeAssistant(self.url, token="bon-jeton")
+        ok, found = ha.find("fire tv")
+        self.assertTrue(ok)
+        self.assertEqual(found.splitlines()[0], "media_player.fire_tv_192_168_1_61 | Fire TV | off")
+        ok, found = ha.find("TV salon")                           # deux appareils du même nom : les deux listés
+        self.assertIn("media_player.tv_salon", found)
+        self.assertIn("remote.tv_salon", found)
+        self.assertNotIn("lock.porte_entree", ha.find("porte entrée")[1])   # serrure : jamais proposée
+        self.assertEqual(ha.find("aquarium"), (True, "aucun appareil ne ressemble à « aquarium »"))
+        ok, said = ha.control("media_player.fire_tv_192_168_1_61", "turn_on")
+        self.assertEqual((ok, said), (True, "fait : turn_on sur media_player.fire_tv_192_168_1_61"))
+        self.assertEqual(FakeHA.requests[-1][0], "/api/services/media_player/turn_on")
+        self.assertEqual(FakeHA.requests[-1][2], {"entity_id": "media_player.fire_tv_192_168_1_61"})
+        ha.control("media_player.tv_salon", "volume_set", {"volume_level": 0.3})
+        self.assertEqual(FakeHA.requests[-1][2], {"volume_level": 0.3, "entity_id": "media_player.tv_salon"})
+        n = len(FakeHA.requests)
+        self.assertFalse(ha.control("lock.porte_entree", "unlock")[0])            # domaine interdit
+        self.assertFalse(ha.control("light.lustre", "delete_everything")[0])      # service inconnu
+        self.assertEqual(len(FakeHA.requests), n)                                # rien d'envoyé
 
     def test_errors(self):
         ok, msg = HomeAssistant(self.url, token="bon-jeton").ask("ouvre le garage")

@@ -17,6 +17,7 @@ Nécessite la variable d'environnement ANTHROPIC_API_KEY et une connexion Intern
 """
 
 import base64
+import json
 import logging
 import os
 import random
@@ -295,13 +296,44 @@ HOME_TOOL = {
         "courte en français, comme à un assistant vocal : « allume la lumière du salon », "
         "« ferme les volets de la chambre », « quelle est la température du salon ? ». "
         "Une commande par appel ; si la personne en demande plusieurs, appelle l'outil plusieurs fois. "
-        "La réponse dit ce qui a été fait ou la valeur demandée : redis-la simplement, à ta façon."
+        "La réponse dit ce qui a été fait ou la valeur demandée : redis-la simplement, à ta façon. "
+        "Si Home Assistant répond qu'il ne connaît pas l'appareil ou que plusieurs portent ce nom, "
+        "utilise home_device pour le trouver et le commander directement."
     ),
     "strict": True,
     "input_schema": {
         "type": "object",
         "properties": {"command": {"type": "string", "description": "la commande en français"}},
         "required": ["command"],
+        "additionalProperties": False,
+    },
+}
+
+
+DEVICE_TOOL = {
+    "name": "home_device",
+    "description": (
+        "Commande directe d'un appareil de Home Assistant, quand home_assistant ne le trouve pas. "
+        "1) action « chercher » avec quelques mots (query) : renvoie les entités qui ressemblent "
+        "(« entity_id | nom | état »), ex. query « fire tv » ou « tv salon ». "
+        "2) action « commander » avec l'entity_id exact trouvé et le service : turn_on, turn_off, toggle, "
+        "media_play, media_pause, volume_set, volume_mute, select_source, open_cover, close_cover, "
+        "set_temperature, press… options = JSON des paramètres, ex. {\"volume_level\": 0.3}, "
+        "{\"source\": \"Netflix\"}, {\"temperature\": 20}, sinon \"\". "
+        "Plusieurs résultats proches : choisis le plus logique (ex. media_player plutôt que remote pour "
+        "le son), ou demande lequel à la personne. Laisse vides les champs inutiles."
+    ),
+    "strict": True,
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "action": {"type": "string", "enum": ["chercher", "commander"]},
+            "query": {"type": "string", "description": "mots à chercher (action chercher)"},
+            "entity_id": {"type": "string", "description": "entité exacte (action commander)"},
+            "service": {"type": "string", "description": "service à appeler (action commander)"},
+            "options": {"type": "string", "description": "paramètres en JSON, ou vide"},
+        },
+        "required": ["action", "query", "entity_id", "service", "options"],
         "additionalProperties": False,
     },
 }
@@ -346,6 +378,8 @@ def build_tools(cfg, memory, mind=None):
         tools.append(FEEL_TOOL)
     if (cfg.get("home_assistant") or {}).get("enabled"):
         tools.append(HOME_TOOL)
+        if cfg["home_assistant"].get("direct_control", True):
+            tools.append(DEVICE_TOOL)
     if (cfg.get("watch") or {}).get("enabled"):
         tools.append(WATCH_TOOL)
     return tools
@@ -643,7 +677,10 @@ class ClaudeBrain:
     def _tool_result(self, block):
         try:
             owner = getattr(self, "owner", None)
-            if (block.name in getattr(self, "restricted_tools", ()) and owner
+            restricted = getattr(self, "restricted_tools", ())
+            # la commande directe de la maison suit la même règle que home_assistant
+            if ((block.name in restricted or (block.name == "home_device" and "home_assistant" in restricted))
+                    and owner
                     and getattr(self, "current_speaker", None) != owner):
                 ok, message = False, "action réservée à %s (sa voix n'a pas été reconnue)" % owner
             else:
@@ -696,6 +733,13 @@ class ClaudeBrain:
             return self._surveillance(args)
         if name == "home_assistant" and self.home is not None:
             return self.home.ask(str(args["command"])[:200])
+        if name == "home_device" and self.home is not None:
+            if args["action"] == "chercher":
+                return self.home.find(str(args["query"])[:100])
+            options = json.loads(args.get("options") or "{}") if str(args.get("options") or "").strip() else {}
+            if not isinstance(options, dict):
+                raise ValueError("options doit être un objet JSON")
+            return self.home.control(str(args["entity_id"]).strip(), str(args["service"]).strip(), options)
         if name == "remember" and self.memory is not None:
             added = self.memory.add(args["person"], args["fact"])
             return True, "retenu" if added else "je le savais déjà"
