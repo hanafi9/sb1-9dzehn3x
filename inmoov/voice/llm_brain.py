@@ -324,6 +324,9 @@ DEVICE_TOOL = {
         "{\"key\": \"bas\", \"repeat\": 3} (touches : haut, bas, gauche, droite, ok, retour, accueil, menu, "
         "lecture, pause, avance, recul, recherche, effacer ; plusieurs à la suite : \"droite droite ok\") ; "
         "service type_text avec {\"text\": \"le roi lion\"} pour écrire dans un champ de recherche. "
+        "Pour chercher une chaîne, un film ou une série DANS une application (ex. « mets beIN Sports sur "
+        "IPRO2 ») : service search_in_app avec {\"app\": \"IPRO2\", \"text\": \"beIN Sports\"} sur le "
+        "media_player de la Fire TV ; elle ouvre l'application, sa recherche, tape le nom et valide. "
         "Pour naviguer, enchaîne de petits pas comme une vraie télécommande. "
         "action « voir_ecran » (entity_id du media_player) : capture de l'écran de la télé, pour savoir "
         "où tu es dans les menus. Ajoute \"voir\": true dans les options de send_key / type_text pour "
@@ -420,7 +423,7 @@ class ClaudeBrain:
 
             self.home = HomeAssistant(ha["url"], language=ha.get("language", "fr"), agent_id=ha.get("agent_id"),
                                       verify_ssl=ha.get("verify_ssl", True), ca_file=ha.get("ca_file"),
-                                      app_aliases=ha.get("app_aliases"))
+                                      app_aliases=ha.get("app_aliases"), app_search=ha.get("app_search"))
         self.memory = memory
         self.mind = mind
         self.sleep = sleep

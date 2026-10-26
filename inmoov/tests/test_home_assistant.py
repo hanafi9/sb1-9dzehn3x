@@ -172,6 +172,24 @@ class HomeAssistantTest(unittest.TestCase):
         ok, said = remote.screenshot("media_player.tv_salon")                  # pas de capture activée
         self.assertFalse(ok)
         self.assertIn("capture d'écran", said)
+        # chercher une chaîne dans IPRO2 : ouvrir, touches vers la recherche, taper, valider
+        tv = HomeAssistant(self.url, token="bon-jeton",
+                           app_aliases={"IPRO2": "com.iproboxx.iproboxxtviptvbox/.view.activity.SplashActivity"},
+                           app_search={"IPRO2": {"wait_s": 4, "keys": "haut haut ok", "after": "entree"}})
+        n0, pauses = len(FakeHA.requests), []
+        ok, said = tv.control(fire, "search_in_app", {"app": "ipro 2", "text": "beIN Sports"}, sleep=pauses.append)
+        cmds = [r[2]["command"] for r in FakeHA.requests[n0:]]
+        self.assertEqual(cmds, ["am start -n com.iproboxx.iproboxxtviptvbox/.view.activity.SplashActivity",
+                                "input keyevent KEYCODE_DPAD_UP KEYCODE_DPAD_UP KEYCODE_DPAD_CENTER",
+                                "input text 'beIN%sSports'", "input keyevent KEYCODE_ENTER"])
+        self.assertEqual(pauses[0], 4.0)                                         # le temps que l'appli s'ouvre
+        self.assertEqual((ok, said), (True, "dans ipro 2 : ouvert, recherche ouverte, « beIN Sports » tapé, validé"))
+        tv.app_search = {"ipro2": {"activity": ".view.activity.SearchActivity"}}   # écran de recherche Android
+        tv.control(fire, "search_in_app", {"app": "IPRO2", "text": "TF1"}, sleep=pauses.append)
+        self.assertEqual(FakeHA.requests[-1][2]["command"],
+                         "am start -a android.intent.action.SEARCH -n "
+                         "com.iproboxx.iproboxxtviptvbox/.view.activity.SearchActivity -e query 'TF1'")
+        self.assertFalse(tv.control(fire, "search_in_app", {"app": "Molotov", "text": "TF1"})[0])   # appli inconnue
         plain = HomeAssistant(self.url, token="bon-jeton")                      # sans nom d'application connu :
         ok, said = plain.control("media_player.fire_tv_192_168_1_61", "select_source",
                                  {"source": "com.iproboxx.iproboxxtviptvbox"}, sleep=lambda s: None)

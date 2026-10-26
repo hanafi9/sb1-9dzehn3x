@@ -35,7 +35,7 @@ DIRECT_SERVICES = {"turn_on", "turn_off", "toggle", "open_cover", "close_cover",
                    "media_next_track", "media_previous_track", "volume_up", "volume_down", "volume_set",
                    "volume_mute", "select_source", "set_temperature", "set_hvac_mode", "set_percentage",
                    "press", "start", "stop", "return_to_base", "send_command", "select_option", "set_value",
-                   "send_key", "type_text"}
+                   "send_key", "type_text", "search_in_app"}
 
 # télécommande de la Fire TV / Android TV (ADB « input keyevent ») : mot dit -> touche
 KEYS = {"haut": "DPAD_UP", "bas": "DPAD_DOWN", "gauche": "DPAD_LEFT", "droite": "DPAD_RIGHT",
@@ -43,7 +43,7 @@ KEYS = {"haut": "DPAD_UP", "bas": "DPAD_DOWN", "gauche": "DPAD_LEFT", "droite": 
         "retour": "BACK", "accueil": "HOME", "menu": "MENU", "lecture": "MEDIA_PLAY_PAUSE",
         "pause": "MEDIA_PLAY_PAUSE", "play": "MEDIA_PLAY_PAUSE", "suivant": "MEDIA_NEXT",
         "precedent": "MEDIA_PREVIOUS", "avance": "MEDIA_FAST_FORWARD", "recul": "MEDIA_REWIND",
-        "rembobiner": "MEDIA_REWIND", "recherche": "SEARCH", "effacer": "DEL",
+        "rembobiner": "MEDIA_REWIND", "recherche": "SEARCH", "effacer": "DEL", "entree": "ENTER",
         "volume_plus": "VOLUME_UP", "volume_moins": "VOLUME_DOWN", "muet": "VOLUME_MUTE"}
 for _k in list(KEYS.values()):
     KEYS[_k.lower()] = _k              # les noms anglais (« dpad_up », « back »…) marchent aussi
@@ -70,7 +70,7 @@ KEYS_NORM = {"".join(_norm(name)): code for name, code in KEYS.items()}   # « R
 
 class HomeAssistant:
     def __init__(self, url, token=None, language="fr", agent_id=None, timeout=8.0, verify_ssl=True, ca_file=None,
-                 app_aliases=None):
+                 app_aliases=None, app_search=None):
         """verify_ssl=False : Home Assistant en https avec un certificat auto-signé (réseau local) ;
         ca_file : ou bien le certificat lui-même, pour le vérifier quand même (plus sûr)."""
         self.url = url.rstrip("/")
@@ -89,6 +89,8 @@ class HomeAssistant:
         self.conversation_id = None   # Assist garde le fil (« et dans la chambre ? »)
         # nom dit à voix haute -> nom technique de l'application (ex. "IPRO2" -> "com.iproboxx…")
         self.app_aliases = {"".join(_norm(k)): v for k, v in (app_aliases or {}).items()}   # « IPRO 2 » = « ipro2 »
+        # comment ouvrir la recherche de chaque application (voir search_in_app)
+        self.app_search = {"".join(_norm(k)): v for k, v in (app_search or {}).items() if isinstance(v, dict)}
 
     def ask(self, text):
         """Envoie la phrase à Assist ; renvoie (succès, réponse à dire)."""
@@ -209,6 +211,51 @@ class HomeAssistant:
         log.info("Home Assistant direct : télécommande %s « %s » -> %s", entity_id, command, said)
         return (True, "%s sur %s" % (done, entity_id)) if ok else (False, said)
 
+    def search_in_app(self, entity_id, app, text, sleep=time.sleep):
+        """Ouvre l'application, va dans sa recherche, tape le texte et valide (chaîne, film…).
+        Réglage par application (home_assistant.app_search) :
+          "activity" : écran de recherche qui accepte une recherche Android (une seule commande) ;
+          sinon "keys" (touches pour atteindre le champ de recherche, défaut « recherche »),
+          "wait_s" (temps d'ouverture de l'application, défaut 6), "after" (touches après le texte,
+          défaut « entree »)."""
+        if not text.strip():
+            return False, "aucun nom à chercher"
+        key = "".join(_norm(app))
+        target = self.app_alias(app)
+        if not target:
+            return False, "application « %s » inconnue (ajoute-la dans app_aliases)" % app
+        recipe = self.app_search.get(key)
+        if recipe is None:     # nom mal entendu : même tolérance que pour les applications
+            best = max(self.app_search, key=lambda k: difflib.SequenceMatcher(None, key, k).ratio(), default=None)
+            if best and difflib.SequenceMatcher(None, key, best).ratio() >= 0.75:
+                recipe = self.app_search[best]
+        recipe = recipe or {}
+        package = target.split("/", 1)[0]
+        if recipe.get("activity"):
+            safe = text.replace("'", "").replace('"', "")[:80]
+            activity = recipe["activity"] if "/" in recipe["activity"] else "%s/%s" % (package, recipe["activity"])
+            command = "am start -a android.intent.action.SEARCH -n %s -e query '%s'" % (activity, safe)
+            ok, said = self.call_service("androidtv", "adb_command", {"entity_id": entity_id, "command": command})
+            log.info("Home Assistant direct : recherche %s « %s » -> %s", entity_id, command, said)
+            return (True, "recherche « %s » lancée dans %s" % (text, app)) if ok else (False, said)
+        steps = []
+        if not self._launch_app(entity_id, target):
+            return False, "impossible d'ouvrir %s sur %s" % (app, entity_id)
+        steps.append("ouvert")
+        sleep(float(recipe.get("wait_s", 6)))
+        for service, data, pause, label in (
+                ("send_key", {"key": recipe.get("keys", "recherche")}, 1.5, "recherche ouverte"),
+                ("type_text", {"text": text}, 1.0, "« %s » tapé" % text),
+                ("send_key", {"key": recipe.get("after", "entree")}, 0, "validé")):
+            if not data.get("key", True):
+                continue                      # « after » vide : on ne valide pas
+            ok, said = self._remote(entity_id, service, data)
+            if not ok:
+                return False, "%s, puis échec : %s" % (", ".join(steps), said)
+            steps.append(label)
+            sleep(pause)
+        return True, "dans %s : %s" % (app, ", ".join(steps))
+
     def _launch_app(self, entity_id, app):
         """Fire TV / Android TV (intégration androidtv, ADB) : ouvre l'application directement, comme le
         menu de la télé (« select_source » échoue avec certaines applications). app = nom technique, ou
@@ -270,6 +317,8 @@ class HomeAssistant:
         data = dict(options or {})
         if service in ("send_key", "type_text"):
             return self._remote(entity_id, service, data)
+        if service == "search_in_app":
+            return self.search_in_app(entity_id, str(data.get("app", "")), str(data.get("text", "")), sleep=sleep)
         if service == "select_source" and isinstance(data.get("source"), str):
             alias = self.app_alias(data["source"])
             if alias:
