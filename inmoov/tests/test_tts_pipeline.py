@@ -51,6 +51,13 @@ class PipelineTest(unittest.TestCase):
         p.put("un")
         self.assertTrue(p.wait(5))
         self.assertEqual(seen, [("/tmp/un", 0.05, [("fabrique", "un")])])   # juste avant de jouer
+        ends = []
+        p.on_idle = lambda: ends.append(len([1 for k, _ in sp.log if k == "joue"]))
+        p.put("a")
+        p.put("b")
+        self.assertTrue(p.wait(5))
+        time.sleep(0.05)
+        self.assertEqual(ends[-1], 3)                   # appelé quand la dernière phrase a sonné
         p.on_audio = lambda path, duration: 1 / 0     # une bouche en panne ne coupe pas la voix
         p.put("deux")
         self.assertTrue(p.wait(5))

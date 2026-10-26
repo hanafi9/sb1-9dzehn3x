@@ -234,6 +234,20 @@ class ChatbotTest(unittest.TestCase):
         self.assertIn("reconnaissance 2.0 + IA (1re phrase) 2.5 + voix 0.5", logs.output[0])
         self.assertIsNone(lst.turn)
 
+    def test_speaking_state_follows_the_real_sound(self):
+        lst = listener(FakeTts())
+        shown = []
+        lst.ha = types.SimpleNamespace(state=shown.append)
+        lst.pipeline = types.SimpleNamespace(put=lambda t: None)
+        lst.status("thinking")
+        lst.say_async("Bonjour, je réfléchis encore.")      # phrase en préparation : pas encore « je parle »
+        self.assertEqual(shown, ["thinking"])
+        lst._on_play_start("Bonjour")                        # le son sort
+        lst.status("idle")                                   # Claude a fini d'écrire, la voix continue
+        self.assertEqual(shown, ["thinking", "speaking"])
+        lst._on_speech_done()                                # dernière phrase finie
+        self.assertEqual(shown, ["thinking", "speaking", "idle"])
+
     def test_follow_up_without_wake_word(self):
         tts = FakeTts()
         lst = listener(tts, wake_words=["kamil"])

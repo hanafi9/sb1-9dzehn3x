@@ -86,8 +86,9 @@ class Listener:
             if not dry_run:
                 # phrase par phrase : le robot parle pendant que Claude écrit la suite
                 self.pipeline = SpeechPipeline(self.tts, fallback=self._speak_mrl)
-                self.pipeline.on_play_start = self._on_first_sound
+                self.pipeline.on_play_start = self._on_play_start
                 self.pipeline.on_audio = self._on_audio
+                self.pipeline.on_idle = self._on_speech_done
             log.info("Voix hors ligne Piper : %s", cfg["piper_model"])
             from reasoning import FILLERS, THINKING_PHRASES
 
@@ -315,8 +316,9 @@ class Listener:
         return self.mrl.call_checked(service, method, *params)
 
     def say(self, text):
-        self.status("speaking")
-        if self.pipeline is not None:
+        if self.pipeline is None:
+            self.status("speaking")
+        else:
             # même file que les phrases de Claude : jamais deux sons en même temps
             turn = getattr(self, "turn", None)
             if turn and "queued" not in turn:
@@ -343,7 +345,8 @@ class Listener:
         turn = getattr(self, "turn", None)
         if turn and "queued" not in turn:
             turn["queued"] = time.monotonic()
-        self.status("speaking")
+        # « je parle » ne s'affiche qu'au moment où le son sort vraiment (_on_play_start) :
+        # la voix en ligne met une ou deux secondes à arriver, l'animation partait trop tôt
         self.pipeline.put(text)
 
     def _on_audio(self, path, duration):
@@ -358,6 +361,17 @@ class Listener:
         self.ha.mouth(envelope(path), FRAME_MS, time.time() + lead + self.cfg.get("mouth_latency_ms", 60) / 1000.0)
         if lead:
             time.sleep(lead)
+
+    def _on_play_start(self, text):
+        """Une phrase commence à sonner : l'état « je parle » (visage, bouche, LED) suit le vrai son."""
+        self._playing = True
+        self._show_state()
+        self._on_first_sound(text)
+
+    def _on_speech_done(self):
+        """Plus rien dans la file de parole : retour à l'état réel (écoute, réflexion…)."""
+        self._playing = False
+        self._show_state()
 
     def _on_first_sound(self, text):
         """Journal du délai de réponse, décomposé, pour voir quelle étape est lente."""
@@ -380,7 +394,16 @@ class Listener:
         self.mute_until = max(self.mute_until, time.monotonic() + 0.3)
 
     def status(self, state):
-        """Couleur des LED d'état (facultatif, service NeoPixel d'InMoov2) et état dans Home Assistant."""
+        """Couleur des LED d'état (facultatif, service NeoPixel d'InMoov2) et état dans Home Assistant.
+        Tant qu'une phrase sonne, c'est « je parle » qui s'affiche ; l'état demandé reprend ensuite."""
+        self._state = state
+        self._show_state()
+
+    def _show_state(self):
+        state = "speaking" if getattr(self, "_playing", False) else getattr(self, "_state", "idle")
+        if state == getattr(self, "_shown", None):
+            return
+        self._shown = state
         if getattr(self, "ha", None) is not None:
             self.ha.state(state)
         if self.leds is None:

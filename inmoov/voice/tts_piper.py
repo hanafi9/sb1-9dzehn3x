@@ -16,6 +16,7 @@ import queue
 import subprocess
 import tempfile
 import threading
+import time
 import wave
 
 log = logging.getLogger("piper")
@@ -109,6 +110,7 @@ class SpeechPipeline:
         self.done = threading.Condition()
         self.on_play_start = None   # appelée juste avant de jouer chaque phrase (mesure du délai)
         self.on_audio = None        # appelée avec (fichier son, durée) juste avant de le jouer (bouche)
+        self.on_idle = None         # appelée quand la dernière phrase de la file a fini de sonner
         threading.Thread(target=self._synth_loop, name="piper-synth", daemon=True).start()
         threading.Thread(target=self._play_loop, name="piper-play", daemon=True).start()
 
@@ -145,7 +147,12 @@ class SpeechPipeline:
                             self.on_audio(path, duration)
                         except Exception:
                             log.exception("Synchronisation de la bouche impossible")
+                    t0 = time.monotonic()
                     self.speaker.play(path, duration)
+                    late = time.monotonic() - t0 - duration
+                    if late > 0.5:   # le haut-parleur a mis du temps à démarrer : bouche en avance
+                        log.warning("Son joué avec %.1f s de retard sur sa durée (%.1f s) : sortie audio lente "
+                                    "(Bluetooth, HDMI, PipeWire ?)", late, duration)
                 elif self.fallback is not None:
                     self.fallback(text)
             except Exception:
@@ -153,4 +160,10 @@ class SpeechPipeline:
             finally:
                 with self.done:
                     self.pending -= 1
+                    idle = self.pending == 0
                     self.done.notify_all()
+                if idle and self.on_idle is not None:
+                    try:
+                        self.on_idle()
+                    except Exception:
+                        log.exception("Fin de parole : rappel en échec")
