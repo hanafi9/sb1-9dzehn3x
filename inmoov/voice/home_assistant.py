@@ -162,6 +162,22 @@ class HomeAssistant:
             return self.app_aliases[best]
         return None
 
+    def _launch_app(self, entity_id, app):
+        """Fire TV / Android TV (intégration androidtv, ADB) : ouvre l'application directement, comme le
+        menu de la télé (« select_source » échoue avec certaines applications). app = nom technique, ou
+        « paquet/activité » pour viser l'écran d'accueil exact. None si l'ADB n'est pas disponible."""
+        if not entity_id.startswith("media_player."):
+            return None
+        if "/" in app:
+            command = "am start -n %s" % app
+        else:
+            command = "monkey -p %s -c android.intent.category.LEANBACK_LAUNCHER 1" % app
+        ok, said = self.call_service("androidtv", "adb_command", {"entity_id": entity_id, "command": command})
+        log.info("Home Assistant direct : androidtv.adb_command %s « %s » -> %s", entity_id, command, said)
+        if not ok:
+            return None                  # pas une Fire TV / Android TV en ADB : on essaie select_source
+        return True, "application %s ouverte sur %s" % (app.split("/", 1)[0], entity_id)
+
     def _entity(self, entity_id):
         try:
             return self._get("/api/states/" + entity_id)
@@ -186,7 +202,10 @@ class HomeAssistant:
         if service == "select_source" and isinstance(data.get("source"), str):
             alias = self.app_alias(data["source"])
             if alias:
-                data["source"] = alias      # l'application est lancée par son nom technique
+                launched = self._launch_app(entity_id, alias)
+                if launched is not None:
+                    return launched
+                data["source"] = alias.split("/", 1)[0]   # sinon : « source » = nom technique
         data["entity_id"] = entity_id
         before = self.state(entity_id)
         ok, said = self.call_service(domain, service, data)

@@ -126,18 +126,28 @@ class HomeAssistantTest(unittest.TestCase):
         self.assertIn("n'a pas réagi (état : off)", said)
         ha.control("media_player.tv_salon", "volume_set", {"volume_level": 0.3})
         self.assertEqual(FakeHA.requests[-1][2], {"volume_level": 0.3, "entity_id": "media_player.tv_salon"})
-        aliased = HomeAssistant(self.url, token="bon-jeton", app_aliases={"IPRO2": "com.iproboxx.iproboxxtviptvbox"})
-        aliased.control("media_player.fire_tv_192_168_1_61", "select_source", {"source": "ipro 2"})
-        self.assertEqual(FakeHA.requests[-1][2]["source"], "com.iproboxx.iproboxxtviptvbox")   # nom technique
+        aliased = HomeAssistant(self.url, token="bon-jeton", app_aliases={
+            "IPRO2": "com.iproboxx.iproboxxtviptvbox/.view.activity.SplashActivity"})
+        ok, said = aliased.control("media_player.fire_tv_192_168_1_61", "select_source", {"source": "ipro 2"})
+        self.assertEqual(FakeHA.requests[-1][0], "/api/services/androidtv/adb_command")   # lancement direct
+        self.assertEqual(FakeHA.requests[-1][2]["command"],
+                         "am start -n com.iproboxx.iproboxxtviptvbox/.view.activity.SplashActivity")
+        self.assertEqual((ok, said), (True, "application com.iproboxx.iproboxxtviptvbox ouverte sur "
+                                            "media_player.fire_tv_192_168_1_61"))
+        aliased.app_aliases = {"ipro2": "com.iproboxx.iproboxxtviptvbox"}            # paquet seul
+        aliased.control("media_player.fire_tv_192_168_1_61", "select_source", {"source": "IPRO2"})
+        self.assertEqual(FakeHA.requests[-1][2]["command"],
+                         "monkey -p com.iproboxx.iproboxxtviptvbox -c android.intent.category.LEANBACK_LAUNCHER 1")
         aliased.control("media_player.fire_tv_192_168_1_61", "select_source", {"source": "Netflix"})
         self.assertEqual(FakeHA.requests[-1][2]["source"], "Netflix")                           # inchangé
         self.assertEqual(aliased.app_alias("iProBox"), None)                    # trop différent d'« IPRO2 »
         aliased.app_aliases["iprobox"] = "com.iproboxx.iproboxxtviptvbox"
         self.assertEqual(aliased.app_alias("E-Pro Box"), "com.iproboxx.iproboxxtviptvbox")   # mal entendu
-        ok, said = aliased.control("media_player.fire_tv_192_168_1_61", "select_source", {"source": "ipro2"},
-                                   sleep=lambda s: None)
-        self.assertTrue(ok)                                                     # application bien ouverte
-        ok, said = aliased.control("media_player.fire_tv_192_168_1_61", "select_source", {"source": "Inconnue"},
+        plain = HomeAssistant(self.url, token="bon-jeton")                      # sans nom d'application connu :
+        ok, said = plain.control("media_player.fire_tv_192_168_1_61", "select_source",
+                                 {"source": "com.iproboxx.iproboxxtviptvbox"}, sleep=lambda s: None)
+        self.assertTrue(ok)                                                     # select_source, vérifié
+        ok, said = plain.control("media_player.fire_tv_192_168_1_61", "select_source", {"source": "Inconnue"},
                                    wait_s=0.3, sleep=lambda s: None)
         self.assertFalse(ok)                                                    # Kamil ne dit pas « fait »
         self.assertIn("n'a pas ouvert « Inconnue »", said)
