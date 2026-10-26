@@ -266,221 +266,225 @@ a.button.ghost { background: transparent; color: var(--accent); }
 .bench-servo button.mark.on-bad { background: var(--bad); border-color: var(--bad); color: #fff; }
 .bench-cams { display: grid; gap: .8rem; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
 .bench-cams figure { margin: 0; }
-.bench-cams .cam, .kamil-cams .cam { position: relative; aspect-ratio: 4 / 3; background: #000; border-radius: 8px; overflow: hidden; }
-.bench-cams img, .bench-cams canvas, .kamil-cams img, .kamil-cams canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
-.bench-cams .cam-off, .kamil-cams .cam-off { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+.bench-cams .cam { position: relative; aspect-ratio: 4 / 3; background: #000; border-radius: 8px; overflow: hidden; }
+.bench-cams img, .bench-cams canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.bench-cams .cam-off { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
   color: #cbd5e1; font-size: .9rem; text-align: center; padding: 1rem; }
-.bench-cams .cam.live .cam-off, .kamil-cams .cam.live .cam-off { display: none; }
+.bench-cams .cam.live .cam-off { display: none; }
 .bench-cams figcaption { font-size: .85rem; margin-top: .3rem; }
 .meter { flex: 1; min-width: 120px; height: .8rem; background: var(--border); border-radius: 999px; overflow: hidden; }
 .meter > div { height: 100%; width: 0; background: var(--ok); transition: width .3s; }
 .bench-grid.wide-first { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); }
 @media (max-width: 760px) { .bench-grid.wide-first { grid-template-columns: minmax(0, 1fr); } }
 #bench-say { flex: 1; min-width: 0; }
-.bench-cams .cam:not(.live) img, .bench-cams .cam:not(.live) canvas, .kamil-cams .cam:not(.live) img, .kamil-cams .cam:not(.live) canvas { visibility: hidden; }
+.bench-cams .cam:not(.live) img, .bench-cams .cam:not(.live) canvas { visibility: hidden; }
 
-/* ------------------------------------------------------------ Kamil (interface interactive) */
-.kamil-layout { display: grid; gap: 1rem; grid-template-columns: minmax(300px, 420px) 1fr; align-items: start; }
-@media (max-width: 860px) { .kamil-layout { grid-template-columns: 1fr; } }
-.kamil-left { display: grid; gap: 1rem; }
-.kamil-left .card { margin-bottom: 0; }
 
+/* ============================================================ Kamil : interface interactive */
+.kamil-layout {
+  display: grid; gap: 1rem; grid-template-columns: minmax(0, 1.15fr) minmax(320px, .85fr);
+  grid-template-rows: auto auto; align-items: stretch;
+}
+@media (max-width: 900px) { .kamil-layout { grid-template-columns: 1fr; } }
+
+/* --- la scène --------------------------------------------------------------------------- */
 .kamil-stage {
-  --k: #3b82f6;
-  position: relative; border-radius: 20px; padding: 2rem 1rem 1.25rem; text-align: center; overflow: hidden;
-  background: radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--k) 35%, #0b1020) 0%, #0b1020 70%);
-  color: #e8eefc; box-shadow: 0 10px 30px rgba(0,0,0,.25); transition: background .6s;
+  --k: #3b82f6; --pan: 0; --tilt: 0; --gx: 0; --gy: 0;
+  position: relative; display: flex; flex-direction: column; min-height: 620px; overflow: hidden;
+  border-radius: 24px; padding: 1rem 1.2rem 1.1rem; color: #e8eefc; isolation: isolate;
+  background:
+    radial-gradient(60% 55% at 50% 38%, color-mix(in srgb, var(--k) 30%, transparent) 0%, transparent 70%),
+    linear-gradient(180deg, #0d1424 0%, #070b14 100%);
+  box-shadow: 0 18px 50px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.06);
+  transition: background .8s;
+}
+.kamil-stage::before {          /* sol lumineux sous le robot */
+  content: ""; position: absolute; left: 10%; right: 10%; bottom: -40px; height: 120px; z-index: -1;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--k) 35%, transparent), transparent); filter: blur(10px);
 }
 .kamil-stage[data-state="off"] { --k: #64748b; }
 .kamil-stage[data-state="idle"] { --k: #3b82f6; }
 .kamil-stage[data-state="awake"] { --k: #06b6d4; }
-.kamil-stage[data-state="thinking"] { --k: #8b5cf6; }
+.kamil-stage[data-state="thinking"] { --k: #a855f7; }
 .kamil-stage[data-state="speaking"] { --k: #22c55e; }
 
-.kamil-ring {
-  position: relative; width: 240px; height: 240px; margin: .5rem auto 0; border-radius: 50%;
-  display: grid; place-items: center;
-  background: radial-gradient(circle, color-mix(in srgb, var(--k) 22%, transparent) 0%, transparent 68%);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--k) 70%, transparent), 0 0 45px color-mix(in srgb, var(--k) 55%, transparent);
-  animation: kamil-breathe 4s ease-in-out infinite; transition: box-shadow .5s;
+.kamil-top { display: flex; justify-content: space-between; align-items: flex-start; gap: .75rem; z-index: 2; }
+.kamil-chips { display: flex; flex-wrap: wrap; gap: .4rem; }
+.glass, .kamil-chips .pill, .kamil-stage .kamil-switch {
+  background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12); color: #e8eefc;
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
 }
-.kamil-stage[data-state="off"] .kamil-ring { animation: none; opacity: .75; }
-@keyframes kamil-breathe { 0%,100% { transform: scale(1); } 50% { transform: scale(1.035); } }
+.kamil-chips .pill { border-radius: 99px; padding: .3rem .75rem; font-size: .85rem; }
+.kamil-chips .pill.ok { color: #86efac; border-color: rgba(134,239,172,.35); }
 
-.kamil-face { width: 178px; height: auto; margin-top: 18px; overflow: visible;
-  filter: drop-shadow(0 10px 18px rgba(0,0,0,.45)); }
-.kamil-face .kf-iris-c { fill: var(--k); filter: drop-shadow(0 0 3px var(--k)); transition: fill .5s; }
-.kamil-face .kf-iris { transform-box: fill-box; transform-origin: center; animation: kf-gaze 9s ease-in-out infinite; }
-.kamil-face .kf-lid { transform-box: fill-box; transform-origin: top; transform: scaleY(0); animation: kf-blink 5.2s infinite; }
-.kamil-face .kf-jaw { transform-box: fill-box; transform-origin: top; transition: transform .25s; }
-@keyframes kf-blink { 0%, 93%, 100% { transform: scaleY(0); } 95.5% { transform: scaleY(1); } }
-@keyframes kf-gaze {
-  0%, 20% { transform: translate(0, 0); } 28%, 42% { transform: translate(-4px, 1px); }
-  50%, 64% { transform: translate(4px, 0); } 72%, 100% { transform: translate(0, 0); }
-}
-@keyframes kf-talk { 0% { transform: translateY(0); } 50% { transform: translateY(9px); } 100% { transform: translateY(3px); } }
-@keyframes kf-glow { 0%, 100% { filter: drop-shadow(0 0 2px var(--k)); } 50% { filter: drop-shadow(0 0 9px var(--k)); } }
-/* éveillé : regarde droit devant, iris lumineux */
-.kamil-stage[data-state="awake"] .kf-iris { animation: none; transform: none; }
-.kamil-stage[data-state="awake"] .kf-iris-c { animation: kf-glow 1.4s ease-in-out infinite; }
-/* réfléchit : regarde en haut à droite */
-.kamil-stage[data-state="thinking"] .kf-iris { animation: none; transform: translate(4px, -3px); transition: transform .4s; }
-/* parle : la mâchoire bouge */
-.kamil-stage[data-state="speaking"] .kf-jaw { animation: kf-talk .32s ease-in-out infinite alternate; }
-.kamil-stage[data-state="speaking"] .kf-iris { animation: none; }
-/* endormi : yeux fermés, iris éteints */
-.kamil-stage[data-state="off"] .kf-lid { animation: none; transform: scaleY(1); }
-.kamil-stage[data-state="off"] .kamil-face { filter: drop-shadow(0 10px 18px rgba(0,0,0,.45)) grayscale(.6) brightness(.8); }
+.kamil-body { position: relative; flex: 1; min-height: 0; display: grid; place-items: end center; }
+.kamil-bust { width: min(100%, 440px); max-height: 100%; height: auto; display: block; overflow: visible;
+  filter: drop-shadow(0 22px 30px rgba(0,0,0,.55)); animation: kb-breathe 5s ease-in-out infinite; }
+@keyframes kb-breathe { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
 
-.kamil-waves { position: absolute; inset: 0; pointer-events: none; }
-.kamil-waves span {
-  position: absolute; inset: 0; border-radius: 50%; border: 2px solid var(--k); opacity: 0;
-}
-.kamil-stage[data-state="awake"] .kamil-waves span { animation: kamil-wave 2.4s ease-out infinite; }
-.kamil-waves span:nth-child(2) { animation-delay: .8s !important; }
-.kamil-waves span:nth-child(3) { animation-delay: 1.6s !important; }
+/* halo et ondes autour de la tête */
+.kamil-halo { position: absolute; left: 50%; bottom: 52%; width: min(64%, 300px); aspect-ratio: 1; transform: translate(-50%, 50%);
+  border-radius: 50%; box-shadow: 0 0 0 2px color-mix(in srgb, var(--k) 55%, transparent), 0 0 60px color-mix(in srgb, var(--k) 45%, transparent);
+  transition: box-shadow .6s; pointer-events: none; }
+.kamil-halo span { position: absolute; inset: 0; border-radius: 50%; border: 2px solid var(--k); opacity: 0; }
+.kamil-stage[data-state="awake"] .kamil-halo span { animation: kamil-wave 2.4s ease-out infinite; }
+.kamil-halo span:nth-child(2) { animation-delay: .8s !important; }
+.kamil-halo span:nth-child(3) { animation-delay: 1.6s !important; }
 @keyframes kamil-wave { from { transform: scale(1); opacity: .7; } to { transform: scale(1.45); opacity: 0; } }
+.kamil-stage[data-state="off"] .kamil-halo { box-shadow: 0 0 0 1px rgba(255,255,255,.08); }
 
-.kamil-dots { height: 18px; display: flex; justify-content: center; gap: 7px; opacity: 0; transition: opacity .3s; }
-.kamil-dots i { width: 9px; height: 9px; border-radius: 50%; background: var(--k); animation: kamil-dot 1.2s infinite ease-in-out; }
+.kamil-dots { position: absolute; left: 50%; top: 4%; transform: translateX(-50%); display: flex; gap: 8px; opacity: 0; transition: opacity .3s; z-index: 1; }
+.kamil-dots i { width: 10px; height: 10px; border-radius: 50%; background: var(--k); box-shadow: 0 0 10px var(--k); animation: kamil-dot 1.2s infinite ease-in-out; }
 .kamil-dots i:nth-child(2) { animation-delay: .2s; }
 .kamil-dots i:nth-child(3) { animation-delay: .4s; }
 .kamil-stage[data-state="thinking"] .kamil-dots { opacity: 1; }
-@keyframes kamil-dot { 0%,100% { transform: translateY(0); opacity: .4; } 50% { transform: translateY(-7px); opacity: 1; } }
+@keyframes kamil-dot { 0%, 100% { transform: translateY(0); opacity: .4; } 50% { transform: translateY(-7px); opacity: 1; } }
 
-.kamil-name { margin: 1.5rem 0 .1rem; font-size: 1.8rem; letter-spacing: .04em; }
-.kamil-status { margin: 0; color: color-mix(in srgb, var(--k) 60%, #ffffff); font-weight: 600; }
-.kamil-sleep {
-  position: absolute; inset: 0; z-index: 2; display: grid; place-content: center; gap: .75rem;
-  background: rgba(8, 12, 24, .72); backdrop-filter: blur(3px);
+/* le buste : la tête suit la position réelle des servos (--pan, --tilt), les yeux la personne (--gx, --gy) */
+.kamil-bust .kb-head { transform-box: fill-box; transform-origin: 50% 100%;
+  transform: translate(calc(var(--pan) * 16px), calc(var(--tilt) * 9px)) rotate(calc(var(--pan) * 5deg));
+  transition: transform .6s cubic-bezier(.3, .7, .3, 1); }
+.kamil-bust .kb-face { transform: translate(calc(var(--pan) * 11px), calc(var(--tilt) * 6px)); transition: transform .6s cubic-bezier(.3, .7, .3, 1); }
+.kamil-bust .kb-ear-l { transform: translateX(calc(var(--pan) * 6px)); transition: transform .6s; }
+.kamil-bust .kb-ear-r { transform: translateX(calc(var(--pan) * 6px)); transition: transform .6s; }
+.kamil-bust .kb-neck { transform: translateX(calc(var(--pan) * 5px)); transition: transform .6s; }
+.kamil-bust .kb-iris { transform: translate(calc(var(--gx) * 5px), calc(var(--gy) * 3.5px)); transition: transform .35s; }
+.kamil-stage:not([data-gaze]) .kb-iris { animation: kb-gaze 9s ease-in-out infinite; }
+@keyframes kb-gaze { 0%, 20% { transform: translate(0, 0); } 28%, 42% { transform: translate(-4px, 1px); }
+  50%, 64% { transform: translate(4px, 0); } 72%, 100% { transform: translate(0, 0); } }
+.kamil-bust .kb-iris-c { fill: var(--k); filter: drop-shadow(0 0 3px var(--k)); transition: fill .5s; }
+.kamil-bust .kb-core-c { stop-color: var(--k); transition: stop-color .5s; }
+.kamil-bust .kb-core { animation: kb-pulse 3s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes kb-pulse { 0%, 100% { opacity: .75; transform: scale(.92); } 50% { opacity: 1; transform: scale(1.08); } }
+.kamil-bust .kb-lid { transform-box: fill-box; transform-origin: top; transform: scaleY(0); animation: kb-blink 5.2s infinite; }
+@keyframes kb-blink { 0%, 93%, 100% { transform: scaleY(0); } 95.5% { transform: scaleY(1); } }
+.kamil-bust .kb-jaw { transform-box: fill-box; transform-origin: top; transition: transform .25s; }
+@keyframes kb-talk { 0% { transform: translateY(0); } 50% { transform: translateY(10px); } 100% { transform: translateY(3px); } }
+.kamil-stage[data-state="speaking"] .kb-jaw { animation: kb-talk .32s ease-in-out infinite alternate; }
+.kamil-stage[data-state="speaking"] .kb-core { animation-duration: .6s; }
+.kamil-stage[data-state="awake"] .kb-iris-c { animation: kb-glow 1.4s ease-in-out infinite; }
+@keyframes kb-glow { 0%, 100% { filter: drop-shadow(0 0 2px var(--k)); } 50% { filter: drop-shadow(0 0 9px var(--k)); } }
+.kamil-stage[data-state="thinking"]:not([data-gaze]) .kb-iris { animation: none; transform: translate(4px, -3px); }
+.kamil-stage[data-state="thinking"] .kb-brow { transform: translateY(-3px); transition: transform .4s; }
+.kamil-stage[data-state="off"] .kb-lid { animation: none; transform: scaleY(1); }
+.kamil-stage[data-state="off"] .kb-core { animation: none; opacity: .25; }
+.kamil-stage[data-state="off"] .kamil-bust { filter: drop-shadow(0 22px 30px rgba(0,0,0,.55)) grayscale(.5) brightness(.8); animation: none; }
+
+.kamil-bottom { display: flex; justify-content: space-between; align-items: flex-end; gap: 1rem; z-index: 2; margin-top: .4rem; }
+.kamil-name { margin: 0; font-size: 2.1rem; line-height: 1.1; letter-spacing: .02em; text-transform: capitalize; }
+.kamil-status { margin: .15rem 0 0; color: color-mix(in srgb, var(--k) 55%, #ffffff); font-weight: 600; }
+.kamil-mood { display: flex; gap: .6rem; }
+.kamil-mood .ring {
+  --v: 50%; --c: #fff; width: 58px; aspect-ratio: 1; border-radius: 50%; display: grid; place-items: center; position: relative;
+  background: conic-gradient(var(--c) var(--v), rgba(255,255,255,.1) 0); transition: --v .8s;
 }
+.kamil-mood .ring::before { content: ""; position: absolute; inset: 5px; border-radius: 50%; background: #0b1120; }
+.kamil-mood .ring span { position: relative; font-size: .62rem; text-align: center; line-height: 1.15; color: #cbd5e1; }
+.kamil-mood .ring b { display: block; font-size: .85rem; color: #fff; }
 
-.kamil-chips { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: .75rem; }
-.kamil-chips .pill { font-size: .85rem; }
-.kamil-mood { display: grid; gap: .45rem; margin-bottom: .9rem; }
-.kamil-mood .bar { display: grid; grid-template-columns: 6.5rem 1fr; align-items: center; gap: .5rem; font-size: .88rem; }
-.kamil-mood .track { height: 8px; border-radius: 99px; background: var(--border); overflow: hidden; }
-.kamil-mood .track i { display: block; height: 100%; border-radius: 99px; transition: width .8s; }
+.kamil-sleep { position: absolute; inset: 0; z-index: 5; display: grid; place-content: center; gap: .75rem; text-align: center;
+  background: rgba(6, 10, 20, .72); backdrop-filter: blur(4px); }
 
-.kamil-switch { display: inline-flex; align-items: center; gap: .6rem; cursor: pointer; user-select: none; }
+.kamil-stage .kamil-switch { display: inline-flex; align-items: center; gap: .5rem; cursor: pointer; user-select: none;
+  border-radius: 99px; padding: .25rem .7rem .25rem .3rem; font-size: .85rem; }
 .kamil-switch input { display: none; }
-.kamil-switch .slider { width: 42px; height: 24px; border-radius: 99px; background: var(--border); position: relative; transition: background .25s; }
-.kamil-switch .slider::after {
-  content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%;
-  background: #fff; transition: transform .25s; box-shadow: 0 1px 3px rgba(0,0,0,.3);
-}
+.kamil-switch .slider { width: 38px; height: 22px; border-radius: 99px; background: rgba(255,255,255,.18); position: relative; transition: background .25s; }
+.kamil-switch .slider::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%;
+  background: #fff; transition: transform .25s; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
 .kamil-switch input:checked + .slider { background: var(--bad); }
-.kamil-switch input:checked + .slider::after { transform: translateX(18px); }
+.kamil-switch input:checked + .slider::after { transform: translateX(16px); }
 
-/* caméras : sous Kamil et la conversation, sur toute la largeur */
-.kamil-eye-card { grid-column: 1 / -1; margin-bottom: 0; }
-.kamil-cams { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; margin-top: .4rem; }
-.kamil-cams .cam { max-height: 62vh; }
-.kamil-cams figure.big .cam { max-height: 80vh; }
-@media (max-width: 600px) { .kamil-cams { grid-template-columns: 1fr; } }
-.kamil-cams figure { margin: 0; cursor: zoom-in; }
-.kamil-cams figure.big { grid-column: 1 / -1; cursor: zoom-out; }
-.kamil-cams figcaption { font-size: .8rem; color: var(--muted); margin-top: .2rem; }
-.kamil-legend { display: flex; flex-wrap: wrap; align-items: center; gap: .2rem .55rem; font-size: .78rem; color: var(--muted); margin: .5rem 0 .2rem; }
-.kamil-legend .sw { width: 12px; height: 12px; border-radius: 3px; border: 2px solid var(--c); display: inline-block; margin-right: -.3rem; }
-.kamil-legend .sw.dash { border: 2px dashed #e5e7eb; }
-
-.kamil-chat { display: flex; flex-direction: column; min-height: 640px; margin-bottom: 0; }
-.kamil-bubbles {
-  flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: .6rem; padding: .5rem .25rem 1rem;
-  max-height: 62vh; min-height: 360px; scroll-behavior: smooth;
-}
-.kamil-bubbles .empty { margin: auto; text-align: center; color: var(--muted); max-width: 26rem; }
-.bubble { max-width: 78%; padding: .6rem .9rem; border-radius: 16px; line-height: 1.45; animation: kamil-pop .25s ease-out; }
-.bubble small { display: block; font-size: .72rem; opacity: .65; margin-top: .2rem; }
-.bubble.kamil { align-self: flex-start; background: color-mix(in srgb, var(--accent) 14%, var(--card)); border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border)); border-bottom-left-radius: 4px; }
-.bubble.toi { align-self: flex-end; background: var(--accent); color: var(--accent-text); border-bottom-right-radius: 4px; }
-.bubble.typing { opacity: .8; }
+/* --- la conversation -------------------------------------------------------------------- */
+.kamil-chat { display: flex; flex-direction: column; min-height: 0; height: 620px; background: var(--card);
+  border: 1px solid var(--border); border-radius: 24px; padding: 1rem 1rem .9rem; box-shadow: 0 8px 24px rgba(0,0,0,.12); }
+.kamil-chat-head { display: flex; justify-content: space-between; align-items: center; gap: .5rem; }
+.kamil-chat-head h2 { margin: 0; }
+.kamil-bubbles { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: .55rem; padding: .8rem .2rem; scroll-behavior: smooth; }
+.kamil-bubbles .empty { margin: auto; text-align: center; color: var(--muted); max-width: 24rem; }
+.bubble { max-width: 82%; padding: .6rem .9rem; border-radius: 18px; line-height: 1.45; animation: kamil-pop .25s ease-out; }
+.bubble small { display: block; font-size: .7rem; opacity: .6; margin-top: .2rem; }
+.bubble.kamil { align-self: flex-start; background: color-mix(in srgb, var(--accent) 12%, var(--card));
+  border: 1px solid color-mix(in srgb, var(--accent) 25%, var(--border)); border-bottom-left-radius: 6px; }
+.bubble.toi { align-self: flex-end; background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 70%, #7c3aed));
+  color: #fff; border-bottom-right-radius: 6px; }
 .bubble.typing span { display: inline-block; width: 6px; height: 6px; margin: 0 2px; border-radius: 50%; background: currentColor; animation: kamil-dot 1.2s infinite; }
 .bubble.typing span:nth-child(2) { animation-delay: .2s; }
 .bubble.typing span:nth-child(3) { animation-delay: .4s; }
 @keyframes kamil-pop { from { transform: translateY(6px); opacity: 0; } to { transform: none; opacity: 1; } }
 
-.kamil-suggest { display: flex; flex-wrap: wrap; gap: .4rem; margin: .5rem 0; }
-.chip { border: 1px solid var(--border); background: transparent; color: var(--text); border-radius: 99px; padding: .3rem .8rem; cursor: pointer; font: inherit; font-size: .85rem; }
+.kamil-composer { border-top: 1px solid var(--border); padding-top: .7rem; display: grid; gap: .55rem; grid-template-columns: minmax(0, 1fr); }
+.kamil-suggest { display: flex; gap: .4rem; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+.chip { flex: 0 0 auto; border: 1px solid var(--border); background: transparent; color: var(--text); border-radius: 99px;
+  padding: .32rem .8rem; cursor: pointer; font: inherit; font-size: .85rem; white-space: nowrap; }
 .chip:hover { border-color: var(--accent); color: var(--accent); }
-.kamil-input { border-top: 1px solid var(--border); padding-top: .75rem; display: grid; gap: .5rem; grid-template-columns: minmax(0, 1fr); }
-.kamil-input .row { gap: .5rem; flex-wrap: nowrap; }
-.kamil-input input { flex: 1 1 auto; width: auto; min-width: 0; font-size: 1rem; padding: .65rem .9rem; border-radius: 12px; }
-.kamil-input button[type="submit"] { flex: 0 0 auto; }
+.kamil-input { display: grid; gap: .5rem; grid-template-columns: minmax(0, 1fr); }
 .kamil-mode { display: inline-flex; border: 1px solid var(--border); border-radius: 99px; padding: 2px; width: fit-content; }
-.kamil-mode button { border: 0; background: transparent; color: var(--muted); padding: .3rem .85rem; border-radius: 99px; cursor: pointer; font: inherit; font-size: .85rem; }
+.kamil-mode button { border: 0; background: transparent; color: var(--muted); padding: .28rem .85rem; border-radius: 99px; cursor: pointer; font: inherit; font-size: .84rem; }
 .kamil-mode button.on { background: var(--accent); color: var(--accent-text); }
-@media (prefers-reduced-motion: reduce) {
-  .kamil-stage *, .kamil-ring { animation: none !important; }
-}
+.kamil-field { display: flex; align-items: center; gap: .4rem; border: 1px solid var(--border); border-radius: 99px; padding: .25rem .25rem .25rem 1rem;
+  background: var(--bg); transition: border-color .2s, box-shadow .2s; }
+.kamil-field:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
+.kamil-field input { flex: 1 1 auto; width: auto; min-width: 0; border: 0; background: transparent; font-size: 1rem; padding: .5rem 0; outline: none; }
+.kamil-field button { flex: 0 0 auto; width: 42px; height: 42px; border-radius: 50%; padding: 0; font-size: 1.1rem; display: grid; place-items: center; }
 
-/* ------------------------------------------------------------ mode kiosque (/kiosk) */
+/* --- ce que voient ses yeux ------------------------------------------------------------- */
+.kamil-eye-card { grid-column: 1 / -1; background: var(--card); border: 1px solid var(--border); border-radius: 24px; padding: 1rem; }
+.kamil-cams { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; margin-top: .6rem; }
+.kamil-cams figure { margin: 0; cursor: zoom-in; }
+.kamil-cams figure.big { grid-column: 1 / -1; cursor: zoom-out; }
+.kamil-cams .cam { position: relative; aspect-ratio: 4 / 3; max-height: 62vh; background: #000; border-radius: 16px; overflow: hidden; }
+.kamil-cams figure.big .cam { max-height: 80vh; }
+.kamil-cams img, .kamil-cams canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.kamil-cams .cam:not(.live) img, .kamil-cams .cam:not(.live) canvas { visibility: hidden; }
+.kamil-cams .cam-off { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #94a3b8; font-size: .9rem; }
+.kamil-cams .cam.live .cam-off { display: none; }
+.kamil-cams .cam-tag { position: absolute; left: .6rem; bottom: .5rem; font-size: .75rem; color: #fff; background: rgba(0,0,0,.55);
+  padding: .15rem .55rem; border-radius: 99px; backdrop-filter: blur(4px); }
+@media (max-width: 600px) { .kamil-cams { grid-template-columns: 1fr; } }
+.kamil-legend { display: flex; flex-wrap: wrap; align-items: center; gap: .2rem .6rem; font-size: .78rem; color: var(--muted); margin: .6rem 0 0; }
+.kamil-legend .sw { width: 12px; height: 12px; border-radius: 3px; border: 2px solid var(--c); display: inline-block; margin-right: -.3rem; }
+.kamil-legend .sw.dash { border: 2px dashed #9ca3af; }
+#kamil-seen { margin-left: auto; }
+
+@media (max-width: 900px) {
+  .kamil-stage { min-height: 520px; }
+  .kamil-chat { height: 70vh; }
+}
+@media (prefers-reduced-motion: reduce) { .kamil-stage *, .kamil-bust { animation: none !important; } }
+
+/* ============================================================ mode kiosque et plein écran */
 .kiosk-tools { display: none; }
 body.kiosk .topbar, body.kiosk .tabs { display: none; }
 body.kiosk { overflow: hidden; }
 body.kiosk main { max-width: none; padding: .75rem; height: 100vh; height: 100dvh; }
 body.kiosk #tab-kamil { height: 100%; position: relative; }
-body.kiosk .kiosk-tools {
-  display: flex; gap: .4rem; position: absolute; right: .9rem; top: .7rem; z-index: 3; opacity: .35; transition: opacity .3s;
-}
-body.kiosk .kiosk-tools button, body.kiosk .kiosk-tools a { font-size: .8rem; padding: .25rem .6rem; }
+body.kiosk .kiosk-tools { display: flex; gap: .4rem; position: absolute; right: .9rem; top: .75rem; z-index: 6; opacity: .55; transition: opacity .3s; }
 body.kiosk .kiosk-tools:hover { opacity: 1; }
-body.kiosk .kiosk-tools a { text-decoration: none; padding: .4rem .7rem; border-radius: 8px; border: 1px solid var(--border); }
-body.kiosk .kamil-layout { height: 100%; grid-template-columns: minmax(340px, 40%) 1fr; grid-template-rows: minmax(0, 1fr) auto; }
-body.kiosk .kamil-left { height: 100%; grid-template-rows: minmax(0, 1fr) auto; min-height: 0; }
-body.kiosk .kamil-eye-card { padding-top: .6rem; padding-bottom: .5rem; }
-body.kiosk .kamil-eye-card h2 { margin: 0; }
-/* kiosque : les deux caméras couvrent toute la largeur (l'image remplit son cadre, un peu rognée) */
-body.kiosk .kamil-cams { grid-template-columns: 1fr 1fr; gap: .75rem; }
-body.kiosk .kamil-cams .cam { height: 34vh; width: 100%; aspect-ratio: auto; max-height: none; }
+body.kiosk .kiosk-tools button, body.kiosk .kiosk-tools a { font-size: .8rem; padding: .25rem .6rem; text-decoration: none; border-radius: 8px; border: 1px solid var(--border); }
+body.kiosk .kamil-layout { height: 100%; grid-template-rows: minmax(0, 1fr) 34vh; }
+body.kiosk .kamil-stage, body.kiosk .kamil-chat { height: auto; min-height: 0; }
+body.kiosk .kamil-chat { padding-top: 2.6rem; }   /* place pour les boutons du kiosque */
+body.kiosk .kamil-eye-card { display: flex; flex-direction: column; min-height: 0; padding: .6rem .8rem .5rem; }
+body.kiosk .kamil-cams { flex: 1; min-height: 0; margin-top: .4rem; }
+body.kiosk .kamil-cams .cam { height: 100%; aspect-ratio: auto; max-height: none; }
+body.kiosk .kamil-cams figure { min-height: 0; }
 body.kiosk .kamil-cams img { object-fit: cover; }
-body.kiosk .kamil-cams figcaption { display: none; }
-body.kiosk .kamil-cams figure.big { grid-column: 1 / -1; }
-body.kiosk .kamil-cams figure.big .cam { height: 60vh; }
-body.kiosk #kamil-seen { display: none; }
-body.kiosk .kamil-legend { margin: .3rem 0 0; }
-@media (max-height: 900px) and (orientation: landscape) {
-  body.kiosk .kamil-mood { display: none; }              /* écran bas : la place va aux caméras */
-  body.kiosk .kamil-info { padding: .6rem .9rem; }
-  body.kiosk .kamil-chips { margin-bottom: .4rem; }
-}
-body.kiosk .kamil-stage { display: flex; flex-direction: column; justify-content: center; min-height: 0; }
-body.kiosk .kamil-ring { width: min(21vh, 300px); height: min(21vh, 300px); }
-body.kiosk .kamil-face { width: min(14.5vh, 220px); margin-top: 6px; }
-body.kiosk .kamil-name { font-size: clamp(1.6rem, 3.6vh, 2.4rem); margin-top: 1.4rem; }
-body.kiosk .kamil-status { font-size: 1.15rem; }
-
-body.kiosk .kamil-chat { height: 100%; min-height: 0; }
-body.kiosk .kamil-bubbles { max-height: none; min-height: 0; }
-body.kiosk .bubble { font-size: 1.12rem; }
-body.kiosk .kamil-input input { font-size: 1.1rem; padding: .8rem 1rem; }
+body.kiosk .kamil-cams:has(figure.big) figure:not(.big) { display: none; }
+body.kiosk .kamil-legend { margin-top: .35rem; }
+body.kiosk .bubble { font-size: 1.08rem; }
 @media (orientation: portrait) {
-  /* tablette tenue en hauteur : Kamil en haut, la conversation dessous */
-  body.kiosk .kamil-layout { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr) auto; }
-  body.kiosk .kamil-left { height: auto; grid-template-columns: 1.3fr 1fr; grid-template-rows: auto; }
-  body.kiosk .kamil-stage { padding: 1.2rem .5rem 1rem; }
-  body.kiosk .kamil-cams .cam { height: 20vh; }
-  body.kiosk .kiosk-tools { top: auto; bottom: .7rem; }
-  body.kiosk .kamil-ring { width: min(22vh, 260px); height: min(22vh, 260px); }
-  body.kiosk .kamil-face { width: min(17vh, 190px); }
-  body.kiosk .kamil-name { font-size: 1.9rem; margin-top: 1rem; }
+  body.kiosk .kamil-layout { grid-template-columns: 1fr; grid-template-rows: 42vh minmax(0, 1fr) 22vh; }
+  body.kiosk .kamil-mood .ring { width: 50px; }
 }
 @media (max-width: 600px) and (orientation: portrait) {
-  /* téléphone : la page défile, la conversation garde de la place */
   body.kiosk { overflow: auto; }
-  body.kiosk main { height: auto; }
-  body.kiosk #tab-kamil, body.kiosk .kamil-layout { height: auto; }
+  body.kiosk main, body.kiosk #tab-kamil, body.kiosk .kamil-layout { height: auto; }
   body.kiosk .kamil-layout { grid-template-rows: none; }
-  body.kiosk .kamil-left { grid-template-columns: 1fr; }
-  body.kiosk .kamil-stage { grid-row: auto; }
+  body.kiosk .kamil-stage { min-height: 70vh; }
+  body.kiosk .kamil-chat { height: 75vh; height: 75dvh; }
   body.kiosk .kamil-eye-card { display: none; }
-  body.kiosk .kamil-chat { height: 78vh; height: 78dvh; }
 }
 #fullscreen-btn { font-size: .85rem; padding: .3rem .75rem; }
-.kiosk-hint {
-  position: fixed; left: 50%; top: 1rem; transform: translateX(-50%); z-index: 20;
-  background: rgba(15, 23, 42, .88); color: #fff; padding: .55rem 1.1rem; border-radius: 99px;
-  font-size: .95rem; box-shadow: 0 6px 18px rgba(0,0,0,.35); pointer-events: none; animation: kamil-pop .3s ease-out;
-}
-body.kiosk .kiosk-tools { opacity: .55; }
+.kiosk-hint { position: fixed; left: 50%; top: 1rem; transform: translateX(-50%); z-index: 20; background: rgba(15, 23, 42, .88); color: #fff;
+  padding: .55rem 1.1rem; border-radius: 99px; font-size: .95rem; box-shadow: 0 6px 18px rgba(0,0,0,.35); pointer-events: none; animation: kamil-pop .3s ease-out; }
+.kamil-chips .pill { max-width: 20rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

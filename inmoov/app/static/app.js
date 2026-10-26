@@ -87,10 +87,28 @@ async function kamilRefresh() {
     k.journal ? `<span class="pill" title="Dernier événement du journal">📓 ${esc(k.journal)}</span>` : "",
   ].join("");
   if (k.mood) {
-    const bars = [["Énergie", k.mood.energie, 0, 1, "#f59e0b"], ["Joie", k.mood.joie, -1, 1, "#22c55e"],
-                  ["Curiosité", k.mood.curiosite, 0, 1, "#8b5cf6"]];
-    $("#kamil-mood").innerHTML = bars.map(([label, v, lo, hi, color]) => `
-      <div class="bar"><span>${label}</span><div class="track"><i style="width:${Math.round(100 * ((v ?? lo) - lo) / (hi - lo))}%;background:${color}"></i></div></div>`).join("");
+    // humeur en jauges circulaires
+    const rings = [["Énergie", k.mood.energie, 0, 1, "#f59e0b"], ["Joie", k.mood.joie, -1, 1, "#22c55e"],
+                   ["Curiosité", k.mood.curiosite, 0, 1, "#a855f7"]];
+    $("#kamil-mood").innerHTML = rings.map(([label, v, lo, hi, color]) => {
+      const pct = Math.max(0, Math.min(100, Math.round(100 * ((v ?? lo) - lo) / (hi - lo))));
+      return `<div class="ring" style="--v:${pct}%;--c:${color}" title="${label} ${pct} %"><span><b>${pct}</b>${label}</span></div>`;
+    }).join("");
+  }
+  // posture : la tête du dessin suit la position réelle des servos, les yeux la personne suivie
+  const v = k.vision;
+  const clamp = (x) => Math.max(-1, Math.min(1, x));
+  if (v && v.head) {
+    stage.style.setProperty("--pan", clamp(((v.head.rothead ?? 90) - 90) / 60).toFixed(3));
+    stage.style.setProperty("--tilt", clamp(((v.head.neck ?? 90) - 90) / 30).toFixed(3));
+  }
+  if (v && v.target_box) {
+    const [x0, y0, x1, y1] = v.target_box;
+    stage.style.setProperty("--gx", clamp(((x0 + x1) / 2 - 0.5) * 2).toFixed(3));
+    stage.style.setProperty("--gy", clamp(((y0 + y1) / 2 - 0.5) * 2).toFixed(3));
+    stage.dataset.gaze = "1";
+  } else {
+    delete stage.dataset.gaze;
   }
   const guard = $("#kamil-guard");
   if (document.activeElement !== guard && k.garde !== undefined && k.garde !== null) guard.checked = !!k.garde;

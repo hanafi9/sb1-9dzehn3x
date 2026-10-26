@@ -44,126 +44,151 @@
         <a href="/" class="ghost" id="kiosk-exit" title="Retour à l'Atelier">⚙</a>
       </div>
       <div class="kamil-layout">
-        <div class="kamil-left">
-          <div class="kamil-stage" id="kamil-stage" data-state="off">
-            <div class="kamil-sleep hidden" id="kamil-sleep">
-              <p id="kamil-sleep-text">Kamil dort : sa voix n'est pas lancée.</p>
-              <button id="kamil-wake">Réveiller Kamil</button>
-            </div>
-            <div class="kamil-dots" aria-hidden="true"><i></i><i></i><i></i></div>
-            <div class="kamil-ring" aria-hidden="true">
-              <div class="kamil-waves"><span></span><span></span><span></span></div>
-              <svg class="kamil-face" viewBox="0 0 200 250" role="img" aria-label="Visage de Kamil">
-                <defs>
-                  <radialGradient id="kf-skin" cx="42%" cy="30%" r="75%">
-                    <stop offset="0" stop-color="#ffffff"/><stop offset=".55" stop-color="#e9edf3"/>
-                    <stop offset="1" stop-color="#a9b2c2"/>
-                  </radialGradient>
-                  <linearGradient id="kf-side" x1="0" x2="1">
-                    <stop offset="0" stop-color="#8d97a8"/><stop offset=".5" stop-color="#d9dee7"/><stop offset="1" stop-color="#8d97a8"/>
-                  </linearGradient>
-                  <linearGradient id="kf-neck" x1="0" x2="1">
-                    <stop offset="0" stop-color="#4b5363"/><stop offset=".5" stop-color="#9aa3b3"/><stop offset="1" stop-color="#4b5363"/>
-                  </linearGradient>
-                  <radialGradient id="kf-socket" cx="50%" cy="40%" r="60%">
-                    <stop offset="0" stop-color="#3a4150"/><stop offset="1" stop-color="#151922"/>
-                  </radialGradient>
-                  <radialGradient id="kf-ball" cx="40%" cy="35%" r="65%">
-                    <stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#cfd6e2"/>
-                  </radialGradient>
-                  <clipPath id="kf-eye-l"><ellipse cx="70" cy="112" rx="17" ry="12"/></clipPath>
-                  <clipPath id="kf-eye-r"><ellipse cx="130" cy="112" rx="17" ry="12"/></clipPath>
-                </defs>
-                <!-- cou et épaules du casque -->
-                <path d="M78 206 h44 l6 44 h-56 z" fill="url(#kf-neck)"/>
-                <path d="M82 214 h36 M80 226 h40 M78 238 h44" stroke="#3b4250" stroke-width="2"/>
-                <!-- oreilles (capots latéraux) -->
-                <ellipse cx="22" cy="118" rx="13" ry="30" fill="url(#kf-side)"/>
-                <ellipse cx="178" cy="118" rx="13" ry="30" fill="url(#kf-side)"/>
-                <ellipse cx="22" cy="118" rx="5" ry="14" fill="#5b6475"/>
-                <ellipse cx="178" cy="118" rx="5" ry="14" fill="#5b6475"/>
-                <!-- crâne et visage -->
-                <path d="M100 8 C150 8 182 42 182 100 C182 140 172 160 160 176 L40 176 C28 160 18 140 18 100 C18 42 50 8 100 8 Z"
-                      fill="url(#kf-skin)"/>
-                <!-- jointures de l'impression 3D -->
-                <path d="M100 10 V60 M40 46 C70 36 130 36 160 46" stroke="#b8c0cd" stroke-width="1.4" fill="none"/>
-                <!-- arcades sourcilières -->
-                <path d="M46 96 C58 84 84 84 94 96" stroke="#9aa3b2" stroke-width="4" fill="none" stroke-linecap="round"/>
-                <path d="M106 96 C116 84 142 84 154 96" stroke="#9aa3b2" stroke-width="4" fill="none" stroke-linecap="round"/>
-                <!-- yeux : orbites, globes, iris (caméras), paupières -->
-                <ellipse cx="70" cy="112" rx="19" ry="14" fill="url(#kf-socket)"/>
-                <ellipse cx="130" cy="112" rx="19" ry="14" fill="url(#kf-socket)"/>
-                <g clip-path="url(#kf-eye-l)">
-                  <ellipse cx="70" cy="112" rx="17" ry="12" fill="url(#kf-ball)"/>
-                  <g class="kf-iris"><circle cx="70" cy="112" r="7.5" class="kf-iris-c"/><circle cx="70" cy="112" r="3.2" fill="#05070b"/>
-                    <circle cx="67.5" cy="109.5" r="1.6" fill="#fff" opacity=".9"/></g>
-                  <rect class="kf-lid" x="50" y="98" width="40" height="28" fill="#dfe4ec"/>
-                </g>
-                <g clip-path="url(#kf-eye-r)">
-                  <ellipse cx="130" cy="112" rx="17" ry="12" fill="url(#kf-ball)"/>
-                  <g class="kf-iris"><circle cx="130" cy="112" r="7.5" class="kf-iris-c"/><circle cx="130" cy="112" r="3.2" fill="#05070b"/>
-                    <circle cx="127.5" cy="109.5" r="1.6" fill="#fff" opacity=".9"/></g>
-                  <rect class="kf-lid" x="110" y="98" width="40" height="28" fill="#dfe4ec"/>
-                </g>
-                <!-- nez -->
-                <path d="M100 104 C97 122 92 134 92 140 C96 144 104 144 108 140 C108 134 103 122 100 104 Z" fill="#cdd3de"/>
-                <path d="M92 140 C96 144 104 144 108 140" stroke="#97a0b0" stroke-width="1.6" fill="none"/>
-                <!-- lèvre du haut -->
-                <path d="M74 158 C88 152 112 152 126 158 C112 162 88 162 74 158 Z" fill="#b9c1ce"/>
-                <!-- bouche (intérieur) visible quand la mâchoire s'ouvre -->
-                <path d="M78 160 C90 158 110 158 122 160 L120 172 C108 176 92 176 80 172 Z" fill="#141821"/>
-                <!-- mâchoire mobile -->
-                <g class="kf-jaw">
-                  <path d="M40 160 L160 160 C158 186 140 206 100 210 C60 206 42 186 40 160 Z" fill="url(#kf-skin)"/>
-                  <path d="M78 162 C90 166 110 166 122 162" stroke="#97a0b0" stroke-width="2" fill="none" stroke-linecap="round"/>
-                  <path d="M60 196 C80 206 120 206 140 196" stroke="#b8c0cd" stroke-width="1.4" fill="none"/>
-                </g>
-              </svg>
-            </div>
-            <h1 class="kamil-name" id="kamil-name">Kamil</h1>
-            <p class="kamil-status" id="kamil-status">…</p>
+        <!-- la scène : Kamil en buste, état, infos -->
+        <div class="kamil-stage" id="kamil-stage" data-state="off">
+          <div class="kamil-sleep hidden" id="kamil-sleep">
+            <p id="kamil-sleep-text">Kamil dort : sa voix n'est pas lancée.</p>
+            <button id="kamil-wake">Réveiller Kamil</button>
           </div>
-          <div class="card kamil-info">
+          <div class="kamil-top">
             <div class="kamil-chips" id="kamil-chips"></div>
+            <label class="kamil-switch" title="Kamil surveille la maison et interpelle quiconque passe">
+              <input type="checkbox" id="kamil-guard"><span class="slider"></span><span>Garde</span></label>
+          </div>
+          <div class="kamil-body">
+            <div class="kamil-halo" aria-hidden="true"><span></span><span></span><span></span></div>
+            <div class="kamil-dots" aria-hidden="true"><i></i><i></i><i></i></div>
+            <svg class="kamil-bust" viewBox="0 0 400 430" role="img" aria-label="Kamil, robot humanoïde InMoov">
+              <defs>
+                <radialGradient id="kb-skin" cx="40%" cy="28%" r="80%">
+                  <stop offset="0" stop-color="#ffffff"/><stop offset=".5" stop-color="#e8ecf2"/><stop offset="1" stop-color="#9da7b8"/>
+                </radialGradient>
+                <radialGradient id="kb-shell" cx="45%" cy="20%" r="90%">
+                  <stop offset="0" stop-color="#f6f8fb"/><stop offset=".6" stop-color="#cfd6e1"/><stop offset="1" stop-color="#7f8a9d"/>
+                </radialGradient>
+                <linearGradient id="kb-metal" x1="0" x2="1">
+                  <stop offset="0" stop-color="#3e4554"/><stop offset=".5" stop-color="#a3acbb"/><stop offset="1" stop-color="#3e4554"/>
+                </linearGradient>
+                <linearGradient id="kb-side" x1="0" x2="1">
+                  <stop offset="0" stop-color="#8b95a7"/><stop offset=".5" stop-color="#dce1e9"/><stop offset="1" stop-color="#8b95a7"/>
+                </linearGradient>
+                <radialGradient id="kb-socket" cx="50%" cy="40%" r="60%">
+                  <stop offset="0" stop-color="#394050"/><stop offset="1" stop-color="#11151d"/>
+                </radialGradient>
+                <radialGradient id="kb-ball" cx="40%" cy="35%" r="65%">
+                  <stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#ccd3df"/>
+                </radialGradient>
+                <radialGradient id="kb-core" cx="50%" cy="50%" r="50%">
+                  <stop offset="0" stop-color="#fff"/><stop offset=".35" class="kb-core-c"/><stop offset="1" stop-color="transparent"/>
+                </radialGradient>
+                <clipPath id="kb-eye-l"><ellipse cx="170" cy="112" rx="17" ry="12"/></clipPath>
+                <clipPath id="kb-eye-r"><ellipse cx="230" cy="112" rx="17" ry="12"/></clipPath>
+              </defs>
+              <!-- torse : épaules, bras, plastron -->
+              <g class="kb-torso">
+                <path d="M118 300 L92 300 C70 300 60 320 58 345 L50 430 L102 430 L108 350 Z" fill="url(#kb-shell)"/>
+                <path d="M282 300 L308 300 C330 300 340 320 342 345 L350 430 L298 430 L292 350 Z" fill="url(#kb-shell)"/>
+                <circle cx="96" cy="300" r="40" fill="url(#kb-shell)"/>
+                <circle cx="304" cy="300" r="40" fill="url(#kb-shell)"/>
+                <circle cx="96" cy="300" r="14" fill="url(#kb-metal)" opacity=".7"/>
+                <circle cx="304" cy="300" r="14" fill="url(#kb-metal)" opacity=".7"/>
+                <path d="M128 268 C160 256 240 256 272 268 L292 300 L284 430 L116 430 L108 300 Z" fill="url(#kb-shell)"/>
+                <path d="M150 286 C180 278 220 278 250 286 M140 330 H260 M200 286 V430" stroke="#a7b0bf" stroke-width="1.6" fill="none"/>
+                <path d="M132 380 C170 392 230 392 268 380" stroke="#a7b0bf" stroke-width="1.6" fill="none"/>
+                <!-- cœur lumineux : la couleur de l'état -->
+                <circle cx="200" cy="352" r="30" fill="url(#kb-core)" class="kb-core"/>
+                <circle cx="200" cy="352" r="13" fill="none" stroke="#2b3240" stroke-width="3"/>
+              </g>
+              <!-- cou articulé (vérins) -->
+              <g class="kb-neck">
+                <rect x="180" y="204" width="40" height="70" rx="8" fill="url(#kb-metal)"/>
+                <path d="M182 220 h36 M182 234 h36 M182 248 h36 M182 262 h36" stroke="#2b3240" stroke-width="2.5"/>
+                <path d="M162 214 L176 268 M238 214 L224 268" stroke="#596274" stroke-width="5" stroke-linecap="round"/>
+              </g>
+              <!-- tête : tourne et s'incline comme le vrai robot -->
+              <g class="kb-head">
+                <ellipse class="kb-ear-l" cx="122" cy="118" rx="13" ry="30" fill="url(#kb-side)"/>
+                <ellipse class="kb-ear-r" cx="278" cy="118" rx="13" ry="30" fill="url(#kb-side)"/>
+                <path d="M200 8 C250 8 282 42 282 100 C282 140 272 160 260 176 L140 176 C128 160 118 140 118 100 C118 42 150 8 200 8 Z"
+                      fill="url(#kb-skin)"/>
+                <g class="kb-face">
+                  <path d="M200 10 V58 M140 46 C170 36 230 36 260 46" stroke="#b5bdca" stroke-width="1.4" fill="none"/>
+                  <path class="kb-brow" d="M146 96 C158 84 184 84 194 96 M206 96 C216 84 242 84 254 96"
+                        stroke="#97a0b0" stroke-width="4" fill="none" stroke-linecap="round"/>
+                  <ellipse cx="170" cy="112" rx="19" ry="14" fill="url(#kb-socket)"/>
+                  <ellipse cx="230" cy="112" rx="19" ry="14" fill="url(#kb-socket)"/>
+                  <g clip-path="url(#kb-eye-l)">
+                    <ellipse cx="170" cy="112" rx="17" ry="12" fill="url(#kb-ball)"/>
+                    <g class="kb-iris"><circle cx="170" cy="112" r="7.5" class="kb-iris-c"/><circle cx="170" cy="112" r="3.2" fill="#05070b"/>
+                      <circle cx="167.5" cy="109.5" r="1.6" fill="#fff" opacity=".9"/></g>
+                    <rect class="kb-lid" x="150" y="98" width="40" height="28" fill="#dde2ea"/>
+                  </g>
+                  <g clip-path="url(#kb-eye-r)">
+                    <ellipse cx="230" cy="112" rx="17" ry="12" fill="url(#kb-ball)"/>
+                    <g class="kb-iris"><circle cx="230" cy="112" r="7.5" class="kb-iris-c"/><circle cx="230" cy="112" r="3.2" fill="#05070b"/>
+                      <circle cx="227.5" cy="109.5" r="1.6" fill="#fff" opacity=".9"/></g>
+                    <rect class="kb-lid" x="210" y="98" width="40" height="28" fill="#dde2ea"/>
+                  </g>
+                  <path d="M200 104 C197 122 192 134 192 140 C196 144 204 144 208 140 C208 134 203 122 200 104 Z" fill="#cbd2dd"/>
+                  <path d="M192 140 C196 144 204 144 208 140" stroke="#949dad" stroke-width="1.6" fill="none"/>
+                  <path d="M174 158 C188 152 212 152 226 158 C212 162 188 162 174 158 Z" fill="#b7bfcc"/>
+                  <path d="M178 160 C190 158 210 158 222 160 L220 172 C208 176 192 176 180 172 Z" fill="#141821"/>
+                </g>
+                <g class="kb-jaw">
+                  <path d="M140 160 L260 160 C258 186 240 206 200 210 C160 206 142 186 140 160 Z" fill="url(#kb-skin)"/>
+                  <path class="kb-chin" d="M178 162 C190 166 210 166 222 162" stroke="#949dad" stroke-width="2" fill="none" stroke-linecap="round"/>
+                </g>
+              </g>
+            </svg>
+          </div>
+          <div class="kamil-bottom">
+            <div>
+              <h1 class="kamil-name" id="kamil-name">Kamil</h1>
+              <p class="kamil-status" id="kamil-status">…</p>
+            </div>
             <div class="kamil-mood" id="kamil-mood"></div>
-            <label class="kamil-switch"><input type="checkbox" id="kamil-guard">
-              <span class="slider"></span><span>Mode garde</span></label>
           </div>
         </div>
-        <div class="card kamil-chat">
-          <div class="row between"><h2>Conversation</h2><span class="muted" id="kamil-heard-by"></span></div>
+
+        <!-- la conversation -->
+        <div class="kamil-chat">
+          <div class="kamil-chat-head"><h2>Conversation</h2><span class="muted" id="kamil-heard-by"></span></div>
           <div class="kamil-bubbles" id="kamil-bubbles"></div>
-          <div class="kamil-suggest" id="kamil-suggest">
-            <button class="chip">Qu'est-ce que tu vois ?</button>
-            <button class="chip">Raconte-moi une blague</button>
-            <button class="chip">Quelle heure est-il ?</button>
-            <button class="chip">Comment tu te sens ?</button>
+          <div class="kamil-composer">
+            <div class="kamil-suggest" id="kamil-suggest">
+              <button class="chip">👀 Qu'est-ce que tu vois ?</button>
+              <button class="chip">😄 Raconte-moi une blague</button>
+              <button class="chip">🕐 Quelle heure est-il ?</button>
+              <button class="chip">💬 Comment tu te sens ?</button>
+            </div>
+            <form class="kamil-input" id="kamil-form">
+              <div class="kamil-mode" role="radiogroup">
+                <button type="button" data-mode="question" class="on">Parler à Kamil</button>
+                <button type="button" data-mode="dire">Lui faire dire</button>
+              </div>
+              <div class="kamil-field">
+                <input id="kamil-text" maxlength="300" size="1" autocomplete="off" placeholder="Écris à Kamil…">
+                <button type="submit" id="kamil-send" aria-label="Envoyer">➤</button>
+              </div>
+            </form>
           </div>
-          <form class="kamil-input" id="kamil-form">
-            <div class="kamil-mode" role="radiogroup">
-              <button type="button" data-mode="question" class="on">Parler à Kamil</button>
-              <button type="button" data-mode="dire">Lui faire dire</button>
-            </div>
-            <div class="row">
-              <input id="kamil-text" maxlength="300" size="1" autocomplete="off" placeholder="Écris à Kamil…">
-              <button type="submit" id="kamil-send">Envoyer</button>
-            </div>
-          </form>
         </div>
-        <div class="card kamil-eye-card">
-            <div class="row between"><h2>Ce que je vois</h2>
-              <label class="check"><input type="checkbox" id="kamil-boxes" checked> cadres</label></div>
-            <div class="kamil-cams">
-              <figure data-kcam="0"><div class="cam"><img alt="Caméra du suivi"><canvas></canvas>
-                <span class="cam-off">Caméra arrêtée</span></div><figcaption>Caméra du suivi</figcaption></figure>
-              <figure data-kcam="1"><div class="cam"><img alt="2e caméra"><canvas></canvas>
-                <span class="cam-off">Caméra arrêtée</span></div><figcaption>2e caméra</figcaption></figure>
-            </div>
-            <p class="kamil-legend"><span class="sw" style="--c:#facc15"></span>suivi
-              <span class="sw" style="--c:#22c55e"></span>visage <span class="sw" style="--c:#3b82f6"></span>objet
-              <span class="sw" style="--c:#f97316"></span>mouvement <span class="sw dash"></span>zone centrale</p>
-            <p class="muted" id="kamil-seen"></p>
+
+        <!-- ce que voient ses yeux -->
+        <div class="kamil-eye-card">
+          <div class="kamil-chat-head"><h2>Ce que je vois</h2>
+            <label class="check"><input type="checkbox" id="kamil-boxes" checked> cadres</label></div>
+          <div class="kamil-cams">
+            <figure data-kcam="0"><div class="cam"><img alt="Caméra du suivi"><canvas></canvas>
+              <span class="cam-off">Caméra arrêtée</span><span class="cam-tag">Caméra du suivi</span></div></figure>
+            <figure data-kcam="1"><div class="cam"><img alt="2e caméra"><canvas></canvas>
+              <span class="cam-off">Caméra arrêtée</span><span class="cam-tag">2e caméra</span></div></figure>
           </div>
+          <p class="kamil-legend"><span class="sw" style="--c:#facc15"></span>suivi
+            <span class="sw" style="--c:#22c55e"></span>visage <span class="sw" style="--c:#3b82f6"></span>objet
+            <span class="sw" style="--c:#f97316"></span>mouvement <span class="sw dash"></span>zone centrale
+            <span class="muted" id="kamil-seen"></span></p>
+        </div>
       </div>
     </section>
 
