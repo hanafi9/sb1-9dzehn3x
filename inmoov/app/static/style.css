@@ -497,8 +497,9 @@ a.button.ghost { background: transparent; color: var(--accent); }
   transform-origin: 50% 100%;
   transform: translate(calc(var(--pan) * 10px), calc(var(--tilt) * 5px)) rotate(calc(var(--pan) * 3deg));
   transition: transform .6s cubic-bezier(.3, .7, .3, 1);
-  -webkit-mask-image: radial-gradient(ellipse 60% 66% at 50% 46%, #000 55%, transparent 97%);
-          mask-image: radial-gradient(ellipse 60% 66% at 50% 46%, #000 55%, transparent 97%);
+  /* image détourée : seul le bas (épaules coupées) se fond dans le décor */
+  -webkit-mask-image: linear-gradient(180deg, #000 82%, transparent 99%);
+          mask-image: linear-gradient(180deg, #000 82%, transparent 99%);
   animation: kp-breathe 5s ease-in-out infinite, kp-sway 14s ease-in-out infinite; }
 .kp-frame img { width: 100%; height: 100%; object-fit: cover; display: block; user-select: none; -webkit-user-drag: none;
   transition: filter .6s; }
@@ -619,3 +620,37 @@ body.kiosk .bubble { font-size: 1.08rem; }
 .kamil-sync .ks-scale { display: flex; justify-content: space-between; font-size: .75rem; opacity: .7; }
 .kamil-sync .ks-actions { display: flex; gap: .5rem; justify-content: flex-end; }
 .kamil-sync .ks-actions button { border-radius: 99px; padding: .4rem .9rem; }
+
+/* --- décor de la scène : aurores, étoiles, faisceau, sol holographique -------------------- */
+.kamil-stage { background: radial-gradient(120% 90% at 50% 0%, #121c38 0%, #0a1022 45%, #05070f 100%); }
+.kamil-bg { position: absolute; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+.kamil-bg i { position: absolute; display: block; }
+.kbg-aurora { width: 70%; aspect-ratio: 1; border-radius: 50%; filter: blur(60px); opacity: .55; will-change: transform; }
+.kbg-aurora.a1 { left: -12%; top: -18%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--k) 70%, #22d3ee), transparent);
+  animation: kbg-drift1 22s ease-in-out infinite alternate; }
+.kbg-aurora.a2 { right: -15%; top: 10%; background: radial-gradient(closest-side, #7c3aed, transparent); opacity: .4;
+  animation: kbg-drift2 28s ease-in-out infinite alternate; }
+@keyframes kbg-drift1 { to { transform: translate(18%, 12%) scale(1.15); } }
+@keyframes kbg-drift2 { to { transform: translate(-16%, -10%) scale(.9); } }
+.kbg-stars { inset: -50% 0 0 0; opacity: .6;
+  background-image: radial-gradient(1.2px 1.2px at 12% 18%, #fff, transparent), radial-gradient(1px 1px at 32% 62%, #cfe8ff, transparent),
+    radial-gradient(1.4px 1.4px at 58% 28%, #fff, transparent), radial-gradient(1px 1px at 76% 74%, #a5f3fc, transparent),
+    radial-gradient(1.2px 1.2px at 88% 36%, #fff, transparent), radial-gradient(1px 1px at 22% 84%, #e0e7ff, transparent),
+    radial-gradient(1.3px 1.3px at 46% 8%, #fff, transparent), radial-gradient(1px 1px at 66% 52%, #cffafe, transparent);
+  background-size: 100% 50%; animation: kbg-rise 60s linear infinite; }
+@keyframes kbg-rise { to { transform: translateY(33.33%); } }
+.kbg-beam { left: 50%; top: -10%; width: 70%; height: 95%; transform: translateX(-50%);
+  background: conic-gradient(from 180deg at 50% 0%, transparent 160deg, color-mix(in srgb, var(--k) 22%, transparent) 180deg, transparent 200deg);
+  filter: blur(8px); opacity: .8; transition: background .8s; }
+.kbg-floor { left: -50%; right: -50%; bottom: -6%; height: 42%; transform-origin: 50% 100%;
+  transform: perspective(320px) rotateX(62deg);
+  background-image: linear-gradient(color-mix(in srgb, var(--k) 55%, transparent) 1px, transparent 1px),
+                    linear-gradient(90deg, color-mix(in srgb, var(--k) 55%, transparent) 1px, transparent 1px);
+  background-size: 44px 44px; animation: kbg-grid 6s linear infinite;
+  -webkit-mask-image: linear-gradient(0deg, #000 10%, transparent 85%); mask-image: linear-gradient(0deg, #000 10%, transparent 85%);
+  opacity: .45; }
+@keyframes kbg-grid { to { background-position: 0 44px; } }
+.kamil-stage[data-state="off"] .kamil-bg { filter: grayscale(.7) brightness(.6); }
+.kamil-stage[data-state="off"] .kbg-floor, .kamil-stage[data-state="off"] .kbg-stars { animation: none; }
+@media (prefers-reduced-motion: reduce) { .kamil-bg i { animation: none !important; } }

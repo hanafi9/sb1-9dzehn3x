@@ -122,6 +122,18 @@ class CloudSTTTest(unittest.TestCase):
         self.assertEqual(beams, [1])                    # simple repérage de « Kamil » : recherche rapide
         heard[0] = "Camille, quelle heure il est"
         self.assertEqual(lst.transcribe(pcm), "Kamil, quelle heure est-il ?")         # pour Kamil : en ligne
+        # petit modèle de repérage : il sert à trouver « Kamil », jamais à répondre si Groq est en panne
+        used = []
+        lst.screen_model = types.SimpleNamespace(transcribe=lambda audio, **kw: used.append("tiny") or (
+            [types.SimpleNamespace(text="Camille, quel heure", avg_logprob=-0.2, no_speech_prob=0.0)], None))
+        from cloud_stt import CloudError
+
+        def down(audio):
+            raise CloudError("hors ligne")
+        lst.cloud, keep = types.SimpleNamespace(transcribe=down), lst.cloud
+        self.assertEqual(lst.transcribe(pcm), "Camille, quelle heure il est")          # texte du modèle principal
+        self.assertEqual(used, ["tiny"])
+        lst.cloud, lst.screen_model = keep, None
         heard[0] = "et la suite"
         lst.awake_until = speech_listener.time.monotonic() + 10                        # conversation en cours
         lst.transcribe(pcm)

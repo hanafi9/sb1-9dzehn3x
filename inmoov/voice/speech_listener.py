@@ -180,12 +180,21 @@ class Listener:
                                    without_timestamps=True, vad_filter=False)[0])
         log.info("Whisper prêt (mise en route %.1f s)", time.monotonic() - t0)
         self.cloud = None
+        self.screen_model = None
         if (cfg.get("cloud_stt") or {}).get("enabled"):
             from cloud_stt import CloudTranscriber
 
             self.cloud = CloudTranscriber(cfg["cloud_stt"])
             log.info("Reconnaissance vocale en ligne : %s (%s), Whisper du Pi en secours",
                      cfg["cloud_stt"].get("provider", "groq"), self.cloud.model)
+            screen = cfg["cloud_stt"].get("screen_model")
+            if cfg["cloud_stt"].get("save_quota") and screen and screen != cfg["whisper_model"]:
+                # petit modèle juste pour repérer « Kamil » (ex. tiny : ~4 fois plus rapide que base)
+                self.screen_model = WhisperModel(screen, device="cpu", compute_type=cfg["whisper_compute_type"],
+                                                 cpu_threads=cfg["whisper_threads"])
+                list(self.screen_model.transcribe(np.zeros(SAMPLE_RATE, dtype=np.float32), language=cfg["language"],
+                                                  beam_size=1, without_timestamps=True, vad_filter=False)[0])
+                log.info("Repérage de « Kamil » avec Whisper « %s »", screen)
         self.fallback_model = None
         if cfg.get("whisper_fallback_model"):
             # 2e modèle plus juste (mais ~3 fois plus lent), utilisé seulement quand le 1er hésite
@@ -254,7 +263,8 @@ class Listener:
                 # avec « Kamil » partent en ligne (le quota gratuit de Groq est de 2000 phrases/jour)
                 # ce texte sert seulement à repérer « Kamil » : recherche simple (beam 1), 1,5 à 2 fois plus rapide
                 t0 = time.monotonic()
-                local = self._whisper(self.model, audio, (self.cfg.get("cloud_stt") or {}).get("screen_beam_size", 1))
+                local = self._whisper(getattr(self, "screen_model", None) or self.model, audio,
+                                      (self.cfg.get("cloud_stt") or {}).get("screen_beam_size", 1))
                 log.info("(repérage du mot de réveil sur le Pi : %.1f s pour %.1f s de son)",
                          time.monotonic() - t0, len(audio) / float(SAMPLE_RATE))
                 heard = (local[0] + " " + local[2]).strip()
@@ -265,6 +275,8 @@ class Listener:
                 return self.cloud.transcribe(audio)
             except CloudError as e:
                 log.warning("Reconnaissance en ligne impossible (%s) : Whisper du Pi", e)
+                if getattr(self, "screen_model", None) is not None:
+                    local = None    # le texte du petit modèle de repérage n'est pas assez juste pour répondre
         text, confidence, doubtful = local or self._whisper(self.model, audio, self.cfg["beam_size"])
         threshold = self.cfg.get("fallback_below_confidence", -0.45)
         # le 2e modèle ne sert que pour une phrase adressée au robot (mot de réveil, ou conversation

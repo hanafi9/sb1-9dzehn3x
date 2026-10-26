@@ -141,7 +141,7 @@ class AppTest(unittest.TestCase):
         p = self.c.get("/api/kamil").get_json()["portrait"]
         self.assertEqual((p["custom"], p["points"]), (False, atelier.PORTRAIT_POINTS))      # portrait d'origine
         got = self.c.get("/api/kamil/portrait")
-        self.assertEqual((got.status_code, got.data[:3]), (200, b"\xff\xd8\xff"))
+        self.assertEqual((got.status_code, got.data[:4], got.data[8:12]), (200, b"RIFF", b"WEBP"))
         got.close()
         bad = self.c.post("/api/kamil/portrait", data={"image": (io.BytesIO(b"<script>"), "x.png")},
                           content_type="multipart/form-data")

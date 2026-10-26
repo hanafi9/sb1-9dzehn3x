@@ -147,7 +147,7 @@ class LegsManager:
 # par défaut ceux du portrait de référence de Kamil (buste de face)
 PORTRAIT_TYPES = {b"\x89PNG\r\n\x1a\n": "png", b"\xff\xd8\xff": "jpg", b"RIFF": "webp"}
 PORTRAIT_MAX = 10 * 1024 * 1024
-PORTRAIT_DEFAULT = os.path.join(HERE, "static", "kamil_portrait.jpg")
+PORTRAIT_DEFAULT = os.path.join(HERE, "static", "kamil_portrait.webp")   # détouré : fond transparent
 PORTRAIT_POINTS = {"eye_l": [0.425, 0.305], "eye_r": [0.57, 0.305], "chest": [0.504, 0.86], "mouth": [0.5, 0.452]}
 
 
@@ -854,7 +854,7 @@ def create_app(data_dir=None, run=None, mrl=None):
     portrait_store = JsonStore(os.path.join(data_dir, "kamil_portrait.json"), {})
 
     def portrait_file():
-        """Image envoyée, sinon le portrait d'origine de Kamil (app/static/kamil_portrait.jpg)."""
+        """Image envoyée, sinon le portrait d'origine de Kamil (app/static/kamil_portrait.webp)."""
         for ext in PORTRAIT_TYPES.values():
             path = os.path.join(data_dir, "kamil_portrait." + ext)
             if os.path.isfile(path):

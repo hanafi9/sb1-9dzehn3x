@@ -289,13 +289,56 @@ $("#kamil-look-btn").addEventListener("click", (e) => {
 document.addEventListener("click", (e) => {
   if (!e.target.closest(".kamil-look")) $("#kamil-look-menu").classList.add("hidden");
 });
+// image envoyée sur fond uni (comme un portrait de studio) : le fond devient transparent,
+// Kamil se détache sur le décor animé au lieu d'apparaître dans un carré
+async function kamilCutBackground(file) {
+  const img = await createImageBitmap(file);
+  const scale = Math.min(1, 1400 / Math.max(img.width, img.height));
+  const w = Math.round(img.width * scale), h = Math.round(img.height * scale);
+  const cv = document.createElement("canvas");
+  cv.width = w; cv.height = h;
+  const ctx = cv.getContext("2d");
+  ctx.drawImage(img, 0, 0, w, h);
+  const data = ctx.getImageData(0, 0, w, h);
+  const px = data.data;
+  // couleur du fond = moyenne du haut et des côtés (le bas est souvent coupé dans le buste) ;
+  // si ce fond n'est pas uni, on n'y touche pas
+  const border = [];
+  for (let x = 0; x < w; x += 4) border.push(x);
+  for (let y = 0; y < h * 0.6; y += 4) border.push(y * w, y * w + w - 1);
+  const mean = [0, 1, 2].map((c) => border.reduce((t, i) => t + px[i * 4 + c], 0) / border.length);
+  const spread = Math.sqrt(border.reduce((t, i) => t + [0, 1, 2].reduce((u, c) => u + (px[i * 4 + c] - mean[c]) ** 2, 0), 0) / border.length);
+  if (spread > 14 || px[border[0] * 4 + 3] < 255) return null;     // fond chargé, ou déjà transparent
+  const far = (i) => Math.hypot(px[i * 4] - mean[0], px[i * 4 + 1] - mean[1], px[i * 4 + 2] - mean[2]) > 11 + spread;
+  // remplissage depuis les bords : seul le fond relié au bord disparaît (pas les zones sombres du robot)
+  const bg = new Uint8Array(w * h);
+  const stack = border.filter((i) => !far(i));
+  stack.forEach((i) => { bg[i] = 1; });
+  while (stack.length) {
+    const i = stack.pop(), x = i % w;
+    for (const j of [x > 0 ? i - 1 : -1, x < w - 1 ? i + 1 : -1, i - w, i + w]) {
+      if (j >= 0 && j < w * h && !bg[j] && !far(j)) { bg[j] = 1; stack.push(j); }
+    }
+  }
+  let removed = 0;
+  for (let i = 0; i < w * h; i++) {
+    if (bg[i]) { px[i * 4 + 3] = 0; removed++; }
+    else if ((i % w && bg[i - 1]) || (i % w < w - 1 && bg[i + 1]) || bg[i - w] || bg[i + w]) px[i * 4 + 3] = 140;  // bord adouci
+  }
+  if (removed < w * h * 0.08) return null;                           // presque rien à enlever : image gardée
+  ctx.putImageData(data, 0, 0);
+  return await new Promise((res) => cv.toBlob(res, "image/png"));
+}
+
 $("#kamil-photo-file").addEventListener("change", async (e) => {
   const file = e.target.files[0];
   e.target.value = "";
   $("#kamil-look-menu").classList.add("hidden");
   if (!file) return;
   const form = new FormData();
-  form.append("image", file);
+  let cut = null;
+  try { cut = await kamilCutBackground(file); } catch (_) { /* image illisible ici : envoyée telle quelle */ }
+  form.append("image", cut || file, cut ? "kamil.png" : file.name);
   try {
     const res = await fetch("/api/kamil/portrait", { method: "POST", body: form });
     const data = await res.json().catch(() => ({}));

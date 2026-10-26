@@ -166,7 +166,9 @@
       "language": "fr",
       "timeout_s": 6,
       "_save_quota_aide": "save_quota : le Pi transcrit d'abord ; seules les phrases avec « Kamil » (ou pendant une conversation) partent en ligne. Utile si la télé est souvent allumée (quota gratuit Groq : 2000 phrases par jour). Un peu plus lent pour la 1re phrase.",
-      "save_quota": false
+      "save_quota": false,
+      "_screen_model_aide": "Avec save_quota : modèle Whisper du Pi qui sert seulement à repérer « Kamil ». null = le même que whisper_model ; \"tiny\" = environ 4 fois plus rapide (réponse plus vive), mais peut rater « Kamil » un peu plus souvent.",
+      "screen_model": null
     },
     "speaker_id": {
       "enabled": false,
