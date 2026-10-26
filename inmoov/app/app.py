@@ -142,6 +142,14 @@ class LegsManager:
 
 
 # ----------------------------------------------------------------- application
+# image de Kamil envoyée depuis l'onglet Kamil ; points = yeux et cœur lumineux (fractions de l'image),
+# par défaut ceux du portrait de référence de Kamil (buste de face)
+PORTRAIT_TYPES = {b"\x89PNG\r\n\x1a\n": "png", b"\xff\xd8\xff": "jpg", b"RIFF": "webp"}
+PORTRAIT_MAX = 10 * 1024 * 1024
+PORTRAIT_DEFAULT = os.path.join(HERE, "static", "kamil_portrait.jpg")
+PORTRAIT_POINTS = {"eye_l": [0.425, 0.305], "eye_r": [0.57, 0.305], "chest": [0.504, 0.86]}
+
+
 def create_app(data_dir=None, run=None, mrl=None):
     """data_dir : où ranger réglages, calibration et avancement du guide.
     run / mrl : remplaçables pour les tests."""
@@ -828,7 +836,85 @@ def create_app(data_dir=None, run=None, mrl=None):
                         "journal": data.get("journal"), "garde": data.get("garde"),
                         "mood": mood, "people": people, "objects": objects[:8],
                         "name": cfg.get("brain", {}).get("robot_name") or "Kamil",
-                        "voice_running": launcher.status()["voice"]["running"]})
+                        "voice_running": launcher.status()["voice"]["running"],
+                        "portrait": portrait_info()})
+
+    # ------------------------------------------------------------ portrait de Kamil (image envoyée)
+    portrait_store = JsonStore(os.path.join(data_dir, "kamil_portrait.json"), {})
+
+    def portrait_file():
+        """Image envoyée, sinon le portrait d'origine de Kamil (app/static/kamil_portrait.jpg)."""
+        for ext in PORTRAIT_TYPES.values():
+            path = os.path.join(data_dir, "kamil_portrait." + ext)
+            if os.path.isfile(path):
+                return path
+        return PORTRAIT_DEFAULT
+
+    def portrait_info():
+        """None = le dessin animé ; sinon l'image affichée et ses points (yeux, cœur)."""
+        st = portrait_store.load()
+        if st.get("mode") == "dessin":
+            return None
+        path = portrait_file()
+        points = {k: st[k] for k in PORTRAIT_POINTS if k in st}       # remis à zéro à chaque nouvelle image
+        return {"version": int(os.path.getmtime(path)), "custom": path != PORTRAIT_DEFAULT,
+                "points": dict(PORTRAIT_POINTS, **points)}
+
+    def remove_upload():
+        path = portrait_file()
+        if path != PORTRAIT_DEFAULT:
+            os.remove(path)
+
+    @app.get("/api/kamil/portrait")
+    @api
+    def kamil_portrait_get():
+        path = portrait_file()
+        resp = send_from_directory(os.path.dirname(path), os.path.basename(path), max_age=0)
+        resp.headers["Cache-Control"] = "no-cache"
+        return resp
+
+    @app.post("/api/kamil/portrait")
+    @api
+    def kamil_portrait_upload():
+        f = request.files.get("image")
+        if f is None:
+            raise ValueError("aucune image reçue")
+        data = f.read(PORTRAIT_MAX + 1)
+        if len(data) > PORTRAIT_MAX:
+            raise ValueError("image trop lourde (10 Mo au plus)")
+        ext = next((e for magic, e in PORTRAIT_TYPES.items() if data.startswith(magic)), None)
+        if ext == "webp" and data[8:12] != b"WEBP":
+            ext = None
+        if not ext:
+            raise ValueError("format non reconnu : PNG, JPEG ou WebP seulement")
+        remove_upload()
+        os.makedirs(data_dir, exist_ok=True)
+        with open(os.path.join(data_dir, "kamil_portrait." + ext), "wb") as out:
+            out.write(data)
+        portrait_store.save({"mode": "photo"})          # nouvelle image : positions par défaut
+        return jsonify({"ok": True})
+
+    @app.post("/api/kamil/portrait/<mode>")
+    @api
+    def kamil_portrait_mode(mode):
+        """origine : le portrait d'origine (l'image envoyée est supprimée) ; dessin : le dessin animé."""
+        if mode not in ("origine", "dessin"):
+            raise ValueError("choix inconnu")
+        if mode == "origine":
+            remove_upload()
+            portrait_store.save({"mode": "photo"})
+        else:
+            portrait_store.save(dict(portrait_store.load(), mode="dessin"))
+        return jsonify({"ok": True})
+
+    @app.put("/api/kamil/portrait/points")
+    @api
+    def kamil_portrait_points():
+        b = body()
+        pt = lambda p: [round(min(1.0, max(0.0, float(p[0]))), 4), round(min(1.0, max(0.0, float(p[1]))), 4)]
+        points = {"eye_l": pt(b["eye_l"]), "eye_r": pt(b["eye_r"]), "chest": pt(b["chest"])}
+        portrait_store.save(dict(points, mode="photo"))
+        return jsonify({"ok": True, "points": points})
 
     @app.post("/api/kamil/<kind>")
     @api

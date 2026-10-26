@@ -109,6 +109,39 @@ class AppTest(unittest.TestCase):
         self.assertEqual(b.commands.get_nowait(), ("question", "Quelle heure ?"))
         shutil.rmtree(d)
 
+    def test_kamil_portrait(self):
+        import io
+        p = self.c.get("/api/kamil").get_json()["portrait"]
+        self.assertEqual((p["custom"], p["points"]), (False, atelier.PORTRAIT_POINTS))      # portrait d'origine
+        got = self.c.get("/api/kamil/portrait")
+        self.assertEqual((got.status_code, got.data[:3]), (200, b"\xff\xd8\xff"))
+        got.close()
+        bad = self.c.post("/api/kamil/portrait", data={"image": (io.BytesIO(b"<script>"), "x.png")},
+                          content_type="multipart/form-data")
+        self.assertEqual(bad.status_code, 400)                                               # pas une image
+        png = b"\x89PNG\r\n\x1a\n" + b"\0" * 64
+        r = self.c.post("/api/kamil/portrait", data={"image": (io.BytesIO(png), "kamil.png")},
+                        content_type="multipart/form-data")
+        self.assertTrue(r.get_json()["ok"])
+        got = self.c.get("/api/kamil/portrait")
+        self.assertEqual((got.status_code, got.data), (200, png))
+        got.close()
+        self.assertTrue(self.c.get("/api/kamil").get_json()["portrait"]["custom"])
+        r = self.c.put("/api/kamil/portrait/points", json={"eye_l": [0.4, 0.3], "eye_r": [0.6, 0.3], "chest": [0.5, 1.7]})
+        self.assertEqual(r.get_json()["points"]["chest"], [0.5, 1.0])                         # borné à l'image
+        self.assertEqual(self.c.get("/api/kamil").get_json()["portrait"]["points"]["eye_l"], [0.4, 0.3])
+        jpg = b"\xff\xd8\xff\xe0" + b"\0" * 64
+        self.c.post("/api/kamil/portrait", data={"image": (io.BytesIO(jpg), "k.jpg")}, content_type="multipart/form-data")
+        self.assertEqual(sorted(n for n in os.listdir(self.tmp) if n.startswith("kamil_portrait.") and n != "kamil_portrait.json"),
+                         ["kamil_portrait.jpg"])                                              # l'ancienne est remplacée
+        self.assertEqual(self.c.get("/api/kamil").get_json()["portrait"]["points"], atelier.PORTRAIT_POINTS)
+        self.assertTrue(self.c.post("/api/kamil/portrait/dessin").get_json()["ok"])
+        self.assertIsNone(self.c.get("/api/kamil").get_json()["portrait"])                  # le dessin animé
+        self.assertTrue(self.c.post("/api/kamil/portrait/origine").get_json()["ok"])
+        self.assertFalse(self.c.get("/api/kamil").get_json()["portrait"]["custom"])         # image envoyée supprimée
+        self.assertNotIn("kamil_portrait.jpg", os.listdir(self.tmp))
+        self.assertEqual(self.c.post("/api/kamil/portrait/pirate").status_code, 400)
+
     def test_programs_api(self):
         r = self.c.get("/api/programs").get_json()
         self.assertEqual(r["order"], ["mrl", "vision", "voice", "sensors"])            # ordre de démarrage

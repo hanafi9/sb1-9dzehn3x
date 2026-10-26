@@ -490,6 +490,68 @@ a.button.ghost { background: transparent; color: var(--accent); }
   .kamil-stage { min-height: 520px; }
   .kamil-chat { height: 70vh; }
 }
+/* portrait envoyé (photo) : remplace le dessin, qui garde sa place (invisible) pour la mise en page */
+.kamil-stage[data-photo] .kamil-bust { visibility: hidden; }
+.kamil-photo { position: absolute; inset: 0; container-type: size; display: grid; place-items: end center; pointer-events: none; }
+.kp-frame { position: relative; --ar: 1; aspect-ratio: var(--ar); width: min(100cqw, 100cqh * var(--ar)); pointer-events: auto;
+  transform-origin: 50% 100%;
+  transform: translate(calc(var(--pan) * 10px), calc(var(--tilt) * 5px)) rotate(calc(var(--pan) * 3deg));
+  transition: transform .6s cubic-bezier(.3, .7, .3, 1);
+  -webkit-mask-image: radial-gradient(ellipse 60% 66% at 50% 46%, #000 55%, transparent 97%);
+          mask-image: radial-gradient(ellipse 60% 66% at 50% 46%, #000 55%, transparent 97%);
+  animation: kp-breathe 5s ease-in-out infinite, kp-sway 14s ease-in-out infinite; }
+.kp-frame img { width: 100%; height: 100%; object-fit: cover; display: block; user-select: none; -webkit-user-drag: none;
+  transition: filter .6s; }
+@keyframes kp-breathe { 0%, 100% { scale: 1; translate: 0 0; } 50% { scale: 1.012; translate: 0 -3px; } }
+@keyframes kp-sway { 0%, 100% { rotate: 0deg; } 20%, 30% { rotate: -1.6deg; } 60%, 72% { rotate: 1.8deg; } }
+.kamil-stage[data-gaze] .kp-frame { animation: kp-breathe 5s ease-in-out infinite; }
+.kamil-stage[data-state="speaking"] .kp-frame { animation: kp-breathe 5s ease-in-out infinite, kp-talk 1.6s ease-in-out infinite; }
+@keyframes kp-talk { 0%, 100% { rotate: 0deg; } 30% { rotate: -.8deg; } 65% { rotate: .9deg; } }
+.kamil-stage[data-state="thinking"] .kp-frame { animation: kp-breathe 5s ease-in-out infinite; rotate: -2deg; }
+.kamil-stage[data-state="off"] .kp-frame { animation: none; }
+.kamil-stage[data-state="off"] .kp-frame img { filter: grayscale(.6) brightness(.7); }
+/* yeux : lueur qui suit un peu la personne, clignement */
+.kp-eye { position: absolute; width: 8%; aspect-ratio: 1.7; border-radius: 50%; pointer-events: none; mix-blend-mode: screen;
+  background: radial-gradient(closest-side, #fff 0, var(--eye) 30%, color-mix(in srgb, var(--eye) 45%, transparent) 60%, transparent);
+  transform: translate(calc(-50% + var(--gx) * 3px), calc(-50% + var(--gy) * 2px)); transition: transform .35s, opacity .4s;
+  opacity: .8; animation: kp-blink 5.2s infinite; }
+@keyframes kp-blink { 0%, 92%, 100% { opacity: .8; scale: 1 1; } 95% { opacity: .1; scale: 1 .25; } }
+.kamil-stage[data-state="speaking"] .kp-eye, .kamil-stage[data-state="awake"] .kp-eye { animation: kp-blink 5.2s infinite, kp-eyeglow 1.4s ease-in-out infinite; }
+@keyframes kp-eyeglow { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.6); } }
+.kamil-stage[data-state="off"] .kp-eye { animation: none; opacity: 0; }
+/* cœur lumineux de la poitrine, couleur de l'état */
+.kp-core { position: absolute; width: 18%; aspect-ratio: 1; border-radius: 50%; pointer-events: none; mix-blend-mode: screen;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(closest-side, rgba(255,255,255,.9) 0, var(--k) 28%, color-mix(in srgb, var(--k) 35%, transparent) 55%, transparent);
+  animation: kp-pulse 3s ease-in-out infinite; transition: background .5s; }
+@keyframes kp-pulse { 0%, 100% { opacity: .55; scale: .9; } 50% { opacity: .95; scale: 1.08; } }
+.kamil-stage[data-state="speaking"] .kp-core { animation-duration: .6s; }
+.kamil-stage[data-state="off"] .kp-core { animation: none; opacity: .1; }
+/* reflet qui glisse de temps en temps sur l'armure */
+.kp-sheen { position: absolute; inset: 0; pointer-events: none; mix-blend-mode: soft-light;
+  background: linear-gradient(105deg, transparent 35%, rgba(255,255,255,.55) 48%, transparent 60%) no-repeat;
+  background-size: 250% 100%; animation: kp-sheen 9s ease-in-out infinite; }
+@keyframes kp-sheen { 0%, 70% { background-position: 130% 0; } 100% { background-position: -30% 0; } }
+/* placement des yeux et du cœur : image immobile, viseur */
+.kamil-stage.placing .kp-frame { animation: none; transform: none; rotate: none; scale: none; translate: none; cursor: crosshair;
+  -webkit-mask-image: none; mask-image: none; }
+.kamil-stage.placing .kp-eye, .kamil-stage.placing .kp-core { animation: none; opacity: 1; outline: 2px dashed #fff; }
+.kamil-stage.placing .kp-sheen { display: none; }
+.kamil-place { position: absolute; left: 50%; top: 4.2rem; transform: translateX(-50%); z-index: 3; margin: 0;
+  background: rgba(15,23,42,.85); color: #fff; padding: .45rem .9rem; border-radius: 99px; font-size: .9rem; white-space: nowrap; }
+/* menu « apparence » */
+.kamil-top { position: relative; }
+.kamil-look { position: relative; margin-left: auto; }
+.kamil-look-btn { background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12); color: #e8eefc;
+  border-radius: 99px; width: 2.1rem; height: 2.1rem; padding: 0; font-size: 1rem; cursor: pointer; }
+.kamil-look-menu { position: absolute; right: 0; top: 2.5rem; z-index: 5; min-width: 15rem; display: flex; flex-direction: column;
+  background: rgba(15,23,42,.96); border: 1px solid rgba(255,255,255,.14); border-radius: 12px; padding: .35rem;
+  box-shadow: 0 12px 30px rgba(0,0,0,.45); }
+.kamil-look-menu .kl-item { all: unset; color: #e8eefc; padding: .55rem .7rem; border-radius: 8px; cursor: pointer; font-size: .9rem; }
+.kamil-look-menu .kl-item:hover { background: rgba(255,255,255,.08); }
+.kamil-look-menu .kl-item:disabled { opacity: .4; cursor: default; background: none; }
+body.kiosk .kamil-look { display: none; }
+
 @media (prefers-reduced-motion: reduce) { .kamil-stage *, .kamil-bust { animation: none !important; } }
 
 /* ============================================================ mode kiosque et plein écran */
@@ -528,3 +590,7 @@ body.kiosk .bubble { font-size: 1.08rem; }
 .kiosk-hint { position: fixed; left: 50%; top: 1rem; transform: translateX(-50%); z-index: 20; background: rgba(15, 23, 42, .88); color: #fff;
   padding: .55rem 1.1rem; border-radius: 99px; font-size: .95rem; box-shadow: 0 6px 18px rgba(0,0,0,.35); pointer-events: none; animation: kamil-pop .3s ease-out; }
 .kamil-chips .pill { max-width: 20rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 520px) {      /* téléphone : bouton d'apparence et Garde en haut, infos en dessous */
+  .kamil-top { flex-wrap: wrap; }
+  .kamil-chips { order: 2; width: 100%; }
+}

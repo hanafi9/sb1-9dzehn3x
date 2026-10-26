@@ -110,6 +110,7 @@ async function kamilRefresh() {
   } else {
     delete stage.dataset.gaze;
   }
+  kamilPortrait(k.portrait);
   const guard = $("#kamil-guard");
   if (document.activeElement !== guard && k.garde !== undefined && k.garde !== null) guard.checked = !!k.garde;
   $("#kamil-seen").textContent = k.objects && k.objects.length ? "Je vois : " + k.objects.join(", ") : "";
@@ -128,6 +129,101 @@ async function kamilRefresh() {
     kamil.lastCount = h.length;
   }
 }
+
+// portrait envoyé : la photo remplace le dessin ; lumières posées sur les yeux et le cœur
+function kamilPortrait(p) {
+  const stage = $("#kamil-stage");
+  kamil.portrait = p;
+  $("#kamil-photo").classList.toggle("hidden", !p);
+  $("#kamil-photo-points").disabled = $("#kamil-photo-remove").disabled = !p;
+  $("#kamil-photo-origin").disabled = !!p && !p.custom;
+  if (!p) { delete stage.dataset.photo; return; }
+  stage.dataset.photo = "1";
+  const img = $("#kamil-photo-img");
+  if (img.dataset.version !== String(p.version)) {
+    img.dataset.version = p.version;
+    img.onload = () => $(".kp-frame").style.setProperty("--ar", (img.naturalWidth / img.naturalHeight).toFixed(4));
+    img.src = `/api/kamil/portrait?v=${p.version}`;
+  }
+  if (kamil.placing) return;
+  for (const [id, key] of [["#kp-eye-l", "eye_l"], ["#kp-eye-r", "eye_r"], ["#kp-core", "chest"]]) {
+    $(id).style.left = (p.points[key][0] * 100).toFixed(2) + "%";
+    $(id).style.top = (p.points[key][1] * 100).toFixed(2) + "%";
+  }
+}
+
+const PLACE_STEPS = [["eye_l", "Touche l'œil de Kamil situé à ta gauche"], ["eye_r", "Touche son autre œil"],
+                     ["chest", "Touche la lumière de sa poitrine"]];
+function kamilPlaceStep() {
+  const step = PLACE_STEPS[kamil.placing.points ? Object.keys(kamil.placing.points).length : 0];
+  $("#kamil-place").textContent = `🎯 ${step[1]} (Échap pour annuler)`;
+}
+function kamilPlaceEnd() {
+  kamil.placing = null;
+  $("#kamil-stage").classList.remove("placing");
+  $("#kamil-place").classList.add("hidden");
+  kamilPortrait(kamil.portrait);
+}
+$(".kp-frame").addEventListener("click", async (e) => {
+  if (!kamil.placing) return;
+  const r = e.currentTarget.getBoundingClientRect();
+  const pt = [(e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height];
+  const key = PLACE_STEPS[Object.keys(kamil.placing.points).length][0];
+  kamil.placing.points[key] = pt;
+  const el = { eye_l: "#kp-eye-l", eye_r: "#kp-eye-r", chest: "#kp-core" }[key];
+  $(el).style.left = pt[0] * 100 + "%";
+  $(el).style.top = pt[1] * 100 + "%";
+  if (Object.keys(kamil.placing.points).length < PLACE_STEPS.length) return kamilPlaceStep();
+  try {
+    const res = await api("PUT", "/api/kamil/portrait/points", kamil.placing.points);
+    kamil.portrait.points = res.points;
+    toast("Yeux et cœur placés");
+  } catch (err) { toast(err.message, true); }
+  kamilPlaceEnd();
+});
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && kamil.placing) kamilPlaceEnd(); });
+
+$("#kamil-look-btn").addEventListener("click", (e) => {
+  e.stopPropagation();
+  $("#kamil-look-menu").classList.toggle("hidden");
+});
+document.addEventListener("click", (e) => {
+  if (!e.target.closest(".kamil-look")) $("#kamil-look-menu").classList.add("hidden");
+});
+$("#kamil-photo-file").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  $("#kamil-look-menu").classList.add("hidden");
+  if (!file) return;
+  const form = new FormData();
+  form.append("image", file);
+  try {
+    const res = await fetch("/api/kamil/portrait", { method: "POST", body: form });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.ok === false) throw new Error(data.error || `Erreur ${res.status}`);
+    toast("Nouvelle image de Kamil. Si les lumières ne tombent pas sur ses yeux : 🖼 → 🎯");
+    await kamilRefresh();
+  } catch (err) { toast(err.message, true); }
+});
+$("#kamil-photo-points").addEventListener("click", () => {
+  $("#kamil-look-menu").classList.add("hidden");
+  if (!kamil.portrait) return;
+  kamil.placing = { points: {} };
+  $("#kamil-stage").classList.add("placing");
+  $("#kamil-place").classList.remove("hidden");
+  kamilPlaceStep();
+});
+$("#kamil-photo-remove").addEventListener("click", async () => {
+  $("#kamil-look-menu").classList.add("hidden");
+  try { await api("POST", "/api/kamil/portrait/dessin"); await kamilRefresh(); toast("Kamil en dessin animé"); }
+  catch (err) { toast(err.message, true); }
+});
+$("#kamil-photo-origin").addEventListener("click", async () => {
+  $("#kamil-look-menu").classList.add("hidden");
+  if (kamil.portrait?.custom && !confirm("Supprimer l'image envoyée et revenir au portrait d'origine de Kamil ?")) return;
+  try { await api("POST", "/api/kamil/portrait/origine"); await kamilRefresh(); toast("Portrait d'origine de Kamil"); }
+  catch (err) { toast(err.message, true); }
+});
 
 function kamilCamera() {
   for (const fig of document.querySelectorAll(".kamil-cams figure")) {
