@@ -157,6 +157,10 @@ class AppTest(unittest.TestCase):
         r = self.c.put("/api/kamil/portrait/points", json={"eye_l": [0.4, 0.3], "eye_r": [0.6, 0.3], "chest": [0.5, 1.7], "mouth": [0.5, 0.45]})
         self.assertEqual(r.get_json()["points"]["chest"], [0.5, 1.0])                         # borné à l'image
         self.assertEqual(self.c.get("/api/kamil").get_json()["portrait"]["points"]["eye_l"], [0.4, 0.3])
+        r = self.c.delete("/api/kamil/portrait/points").get_json()                            # « remettre à leur place »
+        self.assertEqual(r["points"], atelier.PORTRAIT_POINTS)
+        p = self.c.get("/api/kamil").get_json()["portrait"]
+        self.assertEqual((p["points"], p["custom"]), (atelier.PORTRAIT_POINTS, True))           # image gardée
         jpg = b"\xff\xd8\xff\xe0" + b"\0" * 64
         self.c.post("/api/kamil/portrait", data={"image": (io.BytesIO(jpg), "k.jpg")}, content_type="multipart/form-data")
         self.assertEqual(sorted(n for n in os.listdir(self.tmp) if n.startswith("kamil_portrait.") and n != "kamil_portrait.json"),

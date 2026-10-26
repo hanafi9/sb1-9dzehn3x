@@ -927,6 +927,14 @@ def create_app(data_dir=None, run=None, mrl=None):
         portrait_store.save(dict(points, mode="photo"))
         return jsonify({"ok": True, "points": points})
 
+    @app.delete("/api/kamil/portrait/points")
+    @api
+    def kamil_portrait_points_reset():
+        """Lumières (yeux, bouche, cœur) remises à leur place d'origine ; l'image reste la même."""
+        st = portrait_store.load()
+        portrait_store.save({k: v for k, v in st.items() if k not in PORTRAIT_POINTS})
+        return jsonify({"ok": True, "points": dict(PORTRAIT_POINTS)})
+
     view_store = JsonStore(os.path.join(data_dir, "kamil_view.json"), {"lip_shift_ms": 0})
 
     def read_mouth(path):

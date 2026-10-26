@@ -137,7 +137,7 @@ function kamilPortrait(p) {
   const stage = $("#kamil-stage");
   kamil.portrait = p;
   $("#kamil-photo").classList.toggle("hidden", !p);
-  $("#kamil-photo-points").disabled = $("#kamil-photo-remove").disabled = !p;
+  $("#kamil-photo-points").disabled = $("#kamil-photo-remove").disabled = $("#kamil-points-reset").disabled = !p;
   $("#kamil-photo-origin").disabled = !!p && !p.custom;
   if (!p) { delete stage.dataset.photo; return; }
   stage.dataset.photo = "1";
@@ -252,7 +252,8 @@ const PLACE_STEPS = [["eye_l", "Touche l'œil de Kamil situé à ta gauche"], ["
                      ["chest", "Touche la lumière de sa poitrine"]];
 function kamilPlaceStep() {
   const step = PLACE_STEPS[kamil.placing.points ? Object.keys(kamil.placing.points).length : 0];
-  $("#kamil-place").textContent = `🎯 ${step[1]} (Échap pour annuler)`;
+  const n = kamil.placing.points ? Object.keys(kamil.placing.points).length : 0;
+  $("#kamil-place-text").textContent = `🎯 ${n + 1}/${PLACE_STEPS.length} : ${step[1]}`;
 }
 function kamilPlaceEnd() {
   kamil.placing = null;
@@ -281,6 +282,17 @@ $(".kp-frame").addEventListener("click", async (e) => {
   kamilPlaceEnd();
 });
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && kamil.placing) kamilPlaceEnd(); });
+// annuler sans clavier (écran tactile) : rien n'est enregistré, les lumières reprennent leur place
+$("#kamil-place-cancel").addEventListener("click", (e) => { e.stopPropagation(); kamilPlaceEnd(); toast("Placement annulé"); });
+$("#kamil-points-reset").addEventListener("click", async () => {
+  $("#kamil-look-menu").classList.add("hidden");
+  try {
+    const r = await api("DELETE", "/api/kamil/portrait/points");
+    if (kamil.portrait) kamil.portrait.points = r.points;
+    kamilPortrait(kamil.portrait);
+    toast("Lumières remises à leur place d'origine");
+  } catch (err) { toast(err.message, true); }
+});
 
 $("#kamil-look-btn").addEventListener("click", (e) => {
   e.stopPropagation();

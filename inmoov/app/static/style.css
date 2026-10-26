@@ -654,3 +654,10 @@ body.kiosk .bubble { font-size: 1.08rem; }
 .kamil-stage[data-state="off"] .kamil-bg { filter: grayscale(.7) brightness(.6); }
 .kamil-stage[data-state="off"] .kbg-floor, .kamil-stage[data-state="off"] .kbg-stars { animation: none; }
 @media (prefers-reduced-motion: reduce) { .kamil-bg i { animation: none !important; } }
+
+/* placement des lumières : bandeau avec bouton Annuler (utilisable au doigt) */
+.kamil-place { display: flex; align-items: center; gap: .6rem; white-space: normal; max-width: 92%; }
+.kamil-place.hidden { display: none; }
+.kamil-place button { border-radius: 99px; padding: .25rem .7rem; font-size: .85rem; flex: none; }
+/* Kamil endormi : les pastilles, le bouton 🖼 et Garde restent utilisables au-dessus du voile */
+.kamil-top { z-index: 6; }

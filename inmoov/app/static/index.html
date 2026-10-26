@@ -60,6 +60,7 @@
               <div class="kamil-look-menu hidden" id="kamil-look-menu">
                 <label class="kl-item">📤 Envoyer une image de Kamil…<input type="file" id="kamil-photo-file" accept="image/png,image/jpeg,image/webp" hidden></label>
                 <button type="button" class="kl-item" id="kamil-photo-points">🎯 Placer les yeux, la bouche et le cœur</button>
+                <button type="button" class="kl-item" id="kamil-points-reset">↺ Remettre les lumières à leur place</button>
                 <button type="button" class="kl-item" id="kamil-sync-open">🎚 Caler la bouche sur la voix</button>
                 <button type="button" class="kl-item" id="kamil-photo-origin">🤖 Portrait d'origine de Kamil</button>
                 <button type="button" class="kl-item" id="kamil-photo-remove">✏️ Dessin animé</button>
@@ -263,7 +264,10 @@
               </g>
             </svg>
           </div>
-          <p class="kamil-place hidden" id="kamil-place"></p>
+          <div class="kamil-place hidden" id="kamil-place">
+            <span id="kamil-place-text"></span>
+            <button type="button" id="kamil-place-cancel">✕ Annuler</button>
+          </div>
           <div class="kamil-sync hidden" id="kamil-sync">
             <div class="ks-head"><b>Bouche et voix</b><span id="kamil-sync-val">0 ms</span></div>
             <input type="range" id="kamil-sync-range" min="-500" max="500" step="10" value="0" aria-label="Décalage de la bouche">
