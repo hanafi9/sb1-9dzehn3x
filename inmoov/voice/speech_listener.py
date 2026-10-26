@@ -87,7 +87,7 @@ class Listener:
                 # phrase par phrase : le robot parle pendant que Claude écrit la suite
                 self.pipeline = SpeechPipeline(self.tts, fallback=self._speak_mrl)
                 self.pipeline.on_play_start = self._on_play_start
-                self.pipeline.on_audio = self._on_audio
+                self.pipeline.on_audio = self._on_sound_file
                 self.pipeline.on_idle = self._on_speech_done
             log.info("Voix hors ligne Piper : %s", cfg["piper_model"])
             from reasoning import FILLERS, THINKING_PHRASES
@@ -349,7 +349,7 @@ class Listener:
         # la voix en ligne met une ou deux secondes à arriver, l'animation partait trop tôt
         self.pipeline.put(text)
 
-    def _on_audio(self, path, duration):
+    def _on_sound_file(self, path, duration):
         """Phrase sur le point d'être jouée : sa courbe de volume fait bouger la bouche dans l'Atelier."""
         if getattr(self, "ha", None) is None:
             return
