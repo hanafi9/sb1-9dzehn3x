@@ -21,6 +21,7 @@ import json
 import logging
 import os
 import ssl
+import time
 import unicodedata
 import urllib.error
 import urllib.request
@@ -126,8 +127,17 @@ class HomeAssistant:
             return True, "aucun appareil ne ressemble à « %s »" % query
         return True, "\n".join("%s | %s | %s" % (e, n, s) for _, e, n, s in scored[:limit])
 
-    def control(self, entity_id, service, options=None):
-        """Appelle un service sur une entité précise (ex. media_player.tv_salon, turn_on)."""
+    def state(self, entity_id):
+        """État actuel d'une entité (ex. "on", "idle"), ou None si illisible."""
+        try:
+            return self._get("/api/states/" + entity_id).get("state")
+        except (urllib.error.URLError, OSError, ValueError, AttributeError):
+            return None
+
+    def control(self, entity_id, service, options=None, wait_s=3.0, sleep=time.sleep):
+        """Appelle un service sur une entité précise (ex. media_player.tv_salon, turn_on), puis vérifie
+        que l'appareil a vraiment réagi : Home Assistant accepte la demande même si l'appareil est
+        injoignable (télé en veille profonde, Fire TV sans débogage ADB…)."""
         domain = entity_id.split(".", 1)[0] if "." in entity_id else ""
         if domain not in DIRECT_DOMAINS:
             return False, "domaine « %s » non autorisé en commande directe" % domain
@@ -135,9 +145,31 @@ class HomeAssistant:
             return False, "service « %s » non autorisé (ex. turn_on, turn_off, toggle, media_play…)" % service
         data = dict(options or {})
         data["entity_id"] = entity_id
+        before = self.state(entity_id)
         ok, said = self.call_service(domain, service, data)
         log.info("Home Assistant direct : %s.%s %s -> %s", domain, service, data, said)
-        return ok, ("fait : %s sur %s" % (service, entity_id)) if ok else said
+        if not ok:
+            return ok, said
+        expected = {"turn_on": lambda s: s not in ("off", "unavailable", "unknown", "standby"),
+                    "turn_off": lambda s: s in ("off", "standby"),
+                    "open_cover": lambda s: s in ("open", "opening"), "close_cover": lambda s: s in ("closed", "closing"),
+                    "media_play": lambda s: s == "playing", "media_pause": lambda s: s in ("paused", "idle")}.get(service)
+        after = before
+        if expected is not None and wait_s > 0:
+            end = time.monotonic() + wait_s
+            while time.monotonic() < end:
+                sleep(0.5)
+                after = self.state(entity_id)
+                if after is not None and expected(after):
+                    break
+        if after == "unavailable":
+            log.warning("Home Assistant direct : %s indisponible", entity_id)
+            return False, "Home Assistant a accepté, mais %s est indisponible (appareil injoignable)" % entity_id
+        if expected is not None and after is not None and not expected(after):
+            log.warning("Home Assistant direct : %s n'a pas réagi (état %s -> %s)", entity_id, before, after)
+            return False, ("Home Assistant a transmis l'ordre, mais %s n'a pas réagi (état : %s). L'appareil "
+                           "est peut-être en veille profonde ou mal relié à Home Assistant." % (entity_id, after))
+        return True, "fait : %s sur %s (état : %s)" % (service, entity_id, after or "inconnu")
 
     def call_service(self, domain, service, data):
         """Appelle un service Home Assistant (ex. notify / mobile_app_telephone) ; renvoie (succès, message)."""

@@ -33,7 +33,8 @@ class FakeHA(BaseHTTPRequestHandler):
         pass
 
     def do_GET(self):
-        out = json.dumps(STATES).encode("utf-8")
+        one = [s for s in STATES if self.path == "/api/states/" + s["entity_id"]]
+        out = json.dumps(one[0] if one else STATES).encode("utf-8")
         self.send_response(200 if self.headers["Authorization"] == "Bearer bon-jeton" else 401)
         self.send_header("Content-Length", str(len(out)))
         self.end_headers()
@@ -43,6 +44,10 @@ class FakeHA(BaseHTTPRequestHandler):
         body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
         FakeHA.requests.append((self.path, self.headers["Authorization"], body))
         if self.path.startswith("/api/services/"):
+            # la Fire TV obéit ; la télé du salon est en veille profonde et ne réagit pas
+            for s in STATES:
+                if s["entity_id"] == body.get("entity_id") and "fire_tv" in s["entity_id"]:
+                    s["state"] = {"turn_on": "idle", "turn_off": "off"}.get(self.path.rsplit("/", 1)[1], s["state"])
             self.send_response(200)
             self.send_header("Content-Length", "2")
             self.end_headers()
@@ -101,10 +106,14 @@ class HomeAssistantTest(unittest.TestCase):
         self.assertIn("remote.tv_salon", found)
         self.assertNotIn("lock.porte_entree", ha.find("porte entrée")[1])   # serrure : jamais proposée
         self.assertEqual(ha.find("aquarium"), (True, "aucun appareil ne ressemble à « aquarium »"))
-        ok, said = ha.control("media_player.fire_tv_192_168_1_61", "turn_on")
-        self.assertEqual((ok, said), (True, "fait : turn_on sur media_player.fire_tv_192_168_1_61"))
+        ok, said = ha.control("media_player.fire_tv_192_168_1_61", "turn_on", sleep=lambda s: None)
+        self.assertEqual((ok, said), (True, "fait : turn_on sur media_player.fire_tv_192_168_1_61 (état : idle)"))
         self.assertEqual(FakeHA.requests[-1][0], "/api/services/media_player/turn_on")
         self.assertEqual(FakeHA.requests[-1][2], {"entity_id": "media_player.fire_tv_192_168_1_61"})
+        # ordre accepté par Home Assistant mais appareil muet : Kamil ne dit pas « c'est fait »
+        ok, said = ha.control("media_player.tv_salon", "turn_on", wait_s=0.3, sleep=lambda s: None)
+        self.assertFalse(ok)
+        self.assertIn("n'a pas réagi (état : off)", said)
         ha.control("media_player.tv_salon", "volume_set", {"volume_level": 0.3})
         self.assertEqual(FakeHA.requests[-1][2], {"volume_level": 0.3, "entity_id": "media_player.tv_salon"})
         n = len(FakeHA.requests)
