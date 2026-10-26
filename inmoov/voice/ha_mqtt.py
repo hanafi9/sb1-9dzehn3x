@@ -133,6 +133,8 @@ class KamilMQTT:
                 state_class="measurement", icon="mdi:account-group"),
             ent("binary_sensor", "mouvement", "Mouvement", state_topic=self.t("mouvement"), device_class="motion"),
             ent("sensor", "journal", "Dernier événement", state_topic=self.t("journal"), icon="mdi:notebook"),
+            # change à chaque alerte du mode garde : déclencheur pour une automatisation (notification…)
+            ent("sensor", "alerte", "Dernière alerte", state_topic=self.t("alerte"), icon="mdi:alarm-light"),
             ent("switch", "garde", "Mode garde", state_topic=self.t("garde"), command_topic=self.t("garde/set"),
                 icon="mdi:shield-home"),
             ent("notify", "dire", "Dire", command_topic=self.t("dire")),

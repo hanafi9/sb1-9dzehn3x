@@ -638,8 +638,12 @@ class Listener:
         if watcher is not None:
             alert = watcher.poll()        # le journal est tenu en continu, même pendant qu'on parle
             if alert:
+                log.warning("🚨 Mode garde : %s", alert)
                 self._pending_alert = alert
                 self._notify_phone(alert)
+                if getattr(self, "ha", None) is not None:
+                    # heure comprise : chaque alerte change l'entité (déclencheur Home Assistant)
+                    self.ha.publish("alerte", "%s : %s" % (time.strftime("%H:%M:%S"), alert))
         if self.segmenter.triggered:
             return   # quelqu'un est en train de parler : on ne lui coupe pas la parole
         if getattr(self, "ha", None) is not None:
@@ -693,7 +697,13 @@ class Listener:
         elif kind == "garde":
             watcher = getattr(self, "watcher", None)
             if watcher is not None:
+                was = watcher.guard
                 watcher.set_guard(value)
+                if bool(value) != was:
+                    delay = int(watcher.cfg.get("exit_delay_s") or 0)
+                    self.say(("Mode garde activé. Je surveille la maison dans %d secondes, tu as le temps de partir."
+                              % delay if delay else "Mode garde activé, je surveille la maison.")
+                             if value else "Mode garde désactivé. Bon retour !")
             else:
                 self.ha.guard(False)
                 log.warning("Mode garde impossible : surveillance désactivée (brain.watch)")

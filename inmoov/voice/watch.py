@@ -40,6 +40,9 @@ DEFAULTS = {
     "object_gone_s": 120,        # absent 2 min avant de le dire disparu (le Coral « clignote » sur les meubles)
     "ignored_objects": ["personne", "chaise", "table", "lit", "canapé", "plante en pot", "télévision"],
     "notify_service": None,      # ex. "notify.mobile_app_mon_telephone" (Home Assistant)
+    "exit_delay_s": 30,          # mode garde : le temps de partir avant que la surveillance commence
+    "realert_s": 300,            # quelqu'un reste en vue : nouvelle alerte au plus toutes les 5 min
+    "guard_path": None,          # le mode garde reste actif si Kamil redémarre (défaut : à côté du journal)
 }
 
 
@@ -66,7 +69,12 @@ class Watcher:
         self.journal_path = resolve(self.cfg["journal_path"])
         self.snap_dir = resolve(self.cfg["snapshots_dir"])
         self.lock = threading.Lock()
+        self.guard_path = (resolve(self.cfg["guard_path"]) if self.cfg["guard_path"]
+                           else os.path.join(os.path.dirname(self.journal_path), "guard.json"))
         self.guard = False
+        self.armed_at = None       # mode garde : surveillance effective à partir de cet instant
+        self.last_alert = None
+        self.blind = False
         self.last_poll = 0.0
         self.present = False
         self.seen_people = 0       # polls de suite avec quelqu'un
@@ -76,6 +84,14 @@ class Watcher:
         self.objects = {}          # (caméra, nom) -> {"streak", "last", "logged", "decor"}
         self.started = None
         self.on_record = None      # appelée avec chaque événement noté (ex. envoi à Home Assistant)
+        try:
+            with open(self.guard_path, encoding="utf-8") as f:
+                if json.load(f).get("on"):
+                    # redémarrage pendant une garde : elle continue, sans nouveau délai de sortie
+                    self.guard, self.armed_at = True, self.clock()
+                    log.info("Mode garde toujours actif (redémarrage)")
+        except (OSError, ValueError, AttributeError):
+            pass
 
     # ------------------------------------------------------------ boucle
     def poll(self):
@@ -86,7 +102,14 @@ class Watcher:
         self.last_poll = now
         vision = read_vision(self.path, max_age_s=5, now=now)
         if vision is None:
+            # caméras arrêtées : en mode garde, Kamil le signale une fois (sinon il « garde » sans rien voir)
+            if self.guard and self.armed_at is not None and now >= self.armed_at and not self.blind:
+                self.blind = True
+                text = "Mode garde : mes caméras ne répondent pas, je ne peux pas surveiller"
+                self.record("alerte", text)
+                return text
             return None
+        self.blind = False
         alerts = []
         people = max(int(vision.get("faces") or 0), int(vision.get("people") or 0))
         # personnes
@@ -141,9 +164,24 @@ class Watcher:
                 if st["logged"] and now - st["last"] > self.cfg["object_gone_s"]:
                     self.record("objet", "Objet disparu : %s (caméra %d)" % (key[1], key[0] + 1))
                     del self.objects[key]
-        if self.guard and alerts:
-            return " ; ".join(alerts)
-        return None
+        return self._guard_alert(now, people, alerts)
+
+    def _guard_alert(self, now, people, alerts):
+        """Mode garde armé (délai de sortie passé) : alerte pour une arrivée ou un mouvement ;
+        quelqu'un déjà là quand la garde s'arme, ou qui reste en vue, est aussi signalé."""
+        if not self.guard or self.armed_at is None or now < self.armed_at:
+            return None
+        if self.last_alert is None:                       # la garde vient de s'armer
+            self.last_alert = float("-inf")
+            if people and not alerts:
+                alerts = ["Quelqu'un est devant moi alors que le mode garde est armé"]
+                self.record("alerte", alerts[0], cams=(0, 1))
+        elif self.present and not alerts and now - self.last_alert >= self.cfg["realert_s"]:
+            alerts = ["Quelqu'un est toujours devant moi (mode garde)"]
+        if not alerts:
+            return None
+        self.last_alert = now
+        return " ; ".join(alerts)
 
     # ------------------------------------------------------------ journal
     def record(self, kind, text, cams=()):
@@ -223,4 +261,14 @@ class Watcher:
 
     def set_guard(self, on):
         self.guard = bool(on)
-        self.record("garde", "Mode garde %s" % ("activé" if on else "désactivé"))
+        self.armed_at = self.clock() + float(self.cfg["exit_delay_s"]) if on else None
+        self.last_alert = None
+        try:
+            os.makedirs(os.path.dirname(self.guard_path) or ".", exist_ok=True)
+            with open(self.guard_path, "w", encoding="utf-8") as f:
+                json.dump({"on": self.guard}, f)
+        except OSError as e:
+            log.warning("Mode garde non enregistré : %s", e)
+        self.record("garde", "Mode garde %s" % (
+            "activé (surveillance dans %d s)" % self.cfg["exit_delay_s"] if on and self.cfg["exit_delay_s"]
+            else "activé" if on else "désactivé"))

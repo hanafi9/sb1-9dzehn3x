@@ -92,12 +92,41 @@ class WatchTest(unittest.TestCase):
         self.assertEqual(s.run(3, people=1), [])               # pas de garde : pas d'alerte
         s.run(20)
         s.w.set_guard(True)
+        self.assertIn("Mode garde activé (surveillance dans 30 s)", s.texts())
+        self.assertEqual(s.run(25, people=1), [])              # délai de sortie : le temps de partir
+        s.run(20)
         alerts = s.run(3, people=1)
         self.assertEqual(alerts, ["Arrivée : une personne devant moi"])
         s.run(20)
         self.assertTrue(any("Mouvement" in a for a in s.run(3, motion1=0.3)))
         s.w.set_guard(False)
         self.assertIn("Mode garde désactivé", s.texts())
+
+    def test_guard_armed_with_someone_present_and_restart(self):
+        s = Scene()
+        s.run(3, people=1)                                     # le propriétaire est devant les caméras
+        s.w.set_guard(True)
+        alerts = s.run(40, people=1)                           # il ne part pas : signalé une fois armé
+        self.assertEqual(alerts, ["Quelqu'un est devant moi alors que le mode garde est armé"])
+        alerts = s.run(301, people=1)
+        self.assertEqual(alerts, ["Quelqu'un est toujours devant moi (mode garde)"])   # rappel après 5 min
+        # Kamil redémarre : la garde continue, sans délai de sortie
+        w2 = Watcher({"poll_s": 0, "frame_paths": s.frames, "journal_path": "journal.jsonl",
+                      "snapshots_dir": "snaps"}, s.state, base_dir=s.dir, clock=lambda: s.now)
+        self.assertTrue(w2.guard)
+        s.w = w2
+        s.run(15)                                              # parti
+        self.assertEqual(s.run(3, people=1), ["Arrivée : une personne devant moi"])
+        w2.set_guard(False)
+        self.assertFalse(Watcher({"journal_path": "j.jsonl"}, s.state, base_dir=s.dir).guard)
+
+    def test_guard_says_when_cameras_are_off(self):
+        s = Scene()
+        s.w.set_guard(True)
+        s.now += 31
+        # pas de fichier de vision : face_tracker.py arrêté
+        self.assertIn("caméras ne répondent pas", s.w.poll())
+        self.assertIsNone(s.w.poll())                          # dit une seule fois
 
     def test_motion_rate_limited_and_ignored_with_people(self):
         s = Scene()

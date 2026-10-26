@@ -185,7 +185,8 @@ class ChatbotTest(unittest.TestCase):
         asked = []
         lst.brain = types.SimpleNamespace(ask=lambda t, **k: asked.append((t, k)) or "Il est midi.")
         guard = []
-        lst.watcher = types.SimpleNamespace(poll=lambda: None, set_guard=guard.append)
+        lst.watcher = types.SimpleNamespace(poll=lambda: None, guard=False, cfg={"exit_delay_s": 30})
+        lst.watcher.set_guard = lambda on: (guard.append(on), setattr(lst.watcher, "guard", on))
         lst.ha.commands.put(("dire", "Le linge est sec !"))
         lst._maybe_react()
         self.assertEqual(tts.said, ["Le linge est sec !"])
@@ -200,6 +201,11 @@ class ChatbotTest(unittest.TestCase):
         lst.mute_until = 0.0
         lst._maybe_react()
         self.assertEqual(guard, [True])
+        self.assertIn("dans 30 secondes", tts.said[-1])              # Kamil confirme à voix haute
+        lst.ha.commands.put(("garde", False))
+        lst.mute_until = 0.0                                          # Kamil a fini sa phrase
+        lst._maybe_react()
+        self.assertEqual(tts.said[-1], "Mode garde désactivé. Bon retour !")
 
     def test_second_kamil_is_detected(self):
         import os
