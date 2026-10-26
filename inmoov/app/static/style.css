@@ -608,3 +608,14 @@ body.kiosk .bubble { font-size: 1.08rem; }
   .kamil-top { flex-wrap: wrap; }
   .kamil-chips { order: 2; width: 100%; }
 }
+
+/* réglage bouche / voix */
+.kamil-sync { position: absolute; left: 50%; bottom: 5.5rem; transform: translateX(-50%); z-index: 4; width: min(92%, 22rem);
+  background: rgba(15,23,42,.94); color: #e8eefc; border: 1px solid rgba(255,255,255,.14); border-radius: 14px;
+  padding: .8rem .9rem; box-shadow: 0 12px 30px rgba(0,0,0,.45); display: flex; flex-direction: column; gap: .45rem; }
+.kamil-sync .ks-head { display: flex; justify-content: space-between; align-items: baseline; }
+.kamil-sync .ks-head span { font-variant-numeric: tabular-nums; color: #67e8f9; font-weight: 600; }
+.kamil-sync input[type="range"] { width: 100%; accent-color: #67e8f9; }
+.kamil-sync .ks-scale { display: flex; justify-content: space-between; font-size: .75rem; opacity: .7; }
+.kamil-sync .ks-actions { display: flex; gap: .5rem; justify-content: flex-end; }
+.kamil-sync .ks-actions button { border-radius: 99px; padding: .4rem .9rem; }

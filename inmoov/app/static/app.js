@@ -163,25 +163,39 @@ function kamilMouthAt(pt) {
 
 // bouche synchronisée : la voix de Kamil publie, pour chaque phrase, l'instant où le son démarre et
 // son volume toutes les 40 ms ; on rejoue cette courbe en même temps que le haut-parleur
+function kamilLipsGot(m, rtt) {
+  // horloge du Pi - horloge du navigateur ; chaque mesure est un peu trop petite (temps de trajet) :
+  // on garde la plus grande, qui redescend doucement si les horloges dérivent
+  const offset = m.now - (Date.now() - (rtt || 0) / 2) / 1000;
+  kamil.clockOffset = kamil.clockOffset === undefined ? offset : Math.max(offset, kamil.clockOffset - 0.002);
+  if (m.shift_ms !== undefined && !kamil.syncing) kamil.shift = m.shift_ms;
+  if (m.env && m.env.length && (!kamil.lips || kamil.lips.t !== m.t)) kamil.lips = m;
+}
+// la courbe arrive par un flux poussé par l'Atelier dès qu'elle est écrite ; sinon on la demande souvent
+function kamilLipsStream() {
+  if (!window.EventSource) return;
+  const es = new EventSource("/api/kamil/mouth/stream");
+  es.onopen = () => { kamil.streaming = true; };
+  es.onmessage = (e) => { try { kamilLipsGot(JSON.parse(e.data)); } catch (_) { /* message abîmé */ } };
+  es.onerror = () => { kamil.streaming = false; };
+}
+kamilLipsStream();
 async function kamilLipsPoll() {
-  const st = kamil.state?.state;
-  const busy = st === "speaking" || st === "thinking" || st === "awake";
-  if (currentTab === "kamil" && kamil.alive) {
+  if (currentTab === "kamil" && kamil.alive && !kamil.streaming) {
     try {
       const sent = Date.now();
       const m = await api("GET", "/api/kamil/mouth");
-      kamil.clockOffset = m.now - (sent + Date.now()) / 2000;     // horloge du Pi - horloge du navigateur
-      if (m.env && m.env.length && (!kamil.lips || kamil.lips.t !== m.t)) kamil.lips = m;
+      kamilLipsGot(m, Date.now() - sent);
     } catch (e) { /* Atelier redémarré : on réessaie */ }
   }
-  setTimeout(kamilLipsPoll, busy ? 120 : 700);
+  setTimeout(kamilLipsPoll, 100);
 }
 kamilLipsPoll();
 
 function kamilLipsFrame() {
   requestAnimationFrame(kamilLipsFrame);
   const stage = $("#kamil-stage");
-  const now = Date.now() / 1000 + (kamil.clockOffset || 0);
+  const now = Date.now() / 1000 + (kamil.clockOffset || 0) - (kamil.shift || 0) / 1000;
   const lips = kamil.lips;
   let open = 0;
   if (kamil.placing) open = 0;
@@ -205,6 +219,33 @@ function kamilLipsFrame() {
   }
 }
 requestAnimationFrame(kamilLipsFrame);
+
+// réglage à l'œil du décalage bouche / voix (enregistré dans l'Atelier, valable pour tous les écrans)
+function kamilSyncShow(v) {
+  $("#kamil-sync-val").textContent = (v > 0 ? "+" : "") + v + " ms";
+}
+$("#kamil-sync-open").addEventListener("click", () => {
+  $("#kamil-look-menu").classList.add("hidden");
+  kamil.syncing = true;
+  $("#kamil-sync-range").value = kamil.shift || 0;
+  kamilSyncShow(kamil.shift || 0);
+  $("#kamil-sync").classList.remove("hidden");
+});
+$("#kamil-sync-range").addEventListener("input", (e) => {
+  kamil.shift = parseInt(e.target.value, 10);          // effet immédiat sur la bouche
+  kamilSyncShow(kamil.shift);
+});
+$("#kamil-sync-test").addEventListener("click", () => {
+  if (!kamil.alive) return toast("Kamil ne répond pas : sa voix n'est pas lancée", true);
+  api("POST", "/api/kamil/dire", { value: "Papa, maman, bébé, pomme. Un, deux, trois, quatre, cinq. Ba, ba, ba, bo, bo." })
+    .catch((err) => toast(err.message, true));
+});
+$("#kamil-sync-close").addEventListener("click", async () => {
+  $("#kamil-sync").classList.add("hidden");
+  try { await api("PUT", "/api/kamil/mouth/shift", { ms: kamil.shift || 0 }); toast("Réglage de la bouche enregistré"); }
+  catch (err) { toast(err.message, true); }
+  kamil.syncing = false;
+});
 
 const PLACE_STEPS = [["eye_l", "Touche l'œil de Kamil situé à ta gauche"], ["eye_r", "Touche son autre œil"],
                      ["mouth", "Touche le milieu de sa bouche (entre les lèvres)"],

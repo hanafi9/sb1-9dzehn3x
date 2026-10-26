@@ -927,21 +927,61 @@ def create_app(data_dir=None, run=None, mrl=None):
         portrait_store.save(dict(points, mode="photo"))
         return jsonify({"ok": True, "points": points})
 
-    @app.get("/api/kamil/mouth")
-    @api
-    def kamil_mouth():
+    view_store = JsonStore(os.path.join(data_dir, "kamil_view.json"), {"lip_shift_ms": 0})
+
+    def read_mouth(path):
         """Bouche synchronisée : début du son (horloge du Pi) et ouverture 0-100 toutes les frame_ms."""
-        _, _, bc = bridge_cfg()
         now = time.time()
+        out = {"ok": True, "now": now, "env": [], "shift_ms": int(view_store.load().get("lip_shift_ms", 0))}
         try:
-            with open(bc["mouth_path"], encoding="utf-8") as f:
+            with open(path, encoding="utf-8") as f:
                 m = json.load(f)
             t, frame_ms, env = float(m["t"]), int(m["frame_ms"]), [int(v) for v in m["env"]][:3000]
         except (OSError, ValueError, KeyError, TypeError):
-            return jsonify({"ok": True, "now": now, "env": []})
-        if now > t + len(env) * frame_ms / 1000.0 + 2:      # phrase déjà finie
-            env = []
-        return jsonify({"ok": True, "now": now, "t": t, "frame_ms": frame_ms, "env": env})
+            return out
+        if now <= t + len(env) * frame_ms / 1000.0 + 2:     # sinon : phrase déjà finie
+            out.update(t=t, frame_ms=frame_ms, env=env)
+        return out
+
+    @app.get("/api/kamil/mouth")
+    @api
+    def kamil_mouth():
+        return jsonify(read_mouth(bridge_cfg()[2]["mouth_path"]))
+
+    @app.get("/api/kamil/mouth/stream")
+    def kamil_mouth_stream():
+        """Même chose, poussé à l'écran dès que la voix écrit une nouvelle phrase (Server-Sent Events) :
+        quelques millisecondes au lieu d'attendre la prochaine question de la page."""
+        path = bridge_cfg()[2]["mouth_path"]
+
+        def events():
+            last, ping, end = None, time.time(), time.time() + 55   # la page se reconnecte toute seule
+            yield "retry: 500\n\n"
+            while time.time() < end:
+                try:
+                    stamp = os.stat(path).st_mtime_ns
+                except OSError:
+                    stamp = None
+                if stamp != last:
+                    last = stamp
+                    yield "data: %s\n\n" % json.dumps(read_mouth(path))
+                elif time.time() - ping > 10:
+                    ping = time.time()
+                    yield "data: %s\n\n" % json.dumps({"ok": True, "now": time.time(), "ping": True})
+                time.sleep(0.01)
+
+        return Response(events(), mimetype="text/event-stream",
+                        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+    @app.put("/api/kamil/mouth/shift")
+    @api
+    def kamil_mouth_shift():
+        """Réglage à l'œil : > 0 = la bouche bouge plus tard (le son du haut-parleur arrive en retard)."""
+        ms = int(round(float(body()["ms"])))
+        if not -1000 <= ms <= 1000:
+            raise ValueError("décalage entre -1000 et 1000 ms")
+        view_store.save({"lip_shift_ms": ms})
+        return jsonify({"ok": True, "shift_ms": ms})
 
     @app.post("/api/kamil/<kind>")
     @api

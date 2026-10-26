@@ -352,8 +352,12 @@ class Listener:
             return
         from mouth_sync import FRAME_MS, envelope
 
-        # aplay met quelques dizaines de millisecondes à sortir le premier son
-        self.ha.mouth(envelope(path), FRAME_MS, time.time() + self.cfg.get("mouth_latency_ms", 60) / 1000.0)
+        # la courbe part d'abord, le son un peu après : l'écran l'a reçue avant le premier mot
+        # (sinon la bouche démarre en retard) ; aplay met encore quelques dizaines de ms à sortir le son
+        lead = max(0.0, self.cfg.get("mouth_lead_ms", 120) / 1000.0)
+        self.ha.mouth(envelope(path), FRAME_MS, time.time() + lead + self.cfg.get("mouth_latency_ms", 60) / 1000.0)
+        if lead:
+            time.sleep(lead)
 
     def _on_first_sound(self, text):
         """Journal du délai de réponse, décomposé, pour voir quelle étape est lente."""

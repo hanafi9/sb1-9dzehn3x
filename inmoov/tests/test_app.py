@@ -116,6 +116,17 @@ class AppTest(unittest.TestCase):
         self.assertLess(abs(m["now"] - time.time()), 1)
         b.mouth([10], 40, time.time() - 10)
         self.assertEqual(self.c.get("/api/kamil/mouth").get_json()["env"], [])            # phrase finie
+        self.assertEqual(m["shift_ms"], 0)
+        self.assertEqual(self.c.put("/api/kamil/mouth/shift", json={"ms": 2000}).status_code, 400)
+        self.assertEqual(self.c.put("/api/kamil/mouth/shift", json={"ms": -120}).get_json()["shift_ms"], -120)
+        self.assertEqual(self.c.get("/api/kamil/mouth").get_json()["shift_ms"], -120)   # réglage gardé
+        b.mouth([5, 50], 40, time.time() + 1)
+        stream = self.c.get("/api/kamil/mouth/stream")
+        chunks = stream.response                                                          # flux poussé
+        self.assertEqual(next(chunks), b"retry: 500\n\n")
+        first = json.loads(next(chunks).decode()[6:])
+        self.assertEqual((first["env"], first["shift_ms"]), ([5, 50], -120))
+        stream.close()
         b.publish("delai", "abîmé")
         self.assertIsNone(self.c.get("/api/kamil").get_json()["delai"])
         self.assertTrue(self.c.post("/api/kamil/question", json={"value": "  Quelle   heure ?  "}).get_json()["ok"])
