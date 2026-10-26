@@ -225,6 +225,28 @@ class HomeAssistant:
             return None                  # pas une Fire TV / Android TV en ADB : on essaie select_source
         return True, "application %s ouverte sur %s" % (app.split("/", 1)[0], entity_id)
 
+    def screenshot(self, entity_id):
+        """Image de l'écran d'une télé / Fire TV (image de l'entité media_player : capture d'écran ADB
+        de l'intégration Android TV) ; renvoie (succès, (octets, type) ou message)."""
+        st = self._entity(entity_id)
+        if not isinstance(st, dict):
+            return False, "appareil %s introuvable" % entity_id
+        picture = (st.get("attributes") or {}).get("entity_picture")
+        if not picture:
+            return False, ("pas d'image de l'écran pour %s : dans Home Assistant, Android TV → Configurer → "
+                           "cocher « Utiliser la capture d'écran » (screencap)" % entity_id)
+        req = urllib.request.Request(self.url + picture, headers={"Authorization": "Bearer " + self.token})
+        try:
+            with urllib.request.urlopen(req, timeout=self.timeout, context=self.context) as resp:
+                data, kind = resp.read(), resp.headers.get_content_type()
+        except urllib.error.HTTPError as e:
+            return False, "image de l'écran refusée (%d)" % e.code
+        except (urllib.error.URLError, OSError) as e:
+            return False, "image de l'écran injoignable (%s)" % getattr(e, "reason", e)
+        if not kind.startswith("image/") or not data:
+            return False, "l'écran n'a pas renvoyé d'image"
+        return True, (data, kind)
+
     def _entity(self, entity_id):
         try:
             return self._get("/api/states/" + entity_id)

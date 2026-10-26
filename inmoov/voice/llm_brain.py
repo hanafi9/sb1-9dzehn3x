@@ -325,6 +325,10 @@ DEVICE_TOOL = {
         "lecture, pause, avance, recul, recherche, effacer ; plusieurs à la suite : \"droite droite ok\") ; "
         "service type_text avec {\"text\": \"le roi lion\"} pour écrire dans un champ de recherche. "
         "Pour naviguer, enchaîne de petits pas comme une vraie télécommande. "
+        "action « voir_ecran » (entity_id du media_player) : capture de l'écran de la télé, pour savoir "
+        "où tu es dans les menus. Ajoute \"voir\": true dans les options de send_key / type_text pour "
+        "recevoir l'écran juste après les touches (ex. trouver une chaîne : ouvre la recherche de "
+        "l'application, tape le nom, regarde, descends jusqu'à elle, ok). "
         "Plusieurs résultats du même nom : choisis le plus logique (ex. media_player plutôt que remote "
         "pour le son). Si aucun ne correspond exactement à ce qui est demandé (ex. on demande la télé TCL "
         "et on ne trouve qu'une Fire TV), ne commande JAMAIS un autre appareil : dis ce que tu as trouvé "
@@ -334,7 +338,7 @@ DEVICE_TOOL = {
     "input_schema": {
         "type": "object",
         "properties": {
-            "action": {"type": "string", "enum": ["chercher", "commander"]},
+            "action": {"type": "string", "enum": ["chercher", "commander", "voir_ecran"]},
             "query": {"type": "string", "description": "mots à chercher (action chercher)"},
             "entity_id": {"type": "string", "description": "entité exacte (action commander)"},
             "service": {"type": "string", "description": "service à appeler (action commander)"},
@@ -747,16 +751,34 @@ class ClaudeBrain:
         if name == "home_assistant" and self.home is not None:
             return self.home.ask(str(args["command"])[:200])
         if name == "home_device" and self.home is not None:
+            entity = str(args["entity_id"]).strip()
             if args["action"] == "chercher":
                 return self.home.find(str(args["query"])[:100])
+            if args["action"] == "voir_ecran":
+                return self._tv_screen(entity, "Écran de %s." % entity)
             options = json.loads(args.get("options") or "{}") if str(args.get("options") or "").strip() else {}
             if not isinstance(options, dict):
                 raise ValueError("options doit être un objet JSON")
-            return self.home.control(str(args["entity_id"]).strip(), str(args["service"]).strip(), options)
+            look = bool(options.pop("voir", False))
+            ok, said = self.home.control(entity, str(args["service"]).strip(), options)
+            if not (ok and look):
+                return ok, said
+            self.sleep(self.cfg.get("tv_screen_delay_s", 1.5))     # le temps que l'écran change
+            ok2, screen = self._tv_screen(entity, said + ". Écran juste après :")
+            return (True, screen) if ok2 else (True, said + " (" + screen + ")")
         if name == "remember" and self.memory is not None:
             added = self.memory.add(args["person"], args["fact"])
             return True, "retenu" if added else "je le savais déjà"
         return False, "outil inconnu : %s" % name
+
+    def _tv_screen(self, entity_id, caption):
+        ok, res = self.home.screenshot(entity_id)
+        if not ok:
+            return False, res
+        data, kind = res
+        return True, [{"type": "text", "text": caption},
+                      {"type": "image", "source": {"type": "base64", "media_type": kind,
+                                                   "data": base64.standard_b64encode(data).decode("ascii")}}]
 
     def _look(self, question):
         """Image la plus récente écrite par face_tracker.py (JPEG)."""

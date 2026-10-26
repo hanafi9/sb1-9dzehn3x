@@ -163,6 +163,17 @@ class BrainTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             b._run_tool("home_device", {"action": "commander", "query": "", "entity_id": "media_player.tv",
                                         "service": "turn_on", "options": "[1]"})
+        # les yeux sur la télé : capture de l'écran, seule ou juste après des touches
+        b.home.screenshot = lambda e: (True, (b"img", "image/png"))
+        b.sleep = lambda s: None
+        ok, content = b._run_tool("home_device", {"action": "voir_ecran", "query": "", "entity_id": "media_player.tv",
+                                                  "service": "", "options": ""})
+        self.assertEqual((ok, content[1]["type"], content[1]["source"]["media_type"]), (True, "image", "image/png"))
+        ok, content = b._run_tool("home_device", {"action": "commander", "query": "", "entity_id": "media_player.tv",
+                                                  "service": "send_key", "options": "{\"key\": \"bas\", \"voir\": true}"})
+        self.assertEqual(calls[-1], ("control", "media_player.tv", "send_key", {"key": "bas"}))   # « voir » retiré
+        self.assertIn("Écran juste après", content[0]["text"])
+        self.assertEqual(content[1]["type"], "image")
 
 
 @unittest.skipIf(anthropic is None, "paquet anthropic non installé")

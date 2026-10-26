@@ -20,7 +20,8 @@ from home_assistant import HomeAssistant  # noqa: E402
 STATES = [
     {"entity_id": "media_player.tv_salon", "state": "off", "attributes": {"friendly_name": "TV Salon"}},
     {"entity_id": "remote.tv_salon", "state": "off", "attributes": {"friendly_name": "TV Salon"}},
-    {"entity_id": "media_player.fire_tv_192_168_1_61", "state": "off", "attributes": {"friendly_name": "Fire TV"}},
+    {"entity_id": "media_player.fire_tv_192_168_1_61", "state": "off",
+     "attributes": {"friendly_name": "Fire TV", "entity_picture": "/api/media_player_proxy/media_player.fire_tv?token=t"}},
     {"entity_id": "light.lustre", "state": "on", "attributes": {"friendly_name": "Lustre"}},
     {"entity_id": "script.denon_on", "state": "off", "attributes": {"friendly_name": "Denon ON"}},
     {"entity_id": "media_player.televiseur_du_salon", "state": "off", "attributes": {"friendly_name": "Téléviseur du salon"}},
@@ -36,6 +37,13 @@ class FakeHA(BaseHTTPRequestHandler):
         pass
 
     def do_GET(self):
+        if self.path.startswith("/api/media_player_proxy/"):            # capture de l'écran de la télé
+            self.send_response(200)
+            self.send_header("Content-Type", "image/png")
+            self.send_header("Content-Length", "8")
+            self.end_headers()
+            self.wfile.write(b"\x89PNG\r\n\x1a\n")
+            return
         one = [s for s in STATES if self.path == "/api/states/" + s["entity_id"]]
         out = json.dumps(one[0] if one else STATES).encode("utf-8")
         self.send_response(200 if self.headers["Authorization"] == "Bearer bon-jeton" else 401)
@@ -160,6 +168,10 @@ class HomeAssistantTest(unittest.TestCase):
         remote.control(fire, "type_text", {"text": "le roi lion"})
         self.assertEqual(FakeHA.requests[-1][2]["command"], "input text 'le%sroi%slion'")
         self.assertFalse(remote.control("light.lustre", "send_key", {"key": "bas"})[0])  # pas une télé
+        self.assertEqual(remote.screenshot(fire), (True, (b"\x89PNG\r\n\x1a\n", "image/png")))   # écran vu
+        ok, said = remote.screenshot("media_player.tv_salon")                  # pas de capture activée
+        self.assertFalse(ok)
+        self.assertIn("capture d'écran", said)
         plain = HomeAssistant(self.url, token="bon-jeton")                      # sans nom d'application connu :
         ok, said = plain.control("media_player.fire_tv_192_168_1_61", "select_source",
                                  {"source": "com.iproboxx.iproboxxtviptvbox"}, sleep=lambda s: None)
