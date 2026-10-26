@@ -722,13 +722,25 @@ class Listener:
         if home is None:
             log.warning("Alerte non envoyée aux téléphones : Home Assistant n'est pas branché (brain.home_assistant)")
             return
-        data = {"title": "🚨 Kamil – mode garde", "message": alert,
-                "data": {"priority": "high", "ttl": 0, "channel": "Alarme Kamil"}}
+        # photos : images des caméras de Kamil vues par Home Assistant (entités caméra MQTT, une image
+        # toutes les 2 s) ; une notification par caméra, la 1re porte le texte de l'alerte
+        images = self.watcher.cfg.get("notify_images", ["/api/camera_proxy/camera.kamil_camera_1",
+                                                        "/api/camera_proxy/camera.kamil_camera_2"])
+        if isinstance(images, str):
+            images = [images]
+        notes = []
+        for i, image in enumerate(images or [None]):
+            extra = {"priority": "high", "ttl": 0, "channel": "Alarme Kamil"}
+            if image:
+                extra["image"] = image
+            notes.append({"title": "🚨 Kamil – mode garde" if i == 0 else "📷 Kamil – caméra %d" % (i + 1),
+                          "message": alert if i == 0 else "Photo de la caméra %d" % (i + 1), "data": extra})
 
         def send():
             for service in services:
-                ok, said = home.call_service(*service.split(".", 1), data)
-                (log.info if ok else log.warning)("Alerte envoyée à %s : %s", service, said)
+                for data in notes:
+                    ok, said = home.call_service(*service.split(".", 1), data)
+                    (log.info if ok else log.warning)("Alerte envoyée à %s : %s", service, said)
         threading.Thread(target=send, name="alerte-telephones", daemon=True).start()
 
 def other_listeners(proc_dir="/proc"):

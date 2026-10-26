@@ -274,15 +274,18 @@ class ChatbotTest(unittest.TestCase):
                                                                      "notify.mobile_app_nadia", "pas un service"]})
         lst._notify_phone("Arrivée : une personne devant moi")
         for _ in range(100):
-            if len(sent) == 2:
+            if len(sent) == 4:
                 break
             time.sleep(0.01)
         self.assertEqual(sent, [("notify", "mobile_app_redmi_hanafi", "Arrivée : une personne devant moi"),
-                                ("notify", "mobile_app_nadia", "Arrivée : une personne devant moi")])
+                                ("notify", "mobile_app_redmi_hanafi", "Photo de la caméra 2"),     # 2e caméra
+                                ("notify", "mobile_app_nadia", "Arrivée : une personne devant moi"),
+                                ("notify", "mobile_app_nadia", "Photo de la caméra 2")])
+        lst.watcher.cfg["notify_images"] = []                                         # sans photo
         lst.watcher.cfg["notify_service"] = "notify.mobile_app_redmi_hanafi"     # un seul téléphone : texte
         lst._notify_phone("Mouvement")
         for _ in range(100):
-            if len(sent) == 3:
+            if len(sent) == 5:
                 break
             time.sleep(0.01)
         self.assertEqual(sent[-1][1], "mobile_app_redmi_hanafi")

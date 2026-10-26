@@ -75,6 +75,8 @@
       "motion_threshold": 0.03,
       "max_snapshots": 300,
       "notify_service": null,
+      "_notify_images_aide": "Photos jointes aux alertes envoyées par Kamil (une notification par caméra) : entités caméra de Kamil dans Home Assistant. [] = sans photo.",
+      "notify_images": ["/api/camera_proxy/camera.kamil_camera_1", "/api/camera_proxy/camera.kamil_camera_2"],
       "exit_delay_s": 30,
       "realert_s": 300,
       "ignored_objects": ["personne", "chaise", "table", "lit", "canapé", "plante en pot", "télévision"],
