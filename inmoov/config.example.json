@@ -71,7 +71,7 @@
     "extra_instructions": "",
     "watch": {
       "enabled": true,
-      "_aide": "Surveillance (voice/watch.py) : journal des arrivées, départs, mouvements et objets vus par les 2 caméras (data/journal.jsonl) avec photos (data/surveillance). Demandez « qu'est-ce qui s'est passé ? », « montre-moi qui est passé », « surveille la maison » (mode garde). notify_service : service Home Assistant qui prévient un téléphone en mode garde, ex. notify.mobile_app_mon_telephone. exit_delay_s : le temps de partir après l'activation du mode garde ; realert_s : rappel si quelqu'un reste en vue. Le mode garde reste actif si Kamil redémarre.",
+      "_aide": "Surveillance (voice/watch.py) : journal des arrivées, départs, mouvements et objets vus par les 2 caméras (data/journal.jsonl) avec photos (data/surveillance). Demandez « qu'est-ce qui s'est passé ? », « montre-moi qui est passé », « surveille la maison » (mode garde). notify_service : service(s) Home Assistant qui préviennent les téléphones en mode garde, ex. \"notify.mobile_app_mon_telephone\" ou une liste [\"notify.mobile_app_a\", \"notify.mobile_app_b\"] (il faut brain.home_assistant). exit_delay_s : le temps de partir après l'activation du mode garde ; realert_s : rappel si quelqu'un reste en vue. Le mode garde reste actif si Kamil redémarre.",
       "motion_threshold": 0.03,
       "max_snapshots": 300,
       "notify_service": null,

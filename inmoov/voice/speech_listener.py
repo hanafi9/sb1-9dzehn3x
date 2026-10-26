@@ -710,14 +710,26 @@ class Listener:
         self._flush_audio()
 
     def _notify_phone(self, alert):
-        """Mode garde : prévient un téléphone par Home Assistant (service notify), sans bloquer l'écoute."""
-        service = (self.watcher.cfg.get("notify_service") or "") if getattr(self, "watcher", None) else ""
-        home = getattr(self.brain, "home", None) if self.brain is not None else None
-        if "." not in service or home is None:
+        """Mode garde : prévient un ou plusieurs téléphones par Home Assistant (services notify),
+        sans bloquer l'écoute. notify_service : "notify.mobile_app_x" ou une liste de services."""
+        services = (self.watcher.cfg.get("notify_service") or []) if getattr(self, "watcher", None) else []
+        if isinstance(services, str):
+            services = [services]
+        services = [s for s in services if isinstance(s, str) and "." in s]
+        if not services:
             return
-        domain, name = service.split(".", 1)
-        threading.Thread(target=lambda: log.info("Alerte envoyée au téléphone : %s", home.call_service(
-            domain, name, {"title": "Kamil – mode garde", "message": alert})[1]), daemon=True).start()
+        home = getattr(self.brain, "home", None) if self.brain is not None else None
+        if home is None:
+            log.warning("Alerte non envoyée aux téléphones : Home Assistant n'est pas branché (brain.home_assistant)")
+            return
+        data = {"title": "🚨 Kamil – mode garde", "message": alert,
+                "data": {"priority": "high", "ttl": 0, "channel": "Alarme Kamil"}}
+
+        def send():
+            for service in services:
+                ok, said = home.call_service(*service.split(".", 1), data)
+                (log.info if ok else log.warning)("Alerte envoyée à %s : %s", service, said)
+        threading.Thread(target=send, name="alerte-telephones", daemon=True).start()
 
 def other_listeners(proc_dir="/proc"):
     """Numéros des autres speech_listener.py en marche (Linux), pour ne pas en lancer un deuxième."""

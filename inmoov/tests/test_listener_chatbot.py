@@ -265,6 +265,28 @@ class ChatbotTest(unittest.TestCase):
         lst.handle("Kamil, quelle heure est-il ?")
         self.assertEqual(published[0], ("entendu", "Kamil, quelle heure est-il ?"))
 
+    def test_guard_alert_goes_to_every_phone(self):
+        lst = listener(FakeTts())
+        sent = []
+        lst.brain = types.SimpleNamespace(home=types.SimpleNamespace(
+            call_service=lambda d, n, data: sent.append((d, n, data["message"])) or (True, "ok")))
+        lst.watcher = types.SimpleNamespace(cfg={"notify_service": ["notify.mobile_app_redmi_hanafi",
+                                                                     "notify.mobile_app_nadia", "pas un service"]})
+        lst._notify_phone("Arrivée : une personne devant moi")
+        for _ in range(100):
+            if len(sent) == 2:
+                break
+            time.sleep(0.01)
+        self.assertEqual(sent, [("notify", "mobile_app_redmi_hanafi", "Arrivée : une personne devant moi"),
+                                ("notify", "mobile_app_nadia", "Arrivée : une personne devant moi")])
+        lst.watcher.cfg["notify_service"] = "notify.mobile_app_redmi_hanafi"     # un seul téléphone : texte
+        lst._notify_phone("Mouvement")
+        for _ in range(100):
+            if len(sent) == 3:
+                break
+            time.sleep(0.01)
+        self.assertEqual(sent[-1][1], "mobile_app_redmi_hanafi")
+
     def test_follow_up_without_wake_word(self):
         tts = FakeTts()
         lst = listener(tts, wake_words=["kamil"])
