@@ -91,6 +91,8 @@
       "agent_id": null,
       "_direct_control_aide": "direct_control : si Assist ne connaît pas un appareil ou en trouve plusieurs du même nom, Kamil le cherche et le commande lui-même (lumières, prises, télés, volets, chauffage… jamais serrures ni alarme). false = Assist seulement.",
       "direct_control": true,
+      "_app_aliases_aide": "Applications des télés et boîtiers (Fire TV, Android TV) : nom dit à Kamil -> nom technique, ex. {\"IPRO2\": \"com.iproboxx.iproboxxtviptvbox\"}. « Kamil, lance IPRO2 sur la Fire TV ».",
+      "app_aliases": {},
       "verify_ssl": true,
       "_ssl_aide": "Home Assistant en https avec un certificat auto-signé (réseau local) : verify_ssl false, ou mieux ca_file = chemin du certificat."
     },

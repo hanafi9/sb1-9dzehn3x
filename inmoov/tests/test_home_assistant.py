@@ -124,6 +124,11 @@ class HomeAssistantTest(unittest.TestCase):
         self.assertIn("n'a pas réagi (état : off)", said)
         ha.control("media_player.tv_salon", "volume_set", {"volume_level": 0.3})
         self.assertEqual(FakeHA.requests[-1][2], {"volume_level": 0.3, "entity_id": "media_player.tv_salon"})
+        aliased = HomeAssistant(self.url, token="bon-jeton", app_aliases={"IPRO2": "com.iproboxx.iproboxxtviptvbox"})
+        aliased.control("media_player.fire_tv_192_168_1_61", "select_source", {"source": "ipro 2"})
+        self.assertEqual(FakeHA.requests[-1][2]["source"], "com.iproboxx.iproboxxtviptvbox")   # nom technique
+        aliased.control("media_player.fire_tv_192_168_1_61", "select_source", {"source": "Netflix"})
+        self.assertEqual(FakeHA.requests[-1][2]["source"], "Netflix")                           # inchangé
         n = len(FakeHA.requests)
         self.assertFalse(ha.control("lock.porte_entree", "unlock")[0])            # domaine interdit
         self.assertFalse(ha.control("light.lustre", "delete_everything")[0])      # service inconnu

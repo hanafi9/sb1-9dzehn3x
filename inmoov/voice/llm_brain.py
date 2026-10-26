@@ -410,7 +410,8 @@ class ClaudeBrain:
             from home_assistant import HomeAssistant
 
             self.home = HomeAssistant(ha["url"], language=ha.get("language", "fr"), agent_id=ha.get("agent_id"),
-                                      verify_ssl=ha.get("verify_ssl", True), ca_file=ha.get("ca_file"))
+                                      verify_ssl=ha.get("verify_ssl", True), ca_file=ha.get("ca_file"),
+                                      app_aliases=ha.get("app_aliases"))
         self.memory = memory
         self.mind = mind
         self.sleep = sleep

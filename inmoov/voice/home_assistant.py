@@ -52,7 +52,8 @@ def _norm(text):
 
 
 class HomeAssistant:
-    def __init__(self, url, token=None, language="fr", agent_id=None, timeout=8.0, verify_ssl=True, ca_file=None):
+    def __init__(self, url, token=None, language="fr", agent_id=None, timeout=8.0, verify_ssl=True, ca_file=None,
+                 app_aliases=None):
         """verify_ssl=False : Home Assistant en https avec un certificat auto-signé (réseau local) ;
         ca_file : ou bien le certificat lui-même, pour le vérifier quand même (plus sûr)."""
         self.url = url.rstrip("/")
@@ -69,6 +70,8 @@ class HomeAssistant:
         self.agent_id = agent_id
         self.timeout = timeout
         self.conversation_id = None   # Assist garde le fil (« et dans la chambre ? »)
+        # nom dit à voix haute -> nom technique de l'application (ex. "IPRO2" -> "com.iproboxx…")
+        self.app_aliases = {"".join(_norm(k)): v for k, v in (app_aliases or {}).items()}   # « IPRO 2 » = « ipro2 »
 
     def ask(self, text):
         """Envoie la phrase à Assist ; renvoie (succès, réponse à dire)."""
@@ -163,6 +166,10 @@ class HomeAssistant:
         if service not in DIRECT_SERVICES:
             return False, "service « %s » non autorisé (ex. turn_on, turn_off, toggle, media_play…)" % service
         data = dict(options or {})
+        if service == "select_source" and isinstance(data.get("source"), str):
+            alias = self.app_aliases.get("".join(_norm(data["source"])))
+            if alias:
+                data["source"] = alias      # l'application est lancée par son nom technique
         data["entity_id"] = entity_id
         before = self.state(entity_id)
         ok, said = self.call_service(domain, service, data)
