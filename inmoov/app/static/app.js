@@ -161,16 +161,50 @@ function kamilMouthAt(pt) {
   f.style.setProperty("--my", pt[1].toFixed(4));
 }
 
-// bouche : quand Kamil parle, la mâchoire s'ouvre et se ferme au rythme d'une parole (syllabes, petites pauses)
-setInterval(() => {
-  const f = $(".kp-frame");
-  const talking = kamil.state?.state === "speaking" && !kamil.placing;
-  if (!talking) { if (kamil.open) { kamil.open = 0; f.style.setProperty("--open", 0); } return; }
-  kamil.syll = (kamil.syll || 0) + 1;
-  const pause = Math.random() < 0.12;                       // une petite pause de temps en temps
-  kamil.open = pause ? 0 : kamil.syll % 2 ? 0.45 + Math.random() * 0.55 : Math.random() * 0.25;
-  f.style.setProperty("--open", kamil.open.toFixed(2));
-}, 110);
+// bouche synchronisée : la voix de Kamil publie, pour chaque phrase, l'instant où le son démarre et
+// son volume toutes les 40 ms ; on rejoue cette courbe en même temps que le haut-parleur
+async function kamilLipsPoll() {
+  const st = kamil.state?.state;
+  const busy = st === "speaking" || st === "thinking" || st === "awake";
+  if (currentTab === "kamil" && kamil.alive) {
+    try {
+      const sent = Date.now();
+      const m = await api("GET", "/api/kamil/mouth");
+      kamil.clockOffset = m.now - (sent + Date.now()) / 2000;     // horloge du Pi - horloge du navigateur
+      if (m.env && m.env.length && (!kamil.lips || kamil.lips.t !== m.t)) kamil.lips = m;
+    } catch (e) { /* Atelier redémarré : on réessaie */ }
+  }
+  setTimeout(kamilLipsPoll, busy ? 120 : 700);
+}
+kamilLipsPoll();
+
+function kamilLipsFrame() {
+  requestAnimationFrame(kamilLipsFrame);
+  const stage = $("#kamil-stage");
+  const now = Date.now() / 1000 + (kamil.clockOffset || 0);
+  const lips = kamil.lips;
+  let open = 0;
+  if (kamil.placing) open = 0;
+  else if (lips && now >= lips.t && now < lips.t + lips.env.length * lips.frame_ms / 1000) {
+    // entre deux mesures : on interpole pour un mouvement fluide
+    const x = (now - lips.t) * 1000 / lips.frame_ms;
+    const i = Math.floor(x), a = lips.env[i] || 0, b = lips.env[i + 1] ?? a;
+    open = (a + (b - a) * (x - i)) / 100;
+  } else if (kamil.state?.state === "speaking" && (!lips || now - lips.t > 30)) {
+    // voix d'une ancienne version (pas de courbe) : bouche qui bat au rythme de syllabes
+    if (!kamil.nextSyll || now > kamil.nextSyll) {
+      kamil.nextSyll = now + 0.11;
+      kamil.syll = (kamil.syll || 0) + 1;
+      kamil.fake = Math.random() < 0.12 ? 0 : kamil.syll % 2 ? 0.45 + Math.random() * 0.55 : Math.random() * 0.25;
+    }
+    open = kamil.fake;
+  }
+  if (Math.abs(open - (kamil.open || 0)) > 0.01 || (open === 0 && kamil.open)) {
+    kamil.open = open;
+    stage.style.setProperty("--open", open.toFixed(2));
+  }
+}
+requestAnimationFrame(kamilLipsFrame);
 
 const PLACE_STEPS = [["eye_l", "Touche l'œil de Kamil situé à ta gauche"], ["eye_r", "Touche son autre œil"],
                      ["mouth", "Touche le milieu de sa bouche (entre les lèvres)"],

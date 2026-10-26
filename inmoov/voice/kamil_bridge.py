@@ -19,6 +19,7 @@ DEFAULTS = {
     "state_path": "/dev/shm/inmoov_kamil.json",
     "commands_dir": "/dev/shm/inmoov_kamil_cmd",
     "history": 40,
+    "mouth_path": "/dev/shm/inmoov_mouth.json",
 }
 COMMANDS = ("dire", "question", "garde")
 
@@ -67,6 +68,17 @@ class LocalBridge:
     def guard(self, on):
         self.data["garde"] = bool(on)
         self._write()
+
+    def mouth(self, opening, frame_ms, start):
+        """Ouverture de la bouche (0-100) toutes les frame_ms, à partir de l'instant start (time.time())."""
+        path = self.cfg["mouth_path"]
+        try:
+            tmp = path + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump({"t": round(start, 3), "frame_ms": frame_ms, "env": list(opening)}, f)
+            os.replace(tmp, path)
+        except OSError as e:
+            log.debug("bouche non écrite : %s", e)
 
     # ------------------------------------------------------------ demandes de l'Atelier
     def poll(self):
@@ -133,6 +145,11 @@ class Bridges:
     def guard(self, on):
         for b in self.items:
             b.guard(on)
+
+    def mouth(self, opening, frame_ms, start):
+        for b in self.items:
+            if hasattr(b, "mouth"):     # l'Atelier seulement (pas Home Assistant)
+                b.mouth(opening, frame_ms, start)
 
     def poll(self):
         for b in self.items:

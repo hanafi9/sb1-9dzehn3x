@@ -289,7 +289,7 @@ a.button.ghost { background: transparent; color: var(--accent); }
 
 /* --- la scène --------------------------------------------------------------------------- */
 .kamil-stage {
-  --k: #3b82f6; --pan: 0; --tilt: 0; --gx: 0; --gy: 0;
+  --k: #3b82f6; --pan: 0; --tilt: 0; --gx: 0; --gy: 0; --open: 0;
   position: relative; display: flex; flex-direction: column; min-height: 620px; overflow: hidden;
   border-radius: 24px; padding: 1rem 1.2rem 1.1rem; color: #e8eefc; isolation: isolate;
   background:
@@ -365,9 +365,9 @@ a.button.ghost { background: transparent; color: var(--accent); }
 @keyframes kb-pulse { 0%, 100% { opacity: .75; transform: scale(.92); } 50% { opacity: 1; transform: scale(1.08); } }
 .kamil-bust .kb-lid { transform-box: fill-box; transform-origin: top; transform: scaleY(0); animation: kb-blink 5.2s infinite; }
 @keyframes kb-blink { 0%, 93%, 100% { transform: scaleY(0); } 95.5% { transform: scaleY(1); } }
-.kamil-bust .kb-jaw { transform-box: fill-box; transform-origin: top; transition: transform .25s; }
-@keyframes kb-talk { 0% { transform: translateY(0); } 50% { transform: translateY(10px); } 100% { transform: translateY(3px); } }
-.kamil-stage[data-state="speaking"] .kb-jaw { animation: kb-talk .32s ease-in-out infinite alternate; }
+/* mâchoire : --open (0-1) suit le volume de la voix, réglé par app.js */
+.kamil-bust .kb-jaw { transform-box: fill-box; transform-origin: top; transform: translateY(calc(var(--open) * 11px));
+  transition: transform .05s linear; }
 .kamil-stage[data-state="speaking"] .kb-core { animation-duration: .6s; }
 .kamil-stage[data-state="awake"] .kb-iris-c { animation: kb-glow 1.4s ease-in-out infinite; }
 @keyframes kb-glow { 0%, 100% { filter: drop-shadow(0 0 2px var(--eye)); } 50% { filter: drop-shadow(0 0 9px var(--eye)); } }
@@ -528,13 +528,13 @@ a.button.ghost { background: transparent; color: var(--accent); }
 .kamil-stage[data-state="speaking"] .kp-core { animation-duration: .6s; }
 .kamil-stage[data-state="off"] .kp-core { animation: none; opacity: .1; }
 /* bouche : le menton (copie de la même image, calée au pixel près) descend de --open ; la fente sombre apparaît */
-.kp-frame { --mx: .5; --my: .452; --open: 0; }
+.kp-frame { --mx: .5; --my: .452; }
 .kp-mouth { position: absolute; left: calc(var(--mx) * 100%); top: calc(var(--my) * 100%); width: 11%; height: 2.4%;
   transform: translate(-50%, -25%); border-radius: 50%; pointer-events: none;
   background: radial-gradient(closest-side, #020306 55%, rgba(2,3,6,.6) 80%, transparent);
-  opacity: min(1, calc(var(--open) * 4)); transition: opacity .09s; }
+  opacity: min(1, calc(var(--open) * 4)); transition: opacity .05s linear; }
 .kp-jaw { position: absolute; left: calc((var(--mx) - .1) * 100%); top: calc(var(--my) * 100%); width: 20%; height: 10%;
-  overflow: hidden; pointer-events: none; transform: translateY(calc(var(--open) * 15%)); transition: transform .09s ease-out;
+  overflow: hidden; pointer-events: none; transform: translateY(calc(var(--open) * 15%)); transition: transform .05s linear;
   -webkit-mask-image: radial-gradient(ellipse 50% 100% at 50% 0%, #000 70%, transparent 100%);
           mask-image: radial-gradient(ellipse 50% 100% at 50% 0%, #000 70%, transparent 100%); }
 .kp-jaw img { position: absolute; width: 500%; height: auto; max-width: none;

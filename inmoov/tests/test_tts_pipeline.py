@@ -43,6 +43,19 @@ class PipelineTest(unittest.TestCase):
         # « deux » est fabriqué avant la fin de la lecture de « un »
         self.assertLess(sp.log.index(("fabrique", "deux")), sp.log.index(("joue", "un")))
 
+    def test_audio_hook_before_playing(self):
+        sp = FakeSpeaker()
+        p = SpeechPipeline(sp)
+        seen = []
+        p.on_audio = lambda path, duration: seen.append((path, duration, list(sp.log)))
+        p.put("un")
+        self.assertTrue(p.wait(5))
+        self.assertEqual(seen, [("/tmp/un", 0.05, [("fabrique", "un")])])   # juste avant de jouer
+        p.on_audio = lambda path, duration: 1 / 0     # une bouche en panne ne coupe pas la voix
+        p.put("deux")
+        self.assertTrue(p.wait(5))
+        self.assertIn(("joue", "deux"), sp.log)
+
     def test_fallback_when_piper_fails(self):
         said = []
         p = SpeechPipeline(FakeSpeaker(fail={"cassé"}), fallback=said.append)

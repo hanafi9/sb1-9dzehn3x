@@ -927,6 +927,22 @@ def create_app(data_dir=None, run=None, mrl=None):
         portrait_store.save(dict(points, mode="photo"))
         return jsonify({"ok": True, "points": points})
 
+    @app.get("/api/kamil/mouth")
+    @api
+    def kamil_mouth():
+        """Bouche synchronisée : début du son (horloge du Pi) et ouverture 0-100 toutes les frame_ms."""
+        _, _, bc = bridge_cfg()
+        now = time.time()
+        try:
+            with open(bc["mouth_path"], encoding="utf-8") as f:
+                m = json.load(f)
+            t, frame_ms, env = float(m["t"]), int(m["frame_ms"]), [int(v) for v in m["env"]][:3000]
+        except (OSError, ValueError, KeyError, TypeError):
+            return jsonify({"ok": True, "now": now, "env": []})
+        if now > t + len(env) * frame_ms / 1000.0 + 2:      # phrase déjà finie
+            env = []
+        return jsonify({"ok": True, "now": now, "t": t, "frame_ms": frame_ms, "env": env})
+
     @app.post("/api/kamil/<kind>")
     @api
     def kamil_command(kind):

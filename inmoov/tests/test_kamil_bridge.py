@@ -83,6 +83,42 @@ class BridgeTest(unittest.TestCase):
         bridges.poll()
         self.assertEqual(bridges.commands.get_nowait(), ("dire", "Bonjour"))
 
+    def test_mouth_curve_for_the_atelier(self):
+        self.cfg["mouth_path"] = os.path.join(self.dir, "mouth.json")
+        b = LocalBridge(self.cfg)
+        bridges = Bridges()
+        bridges.add(b)
+        bridges.add(FakeMqtt())                         # Home Assistant n'a pas de bouche : ignoré
+        bridges.mouth([0, 40, 100], 40, 1234.5)
+        with open(self.cfg["mouth_path"], encoding="utf-8") as f:
+            self.assertEqual(json.load(f), {"t": 1234.5, "frame_ms": 40, "env": [0, 40, 100]})
+
+
+class MouthSyncTest(unittest.TestCase):
+    def test_envelope_follows_the_voice(self):
+        import wave
+
+        import numpy as np
+        from mouth_sync import envelope
+
+        rate = 24000
+        t = np.arange(int(rate * 0.2)) / rate
+        loud = (np.sin(2 * np.pi * 220 * t) * 12000).astype("<i2")
+        quiet = np.zeros(int(rate * 0.2), dtype="<i2")
+        path = os.path.join(tempfile.mkdtemp(), "phrase.wav")
+        with wave.open(path, "wb") as w:
+            w.setnchannels(1)
+            w.setsampwidth(2)
+            w.setframerate(rate)
+            w.writeframes(quiet.tobytes() + loud.tobytes() + quiet.tobytes())
+        env = envelope(path, frame_ms=40)
+        self.assertEqual(len(env), 15)                  # 0,6 s en tranches de 40 ms
+        self.assertEqual(env[:5], [0] * 5)              # silence : bouche fermée
+        self.assertTrue(all(v >= 90 for v in env[5:10]))   # voix forte : grande ouverte
+        self.assertEqual(env[-1], 0)                    # se referme après
+        self.assertTrue(0 < env[10] < env[9])           # en douceur
+        shutil.rmtree(os.path.dirname(path))
+
 
 if __name__ == "__main__":
     unittest.main()

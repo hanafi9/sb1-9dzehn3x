@@ -87,6 +87,7 @@ class Listener:
                 # phrase par phrase : le robot parle pendant que Claude écrit la suite
                 self.pipeline = SpeechPipeline(self.tts, fallback=self._speak_mrl)
                 self.pipeline.on_play_start = self._on_first_sound
+                self.pipeline.on_audio = self._on_audio
             log.info("Voix hors ligne Piper : %s", cfg["piper_model"])
             from reasoning import FILLERS, THINKING_PHRASES
 
@@ -344,6 +345,15 @@ class Listener:
             turn["queued"] = time.monotonic()
         self.status("speaking")
         self.pipeline.put(text)
+
+    def _on_audio(self, path, duration):
+        """Phrase sur le point d'être jouée : sa courbe de volume fait bouger la bouche dans l'Atelier."""
+        if getattr(self, "ha", None) is None:
+            return
+        from mouth_sync import FRAME_MS, envelope
+
+        # aplay met quelques dizaines de millisecondes à sortir le premier son
+        self.ha.mouth(envelope(path), FRAME_MS, time.time() + self.cfg.get("mouth_latency_ms", 60) / 1000.0)
 
     def _on_first_sound(self, text):
         """Journal du délai de réponse, décomposé, pour voir quelle étape est lente."""

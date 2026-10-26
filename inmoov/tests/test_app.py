@@ -105,6 +105,17 @@ class AppTest(unittest.TestCase):
         self.assertIsNone(k["delai"])
         b.publish("delai", json.dumps({"total": 3.4, "silence": 0.6, "ecoute": 1.1, "ia": 1.0, "voix": 0.7}))
         self.assertEqual(self.c.get("/api/kamil").get_json()["delai"]["ia"], 1.0)   # délai par étape
+        self.assertEqual(self.c.get("/api/kamil/mouth").get_json()["env"], [])            # rien à dire
+        b.cfg["mouth_path"] = os.path.join(d, "mouth.json")
+        cfg["voice"]["app_bridge"]["mouth_path"] = b.cfg["mouth_path"]
+        with open(os.path.join(d, "config.json"), "w", encoding="utf-8") as f:
+            json.dump(cfg, f)
+        b.mouth([10, 80, 30], 40, time.time() + 0.5)
+        m = self.c.get("/api/kamil/mouth").get_json()
+        self.assertEqual((m["env"], m["frame_ms"]), ([10, 80, 30], 40))
+        self.assertLess(abs(m["now"] - time.time()), 1)
+        b.mouth([10], 40, time.time() - 10)
+        self.assertEqual(self.c.get("/api/kamil/mouth").get_json()["env"], [])            # phrase finie
         b.publish("delai", "abîmé")
         self.assertIsNone(self.c.get("/api/kamil").get_json()["delai"])
         self.assertTrue(self.c.post("/api/kamil/question", json={"value": "  Quelle   heure ?  "}).get_json()["ok"])

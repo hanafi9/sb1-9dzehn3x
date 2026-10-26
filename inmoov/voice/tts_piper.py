@@ -108,6 +108,7 @@ class SpeechPipeline:
         self.pending = 0
         self.done = threading.Condition()
         self.on_play_start = None   # appelée juste avant de jouer chaque phrase (mesure du délai)
+        self.on_audio = None        # appelée avec (fichier son, durée) juste avant de le jouer (bouche)
         threading.Thread(target=self._synth_loop, name="piper-synth", daemon=True).start()
         threading.Thread(target=self._play_loop, name="piper-play", daemon=True).start()
 
@@ -139,6 +140,11 @@ class SpeechPipeline:
                 if self.on_play_start is not None:
                     self.on_play_start(text)
                 if path is not None:
+                    if self.on_audio is not None:
+                        try:
+                            self.on_audio(path, duration)
+                        except Exception:
+                            log.exception("Synchronisation de la bouche impossible")
                     self.speaker.play(path, duration)
                 elif self.fallback is not None:
                     self.fallback(text)
