@@ -265,6 +265,8 @@ class HomeAssistant:
                     "turn_off": lambda s: s in ("off", "standby"),
                     "open_cover": lambda s: s in ("open", "opening"), "close_cover": lambda s: s in ("closed", "closing"),
                     "media_play": lambda s: s == "playing", "media_pause": lambda s: s in ("paused", "idle")}.get(service)
+        if domain in ("script", "scene", "button", "remote"):
+            expected = None      # s'exécutent puis reviennent à « off » : pas d'état durable à vérifier
         after = before
         if expected is not None and wait_s > 0:
             end = time.monotonic() + wait_s

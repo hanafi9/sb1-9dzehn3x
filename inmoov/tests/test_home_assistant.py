@@ -22,6 +22,7 @@ STATES = [
     {"entity_id": "remote.tv_salon", "state": "off", "attributes": {"friendly_name": "TV Salon"}},
     {"entity_id": "media_player.fire_tv_192_168_1_61", "state": "off", "attributes": {"friendly_name": "Fire TV"}},
     {"entity_id": "light.lustre", "state": "on", "attributes": {"friendly_name": "Lustre"}},
+    {"entity_id": "script.denon_on", "state": "off", "attributes": {"friendly_name": "Denon ON"}},
     {"entity_id": "media_player.televiseur_du_salon", "state": "off", "attributes": {"friendly_name": "Téléviseur du salon"}},
     {"entity_id": "button.denon_tv_audio", "state": "unknown", "attributes": {"friendly_name": "Denon TV Audio"}},
     {"entity_id": "lock.porte_entree", "state": "locked", "attributes": {"friendly_name": "Porte d'entrée"}},
@@ -167,6 +168,8 @@ class HomeAssistantTest(unittest.TestCase):
                                    wait_s=0.3, sleep=lambda s: None)
         self.assertFalse(ok)                                                    # Kamil ne dit pas « fait »
         self.assertIn("n'a pas ouvert « Inconnue »", said)
+        ok, said = remote.control("script.denon_on", "turn_on", wait_s=0.3, sleep=lambda s: None)
+        self.assertTrue(ok)                    # script infrarouge : redevient « off » aussitôt, c'est normal
         n = len(FakeHA.requests)
         self.assertFalse(ha.control("lock.porte_entree", "unlock")[0])            # domaine interdit
         self.assertFalse(ha.control("light.lustre", "delete_everything")[0])      # service inconnu

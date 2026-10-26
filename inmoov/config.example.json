@@ -93,6 +93,8 @@
       "direct_control": true,
       "_app_aliases_aide": "Applications des télés et boîtiers (Fire TV, Android TV) : nom dit à Kamil -> nom technique, ou « paquet/activité » pour ouvrir l'écran d'accueil exact, ex. {\"IPRO2\": \"com.iproboxx.iproboxxtviptvbox/.view.activity.SplashActivity\"} ; sur une Fire TV / Android TV (ADB), l'application est ouverte directement. « Kamil, lance IPRO2 sur la Fire TV ».",
       "app_aliases": {},
+      "_notes_aide": "Notes pour Kamil sur les appareils particuliers, ex. \"Ampli Denon (infrarouge) : allumer = script.denon_on, éteindre = script.denon_off, volume = script.denon_vol_up / script.denon_vol_down\".",
+      "notes": [],
       "verify_ssl": true,
       "_ssl_aide": "Home Assistant en https avec un certificat auto-signé (réseau local) : verify_ssl false, ou mieux ca_file = chemin du certificat."
     },

@@ -138,6 +138,14 @@ class BrainTest(unittest.TestCase):
             self.assertFalse(t["input_schema"]["additionalProperties"])
 
 
+    def test_home_notes_in_system_prompt(self):
+        cfg = dict(self.cfg, home_assistant={"enabled": True, "url": "http://ha",
+                                             "notes": ["Ampli Denon : allumer = script.denon_on", " "]})
+        brain = ClaudeBrain(cfg, lambda *a: (True, None), self.spoken.append, client=object())
+        self.assertIn("- Ampli Denon : allumer = script.denon_on", brain.system)
+        self.assertNotIn("Notes sur les appareils", ClaudeBrain(self.cfg, lambda *a: (True, None),
+                                                                self.spoken.append, client=object()).system)
+
     def test_home_device_tool(self):
         import types
         b = object.__new__(ClaudeBrain)

@@ -439,6 +439,11 @@ class ClaudeBrain:
         system = SYSTEM_PROMPT.format(name=self.cfg["robot_name"], owner=self.cfg["owner_name"], extra=extra,
                                       mind=MIND_PROMPT if self.mind is not None else "", personality=personality,
                                       silence=SILENCE)
+        notes = [str(n).strip() for n in ((self.cfg.get("home_assistant") or {}).get("notes") or []) if str(n).strip()]
+        if notes and self.home is not None:
+            # comment piloter les appareils particuliers (ampli en infrarouge, scripts…), écrit par le propriétaire
+            system += "\n\nNotes sur les appareils de la maison (Home Assistant), à suivre en priorité :\n" + \
+                      "\n".join("- " + n for n in notes)
         facts = self.memory.as_text() if self.memory is not None else ""
         if facts:
             system += MEMORY_INTRO.format(facts=facts)
