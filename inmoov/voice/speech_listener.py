@@ -76,7 +76,7 @@ class Listener:
             from tts_piper import PiperSpeaker, SpeechPipeline  # importé seulement si utilisé
 
             self.tts = PiperSpeaker(cfg["piper_model"], length_scale=cfg.get("piper_length_scale"),
-                                    speaker_id=cfg.get("piper_speaker_id"))
+                                    speaker_id=cfg.get("piper_speaker_id"), pitch=cfg.get("piper_pitch"))
             if (cfg.get("cloud_tts") or {}).get("enabled"):
                 from tts_cloud import CloudSpeaker
 

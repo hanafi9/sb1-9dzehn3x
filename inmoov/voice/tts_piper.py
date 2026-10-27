@@ -23,7 +23,7 @@ log = logging.getLogger("piper")
 
 
 class PiperSpeaker:
-    def __init__(self, model_path, player=("aplay", "-q"), length_scale=None, speaker_id=None):
+    def __init__(self, model_path, player=("aplay", "-q"), length_scale=None, speaker_id=None, pitch=None):
         from piper import PiperVoice  # importé seulement si cette voix est choisie
 
         if not os.path.isfile(model_path):
@@ -31,12 +31,16 @@ class PiperSpeaker:
         self.voice = PiperVoice.load(model_path)
         self.player = list(player)
         self.syn_config = None
-        if length_scale or speaker_id is not None:
+        # pitch > 1 : voix plus aiguë, plus douce (son joué plus vite, compensé en faisant parler Piper
+        # plus lentement : même vitesse de parole), comme la voix en ligne
+        self.pitch = min(max(float(pitch or 1.0), 0.7), 1.5)
+        if length_scale or speaker_id is not None or self.pitch != 1.0:
             from piper import SynthesisConfig
 
             # length_scale : < 1 parle plus vite, > 1 plus lentement ;
             # speaker_id : numéro de la voix dans un modèle à plusieurs voix (ex. fr_FR-upmc-medium)
-            self.syn_config = SynthesisConfig(length_scale=length_scale or None, speaker_id=speaker_id)
+            scale = (length_scale or 1.0) * self.pitch
+            self.syn_config = SynthesisConfig(length_scale=scale if scale != 1.0 else None, speaker_id=speaker_id)
         self.lock = threading.Lock()   # une seule fabrication de son à la fois
         self.cache = {}                # phrases courtes déjà fabriquées : dites sans délai
 
@@ -49,6 +53,8 @@ class PiperSpeaker:
             if cached is None:
                 with self.lock, wave.open(path, "wb") as wav:
                     self.voice.synthesize_wav(text, wav, syn_config=self.syn_config)
+                if getattr(self, "pitch", 1.0) != 1.0:
+                    _repitch(path, self.pitch)
                 if len(text) <= 60:
                     with open(path, "rb") as f:
                         self.cache[text] = f.read()
@@ -84,6 +90,17 @@ class PiperSpeaker:
         path, duration = self.synthesize(text)
         self.play(path, duration)
         return duration
+
+
+def _repitch(path, pitch):
+    """Même son, fréquence d'échantillonnage multipliée : joué plus vite, donc plus aigu."""
+    with wave.open(path, "rb") as w:
+        params, frames = w.getparams(), w.readframes(w.getnframes())
+    with wave.open(path, "wb") as w:
+        w.setnchannels(params.nchannels)
+        w.setsampwidth(params.sampwidth)
+        w.setframerate(int(round(params.framerate * pitch)))
+        w.writeframes(frames)
 
 
 def _remove(path):

@@ -102,6 +102,16 @@ class CacheTest(unittest.TestCase):
             os.remove(sp.synthesize(long_text)[0])
         self.assertEqual(sp.voice.calls, 3)              # phrase longue : pas gardée
 
+    def test_higher_voice(self):
+        import wave
+        sp = self.speaker()
+        sp.pitch = 1.2                                   # plus aiguë : son joué 1,2 fois plus vite
+        path, duration = sp.synthesize("Oui")
+        with wave.open(path, "rb") as w:
+            self.assertEqual(w.getframerate(), 26460)
+        self.assertAlmostEqual(duration, 0.3 / 1.2, places=3)
+        os.remove(path)
+
     def test_warm_up(self):
         sp = self.speaker()
         sp.warm_up(["Oui ?", "Hmm ?"])

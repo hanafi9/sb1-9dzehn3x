@@ -156,6 +156,8 @@
     "piper_length_scale": null,
     "_piper_aide": "Changer de voix : écouter avec voice/voices_test.py. piper_length_scale : 0.85 = parle plus vite, 1.15 = plus lentement. piper_speaker_id : numéro de la voix dans un modèle à plusieurs locuteurs (fr_FR-upmc-medium, fr_FR-mls-medium), null sinon.",
     "piper_speaker_id": null,
+    "_piper_pitch_aide": "piper_pitch : hauteur de la voix Piper, 1.1 à 1.2 = plus aiguë et plus douce (même vitesse) ; null = voix d'origine. Écouter : voice/voices_test.py fr_FR-upmc-medium --pitch 1.0 1.1 1.2",
+    "piper_pitch": null,
     "_gain_aide": "Micro trop faible (whisper_test.py affiche le niveau) : input_gain multiplie le son du micro (ex. 5 si le niveau est à 5-10 %) ; auto_gain remonte chaque phrase à un bon niveau avant Whisper.",
     "input_gain": 1,
     "auto_gain": true,

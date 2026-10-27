@@ -4,6 +4,7 @@
     ../.venv-voice/bin/python voices_test.py                          # les voix françaises conseillées
     ../.venv-voice/bin/python voices_test.py fr_FR-upmc-medium        # une voix (toutes ses variantes)
     ../.venv-voice/bin/python voices_test.py fr_FR-tom-medium --speeds 0.8 1.0 1.2
+    ../.venv-voice/bin/python voices_test.py fr_FR-upmc-medium fr_FR-tom-medium --pitch 1.0 1.1 1.2  # plus aiguë
     ../.venv-voice/bin/python -m piper.download_voices | grep fr_     # liste officielle complète
     ../.venv-voice/bin/python voices_test.py --cloud                  # voix en ligne OpenAI (ash, echo, verse…)
     ../.venv-voice/bin/python voices_test.py --cloud ash echo --speeds 1.0 1.1
@@ -50,7 +51,7 @@ def main():
     parser.add_argument("--cloud", action="store_true", help="voix en ligne OpenAI (clé OPENAI_API_KEY)")
     parser.add_argument("--instructions", default=None, help="ton voulu (voix en ligne), en français")
     parser.add_argument("--pitch", nargs="+", type=float, default=[1.0],
-                        help="voix en ligne : 1.1 à 1.2 = plus aiguë, plus jeune (même vitesse)")
+                        help="1.1 à 1.2 = plus aiguë, plus douce, plus jeune (même vitesse)")
     parser.add_argument("--model", default="gpt-4o-mini-tts", help="voix en ligne : gpt-4o-mini-tts, tts-1, tts-1-hd")
     args = parser.parse_args()
     if args.cloud:
@@ -66,12 +67,15 @@ def main():
         ids = sorted(speakers.items(), key=lambda kv: kv[1])[:args.max_speakers] or [("", None)]
         for name, sid in ids:
             for speed in args.speeds:
-                label = "%s%s, vitesse %.1f" % (voice, " (locuteur %d : %s)" % (sid, name) if sid is not None else "",
-                                                 speed)
-                input("\nEntrée pour écouter : %s" % label)
-                PiperSpeaker(model, length_scale=speed if speed != 1.0 else None, speaker_id=sid).speak(args.text)
+                for pitch in args.pitch:
+                    label = "%s%s, vitesse %.1f, hauteur %.2g" % (
+                        voice, " (locuteur %d : %s)" % (sid, name) if sid is not None else "", speed, pitch)
+                    input("\nEntrée pour écouter : %s" % label)
+                    PiperSpeaker(model, length_scale=speed if speed != 1.0 else None, speaker_id=sid,
+                                 pitch=pitch).speak(args.text)
     print("\nPour garder une voix : config.json → voice → \"piper_model\": \"models/<voix>.onnx\", "
-          "\"piper_speaker_id\": <numéro ou null>, \"piper_length_scale\": <vitesse ou null>")
+          "\"piper_speaker_id\": <numéro ou null>, \"piper_length_scale\": <vitesse ou null>, "
+          "\"piper_pitch\": <hauteur ou null>")
 
 
 def audition_cloud(args):
