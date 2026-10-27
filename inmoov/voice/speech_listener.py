@@ -35,7 +35,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 from audio_gain import amplify_pcm16, normalize_peak  # noqa: E402
 from mrl_client import MrlClient, load_config  # noqa: E402
 from segmenter import UtteranceSegmenter  # noqa: E402
-from text_utils import (clean_chatbot_reply, find_wake_word_anywhere, is_hallucination,  # noqa: E402
+from text_utils import (clean_chatbot_reply, find_wake_word_anywhere, is_hallucination, is_short_noise,  # noqa: E402
                         match_command, strip_wake_word)
 
 log = logging.getLogger("voice")
@@ -496,6 +496,10 @@ class Listener:
                 self.status("awake")
                 return
             text = rest
+        if not found and not addressed and is_short_noise(text):
+            # la fenêtre d'écoute reste ouverte : la vraie question peut encore venir
+            log.info("(ignoré : bribe sans « Kamil », sans doute la télé) %s", text)
+            return
         self.awake_until = 0.0
         speaker = self._identify()
         if not found and self._background(speaker):

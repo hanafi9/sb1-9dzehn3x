@@ -14,7 +14,28 @@ HALLUCINATIONS = [
     "merci d'avoir regarde cette video",
     "abonnez-vous",
     "...",
+    # mots isolés que Whisper invente sur la télé ou le bruit (vu dans le journal de Kamil)
+    "merci", "merci beaucoup", "hoh", "quack", "hmm", "hum", "ah", "oh", "eh", "euh", "bah", "pff",
 ]
+
+# réponses courtes qui ont un sens pendant une conversation, sans redire « Kamil »
+SHORT_REPLIES = {"oui", "non", "ok", "okay", "daccord", "d accord", "stop", "arrete", "encore", "valide", "pause",
+                 "retour", "bas", "haut", "gauche", "droite", "bonjour", "salut", "si", "vas y", "volontiers",
+                 "pas du tout", "bien sur", "exactement", "accueil", "menu", "suivant", "lecture", "plus", "moins"}
+
+
+def is_short_noise(text):
+    """Phrase de 1 ou 2 mots sans rapport avec une conversation (« On vit ici. », « Höh! ») : pendant
+    l'écoute qui suit « Kamil », ce sont presque toujours des bribes de télé ; « oui », « non », « bas »,
+    un nombre… restent acceptés."""
+    n = normalize(text).strip(" .!?")
+    words = n.replace("'", " ").split()
+    if not words or len(words) > 2:
+        return False
+    if (" ".join(words) in SHORT_REPLIES or any(w in SHORT_REPLIES for w in words)
+            or any(c.isdigit() for c in n)):
+        return False
+    return True
 
 
 def normalize(text):

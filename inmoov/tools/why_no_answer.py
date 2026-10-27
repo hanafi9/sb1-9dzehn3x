@@ -20,6 +20,7 @@ HEARD = re.compile(r"^(\S+ \S+?),\d+ voice INFO Entendu \(([\d.]+) s audio, ([\d
 VERDICTS = [
     ("(pas de mot de réveil)", "❌ ignorée : « Kamil » pas reconnu dans la phrase"),
     ("invention de Whisper", "❌ ignorée : bruit pris pour de la parole"),
+    ("bribe sans « Kamil »", "❌ ignorée : bribe de télé pendant l'écoute"),
     ("parole continue sans « Kamil »", "❌ ignorée : trop longue sans « Kamil » (prise pour la télé)"),
     ("voix inconnue sans « Kamil »", "❌ ignorée : voix inconnue sans « Kamil » (prise pour la télé)"),
     ("Claude se tait", "❌ Claude a jugé que ce n'était pas pour lui"),

@@ -125,7 +125,10 @@ class TextTest(unittest.TestCase):
     def test_hallucinations(self):
         self.assertTrue(is_hallucination("Sous-titres réalisés par la communauté d'Amara.org"))
         self.assertTrue(is_hallucination(" ... "))
-        self.assertFalse(is_hallucination("Merci"))
+        # « Merci. » seul, « Höh! », « Quack! » : inventés par Whisper sur la télé (journal du 27/10)
+        self.assertTrue(is_hallucination("Merci."))
+        self.assertTrue(is_hallucination("Höh!"))
+        self.assertFalse(is_hallucination("Kamil, merci"))
         self.assertFalse(is_hallucination("bonjour InMoov"))
         # vues sur le Pi : boucles de répétition et récitation du vocabulaire donné à Whisper
         vocab = "Kamil, InMoov, bonjour, au revoir, regarde, gauche, droite, haut, bas, tête"
@@ -136,6 +139,14 @@ class TextTest(unittest.TestCase):
         self.assertFalse(is_hallucination("Kamil regarde gauche", vocab))
         self.assertFalse(is_hallucination("bonjour bonjour", vocab))
         self.assertFalse(is_hallucination("Kamil, raconte-moi l'histoire d'un robot qui apprend à danser", vocab))
+
+
+    def test_short_noise_during_conversation(self):
+        from text_utils import is_short_noise
+        for noise in ("Les limites.", "Quack!", "De contre-garantie"):
+            self.assertTrue(is_short_noise(noise), noise)
+        for answer in ("Oui", "non merci", "Ok", "en bas", "3", "D'accord !", "le roi lion est un film génial"):
+            self.assertFalse(is_short_noise(answer), answer)
 
 
 class FakeMrl(BaseHTTPRequestHandler):
