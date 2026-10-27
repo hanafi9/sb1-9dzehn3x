@@ -7,6 +7,9 @@ Réglage home_assistant.duck : une liste d'appareils, chacun sous l'une de ces f
       ampli en infrarouge : « volume − » 6 fois au début, « volume + » 6 fois à la fin.
       Options : "pause" (secondes entre deux appuis, 0.6 par défaut ; plus long si l'ampli en rate),
       "up_steps" (appuis « volume + » au retour, si l'ampli ne compte pas pareil dans les deux sens).
+  {"down": "script.denon_vol_down", "up": "script.denon_vol_up", "steps": 50, "floor": true, "up_steps": 45}
+      volume exact sans retour d'état : « volume − » jusqu'au minimum, puis toujours 45 « volume + »
+      (l'ampli revient à la même valeur, quoi qu'aient fait les appuis de la baisse).
       Chaque script est appelé comme un service : Home Assistant attend qu'il ait fini avant le
       suivant (avec script.turn_on, un script encore en cours ignore l'appui suivant).
 Tout se fait en arrière-plan : la réponse de Kamil n'attend pas l'ampli.
@@ -102,8 +105,11 @@ class Ducker:
                     log.info("Son de la télé remis : %s %.2f", d["media_player"], volume)
                 elif d.get("down") and d.get("up") and d["down"] in self.saved:
                     done = self.saved.pop(d["down"])
-                    steps = done + int(d.get("up_steps", d.get("steps", 5))) - int(d.get("steps", 5))
-                    steps = max(0, steps) if done else 0
+                    if d.get("floor"):                    # parti du minimum : toujours le même nombre
+                        steps = int(d.get("up_steps", d.get("steps", 5))) if done else 0
+                    else:
+                        steps = done + int(d.get("up_steps", d.get("steps", 5))) - int(d.get("steps", 5))
+                        steps = max(0, steps) if done else 0
                     done_up = self._press(d["up"], steps, float(d.get("pause", self.step_pause)))
                     log.info("Son de la télé remis : %s ×%d", d["up"], done_up)
             except Exception as e:

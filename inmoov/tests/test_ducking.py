@@ -64,6 +64,16 @@ class DuckingTest(unittest.TestCase):
         self.assertEqual([c[1] for c in home.calls], ["dn"] * 4 + ["up"] * 5)
         self.assertEqual(set(pauses), {1.2})
 
+    def test_infrared_floor_then_fixed_count(self):
+        home = FakeHome()
+        answers = iter([(True, "ok")] * 3 + [(False, "Home Assistant a répondu 500")])
+        home.call_service = lambda dom, srv, data: (home.calls.append(srv), next(answers, (True, "ok")))[1]
+        d = Ducker(home, [{"down": "script.dn", "up": "script.up", "steps": 50, "floor": True, "up_steps": 45}],
+                   sleep=lambda s: None)
+        d.duck(wait=True)                                     # coupé au 4e appui : déjà au minimum ou presque
+        d.restore(wait=True)
+        self.assertEqual(home.calls, ["dn"] * 4 + ["up"] * 45)  # remonte quand même à la valeur voulue
+
     def test_infrared_failed_press_not_restored(self):
         home = FakeHome()
         answers = iter([(True, "ok"), (False, "Home Assistant a répondu 500")])
