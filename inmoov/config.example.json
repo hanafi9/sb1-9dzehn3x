@@ -97,7 +97,7 @@
       "notes": [],
       "_contacts_aide": "Messages sur les téléphones (« Kamil, envoie à Nadia : je rentre ») : prénom -> service notify de Home Assistant, ex. {\"Nadia\": \"notify.mobile_app_nadia\", \"Hanafi\": [\"notify.mobile_app_redmi\", \"notify.mobile_app_oppo\"]} (plusieurs téléphones : le message part sur chacun).",
       "contacts": {},
-      "_duck_aide": "Baisser la télé quand on dit « Kamil », puis la remettre : liste d'appareils, ex. [{\"media_player\": \"media_player.tv\", \"level\": 0.15}] (volume réglable) ou [{\"down\": \"script.denon_vol_down\", \"up\": \"script.denon_vol_up\", \"steps\": 6}] (ampli en infrarouge).",
+      "_duck_aide": "Baisser la télé quand on dit « Kamil », puis la remettre : liste d'appareils, ex. [{\"media_player\": \"media_player.tv\", \"level\": 0.15}] (volume réglable) ou [{\"down\": \"script.denon_vol_down\", \"up\": \"script.denon_vol_up\", \"steps\": 6}] (ampli en infrarouge ; options \"pause\" en secondes entre deux appuis, 0.6 par défaut, et \"up_steps\" si le retour n'est pas au même niveau ; essai : python3 tools/duck_test.py).",
       "duck": [],
       "_app_search_aide": "Recherche dans une application (« Kamil, mets beIN Sports sur IPRO2 ») : touches pour atteindre le champ de recherche après l'ouverture, ex. {\"IPRO2\": {\"wait_s\": 6, \"keys\": \"recherche\", \"after\": \"entree\"}} ; ou {\"activity\": \".SearchActivity\"} si l'application a un écran de recherche Android.",
       "app_search": {},

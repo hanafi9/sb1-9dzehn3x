@@ -50,9 +50,28 @@ class DuckingTest(unittest.TestCase):
         d = Ducker(home, [{"down": "script.denon_vol_down", "up": "script.denon_vol_up", "steps": 3}],
                    sleep=lambda s: None)
         d.duck(wait=True)
-        self.assertEqual(home.calls, [("script", "turn_on", {"entity_id": "script.denon_vol_down"})] * 3)
+        # script.<nom> appelé comme service : Home Assistant attend la fin (script.turn_on perdrait des appuis)
+        self.assertEqual(home.calls, [("script", "denon_vol_down", {})] * 3)
         d.restore(wait=True)
-        self.assertEqual(home.calls[3:], [("script", "turn_on", {"entity_id": "script.denon_vol_up"})] * 3)
+        self.assertEqual(home.calls[3:], [("script", "denon_vol_up", {})] * 3)
+
+    def test_infrared_up_steps_and_pause(self):
+        home, pauses = FakeHome(), []
+        d = Ducker(home, [{"down": "script.dn", "up": "script.up", "steps": 4, "up_steps": 5, "pause": 1.2}],
+                   sleep=pauses.append)
+        d.duck(wait=True)
+        d.restore(wait=True)
+        self.assertEqual([c[1] for c in home.calls], ["dn"] * 4 + ["up"] * 5)
+        self.assertEqual(set(pauses), {1.2})
+
+    def test_infrared_failed_press_not_restored(self):
+        home = FakeHome()
+        answers = iter([(True, "ok"), (False, "Home Assistant a répondu 500")])
+        home.call_service = lambda dom, srv, data: (home.calls.append(srv), next(answers, (True, "ok")))[1]
+        d = Ducker(home, [{"down": "script.dn", "up": "script.up", "steps": 6}], sleep=lambda s: None)
+        d.duck(wait=True)
+        d.restore(wait=True)
+        self.assertEqual(home.calls, ["dn", "dn", "up"])      # 1 seul appui réussi : 1 seul à remettre
 
 
 class ListenerDuckingTest(unittest.TestCase):
