@@ -475,9 +475,18 @@ class Listener:
             log.info("(pas de mot de réveil) %s", text)
             return
         heard = text
+        self._wake_reply_at = None          # une vraie phrase arrive : pas de « Oui ? » en retard
         if found:
             if not rest:
                 self._show_heard(heard)
+                delay = float(self.cfg.get("wake_reply_delay_s", 5))
+                if delay > 0:
+                    # « Kamil… » puis une pause pour réfléchir : il écoute en silence ; « Oui ? » seulement
+                    # si rien ne vient pendant ce temps (avant, il répondait tout de suite et coupait la parole)
+                    self._wake_reply_at = now + delay
+                    self.awake_until = now + delay + self.cfg["wake_window_s"]
+                    self.status("awake")
+                    return
                 self.awake_until = now + self.cfg["wake_window_s"]
                 self.say(self._wake_reply())
                 self.status("awake")
@@ -646,6 +655,14 @@ class Listener:
                     self.ha.publish("alerte", "%s : %s" % (time.strftime("%H:%M:%S"), alert))
         if self.segmenter.triggered:
             return   # quelqu'un est en train de parler : on ne lui coupe pas la parole
+        reply_at = getattr(self, "_wake_reply_at", None)
+        if reply_at is not None and time.monotonic() >= reply_at:
+            # « Kamil » seul, puis rien pendant le délai : il montre qu'il écoute
+            self._wake_reply_at = None
+            self.say(self._wake_reply())
+            self.awake_until = time.monotonic() + self.cfg["wake_window_s"]
+            self.status("awake")
+            return
         if getattr(self, "ha", None) is not None:
             if hasattr(self.ha, "poll"):
                 self.ha.poll()           # demandes déposées par l'Atelier

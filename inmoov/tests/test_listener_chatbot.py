@@ -97,6 +97,7 @@ class ChatbotTest(unittest.TestCase):
     def test_wake_word_removed_when_already_awake(self):
         tts = FakeTts()
         lst = listener(tts, wake_words=["kamil", "robot"])
+        lst.cfg["wake_reply_delay_s"] = 0                        # ancien réglage : « Oui ? » tout de suite
         lst.handle("Kamil.")
         self.assertEqual(len(tts.said), 1)                       # réponse courte (« Présent ! »…)
         lst.handle("Kamil, ce que tu dis est bizarre")
@@ -104,6 +105,25 @@ class ChatbotTest(unittest.TestCase):
         lst.awake_until = 0.0  # fenêtre de suite écoulée
         lst.handle("bonjour")  # plus réveillé : ignoré
         self.assertEqual(len(lst.mrl.calls), 1)
+
+    def test_pause_after_wake_word(self):
+        tts = FakeTts()
+        lst = listener(tts, wake_words=["kamil"])
+        lst.segmenter = types.SimpleNamespace(triggered=False, reset=lambda: None)
+        lst.handle("Kamil…")
+        self.assertEqual(tts.said, [])                           # il écoute en silence : on a le temps de parler
+        lst._maybe_react()
+        self.assertEqual(tts.said, [])                           # pas encore 5 s
+        lst.handle("quelle heure est-il ?")                      # la vraie question, sans redire « Kamil »
+        self.assertEqual(lst.mrl.calls[-1], ("i01.chatBot", "getResponse", "quelle heure est-il ?"))
+        self.assertIsNone(lst._wake_reply_at)                    # question posée : plus de « Oui ? » en attente
+        lst._maybe_react()
+        self.assertEqual(len(tts.said), 1)                       # seulement la réponse à la question
+        lst.handle("Kamil.")
+        lst._wake_reply_at = time.monotonic() - 0.1              # 5 s de silence
+        lst._maybe_react()
+        self.assertEqual(len(tts.said), 2)                       # alors seulement : « Oui ? »
+        self.assertGreater(lst.awake_until, time.monotonic())    # et il écoute encore
 
     def test_wake_replies_vary(self):
         lst = listener(FakeTts())
