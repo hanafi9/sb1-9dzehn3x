@@ -42,7 +42,9 @@ log = logging.getLogger("voice")
 
 SAMPLE_RATE = 16000  # Whisper et WebRTC VAD travaillent en 16 kHz
 FRAME_MS = 30
-WAKE_REPLIES = ["Oui ?", "Je t'écoute !", "Présent !", "Oui, chef ?", "Hmm ?", "Me voilà !", "Oui, oui ?"]
+# « Kamil » seul : une réponse courte qui invite à parler (il écoute ensuite, sans redire son nom)
+WAKE_REPLIES = ["Oui, je t'écoute !", "Je t'écoute, vas-y !", "Présent ! Je t'écoute.", "Oui ? Dis-moi tout.",
+                "Me voilà ! Je t'écoute.", "Oui, que puis-je faire pour toi ?", "Je suis tout ouïe !"]
 # humour 3 (farceur)
 WAKE_REPLIES_FUNNY = ["Présent, chef ! Batteries chargées !", "Kamil à l'écoute, antennes déployées !",
                       "Oui ? J'étais en train de compter mes vis.", "Me voilà ! Je ne dormais pas, promis.",
@@ -479,7 +481,7 @@ class Listener:
         if found:
             if not rest:
                 self._show_heard(heard)
-                delay = float(self.cfg.get("wake_reply_delay_s", 5))
+                delay = float(self.cfg.get("wake_reply_delay_s", 0))
                 if delay > 0:
                     # « Kamil… » puis une pause pour réfléchir : il écoute en silence ; « Oui ? » seulement
                     # si rien ne vient pendant ce temps (avant, il répondait tout de suite et coupait la parole)
@@ -487,8 +489,10 @@ class Listener:
                     self.awake_until = now + delay + self.cfg["wake_window_s"]
                     self.status("awake")
                     return
-                self.awake_until = now + self.cfg["wake_window_s"]
                 self.say(self._wake_reply())
+                # la fenêtre d'écoute commence quand il a fini de parler (avant : elle s'écoulait pendant
+                # sa réponse et il restait trop peu de temps pour lui parler)
+                self.awake_until = max(time.monotonic(), self.mute_until) + self.cfg["wake_window_s"]
                 self.status("awake")
                 return
             text = rest

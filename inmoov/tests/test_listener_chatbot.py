@@ -97,9 +97,11 @@ class ChatbotTest(unittest.TestCase):
     def test_wake_word_removed_when_already_awake(self):
         tts = FakeTts()
         lst = listener(tts, wake_words=["kamil", "robot"])
-        lst.cfg["wake_reply_delay_s"] = 0                        # ancien réglage : « Oui ? » tout de suite
         lst.handle("Kamil.")
-        self.assertEqual(len(tts.said), 1)                       # réponse courte (« Présent ! »…)
+        self.assertEqual(len(tts.said), 1)                       # réponse courte qui invite à parler
+        self.assertIn(tts.said[0], speech_listener.WAKE_REPLIES)
+        # il écoute à partir de la fin de sa réponse, pas pendant qu'il parle
+        self.assertGreaterEqual(lst.awake_until, lst.mute_until + lst.cfg["wake_window_s"] - 0.01)
         lst.handle("Kamil, ce que tu dis est bizarre")
         self.assertEqual(lst.mrl.calls[-1], ("i01.chatBot", "getResponse", "ce que tu dis est bizarre"))
         lst.awake_until = 0.0  # fenêtre de suite écoulée
@@ -110,6 +112,7 @@ class ChatbotTest(unittest.TestCase):
         tts = FakeTts()
         lst = listener(tts, wake_words=["kamil"])
         lst.segmenter = types.SimpleNamespace(triggered=False, reset=lambda: None)
+        lst.cfg["wake_reply_delay_s"] = 5                        # réglage « écoute silencieuse »
         lst.handle("Kamil…")
         self.assertEqual(tts.said, [])                           # il écoute en silence : on a le temps de parler
         lst._maybe_react()

@@ -217,9 +217,9 @@
       "inmoov",
       "robot"
     ],
-    "wake_window_s": 8,
-    "_wake_reply_delay_aide": "Après « Kamil » seul : secondes d'écoute silencieuse avant de répondre « Oui ? » (le temps de formuler sa phrase). 0 = « Oui ? » tout de suite.",
-    "wake_reply_delay_s": 5,
+    "wake_window_s": 12,
+    "_wake_reply_delay_aide": "Après « Kamil » seul : 0 = il répond tout de suite (« Oui, je t'écoute ! ») puis écoute wake_window_s secondes à partir de la fin de sa réponse ; > 0 = il écoute d'abord en silence ce nombre de secondes (déconseillé avec la télé allumée).",
+    "wake_reply_delay_s": 0,
     "_follow_up_aide": "Après chaque réponse du robot, on peut continuer la conversation sans redire le mot de réveil pendant follow_up_s secondes (0 = toujours le redire).",
     "follow_up_s": 15,
     "follow_up_question_s": 25,
