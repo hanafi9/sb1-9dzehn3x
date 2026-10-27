@@ -353,6 +353,29 @@ DEVICE_TOOL = {
 }
 
 
+def message_tool(names):
+    """Envoyer un message (notification) sur le téléphone d'un proche, par Home Assistant."""
+    return {
+        "name": "send_message",
+        "description": (
+            "Envoyer un message écrit sur le téléphone de quelqu'un de la maison (notification). "
+            "À utiliser quand on te demande « envoie à …, préviens …, dis à … sur son téléphone ». "
+            "Écris le message comme la personne l'a demandé, court, et précise de qui il vient si utile "
+            "(ex. « De la part d'Hanafi : je rentre dans 10 minutes »). Personnes : " + ", ".join(names) + "."
+        ),
+        "strict": True,
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "person": {"type": "string", "enum": list(names)},
+                "message": {"type": "string", "description": "le texte du message"},
+            },
+            "required": ["person", "message"],
+            "additionalProperties": False,
+        },
+    }
+
+
 WATCH_TOOL = {
     "name": "surveillance",
     "description": (
@@ -394,6 +417,9 @@ def build_tools(cfg, memory, mind=None):
         tools.append(HOME_TOOL)
         if cfg["home_assistant"].get("direct_control", True):
             tools.append(DEVICE_TOOL)
+        contacts = cfg["home_assistant"].get("contacts") or {}
+        if contacts:
+            tools.append(message_tool(sorted(contacts)))
     if (cfg.get("watch") or {}).get("enabled"):
         tools.append(WATCH_TOOL)
     return tools
@@ -698,8 +724,9 @@ class ClaudeBrain:
         try:
             owner = getattr(self, "owner", None)
             restricted = getattr(self, "restricted_tools", ())
-            # la commande directe de la maison suit la même règle que home_assistant
-            if ((block.name in restricted or (block.name == "home_device" and "home_assistant" in restricted))
+            # la commande directe de la maison et les messages suivent la même règle que home_assistant
+            if ((block.name in restricted or (block.name in ("home_device", "send_message")
+                                              and "home_assistant" in restricted))
                     and owner
                     and getattr(self, "current_speaker", None) != owner):
                 ok, message = False, "action réservée à %s (sa voix n'a pas été reconnue)" % owner
@@ -753,6 +780,20 @@ class ClaudeBrain:
             return self._surveillance(args)
         if name == "home_assistant" and self.home is not None:
             return self.home.ask(str(args["command"])[:200])
+        if name == "send_message" and self.home is not None:
+            contacts = (self.cfg.get("home_assistant") or {}).get("contacts") or {}
+            person = str(args["person"])
+            service = contacts.get(person) or next((v for k, v in contacts.items() if k.lower() == person.lower()), "")
+            text = str(args["message"]).strip()[:500]
+            if "." not in service:
+                return False, "je n'ai pas le téléphone de %s" % person
+            if not text:
+                return False, "message vide"
+            ok, said = self.home.call_service(*service.split(".", 1), {
+                "title": "💬 %s" % self.cfg.get("robot_name", "Kamil"), "message": text,
+                "data": {"priority": "high", "ttl": 0}})
+            log.info("Message pour %s (%s) : %s -> %s", person, service, text, said)
+            return (True, "message envoyé à %s" % person) if ok else (False, "message non envoyé : %s" % said)
         if name == "home_device" and self.home is not None:
             entity = str(args["entity_id"]).strip()
             if args["action"] == "chercher":

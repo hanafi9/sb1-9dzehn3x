@@ -138,6 +138,22 @@ class BrainTest(unittest.TestCase):
             self.assertFalse(t["input_schema"]["additionalProperties"])
 
 
+    def test_send_message_to_a_phone(self):
+        import types
+        cfg = dict(self.cfg, home_assistant={"enabled": True, "url": "http://ha",
+                                             "contacts": {"Nadia": "notify.mobile_app_nadia"}})
+        tools = build_tools(cfg, MemoryStore("/tmp/nexiste-pas.json"))
+        tool = next(t for t in tools if t["name"] == "send_message")
+        self.assertEqual(tool["input_schema"]["properties"]["person"]["enum"], ["Nadia"])
+        b = object.__new__(ClaudeBrain)
+        b.cfg = cfg
+        sent = []
+        b.home = types.SimpleNamespace(call_service=lambda d, n, data: sent.append((d, n, data["message"])) or (True, "ok"))
+        self.assertEqual(b._run_tool("send_message", {"person": "nadia", "message": "Je rentre dans 10 minutes"}),
+                         (True, "message envoyé à nadia"))
+        self.assertEqual(sent, [("notify", "mobile_app_nadia", "Je rentre dans 10 minutes")])
+        self.assertFalse(b._run_tool("send_message", {"person": "Paul", "message": "Coucou"})[0])
+
     def test_home_notes_in_system_prompt(self):
         cfg = dict(self.cfg, home_assistant={"enabled": True, "url": "http://ha",
                                              "notes": ["Ampli Denon : allumer = script.denon_on", " "]})

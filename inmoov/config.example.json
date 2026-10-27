@@ -95,6 +95,8 @@
       "app_aliases": {},
       "_notes_aide": "Notes pour Kamil sur les appareils particuliers, ex. \"Ampli Denon (infrarouge) : allumer = script.denon_on, éteindre = script.denon_off, volume = script.denon_vol_up / script.denon_vol_down\".",
       "notes": [],
+      "_contacts_aide": "Messages sur les téléphones (« Kamil, envoie à Nadia : je rentre ») : prénom -> service notify de Home Assistant, ex. {\"Nadia\": \"notify.mobile_app_nadia\"}.",
+      "contacts": {},
       "_app_search_aide": "Recherche dans une application (« Kamil, mets beIN Sports sur IPRO2 ») : touches pour atteindre le champ de recherche après l'ouverture, ex. {\"IPRO2\": {\"wait_s\": 6, \"keys\": \"recherche\", \"after\": \"entree\"}} ; ou {\"activity\": \".SearchActivity\"} si l'application a un écran de recherche Android.",
       "app_search": {},
       "verify_ssl": true,
