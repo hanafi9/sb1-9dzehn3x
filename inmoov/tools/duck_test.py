@@ -34,14 +34,26 @@ def main():
     token = read_env_file(os.path.join(ROOT, "anthropic.env")).get("HOME_ASSISTANT_TOKEN", "")
     home = HomeAssistant(ha["url"], token, verify_ssl=ha.get("verify_ssl", True), ca_file=ha.get("ca_file"),
                          timeout=20)
+    count = {"n": 0}
+    call = home.call_service
+
+    def call_shown(domain, service, data):          # affiche chaque appui : on voit que ça avance
+        count["n"] += 1
+        ok, said = call(domain, service, data)
+        print("  appui %d : %s.%s %s" % (count["n"], domain, service, "ok" if ok else said), flush=True)
+        return ok, said
+    home.call_service = call_shown
     print("Réglage :", json.dumps(devices, ensure_ascii=False))
-    input("Note la valeur de l'ampli, puis Entrée pour baisser…")
+    print("Note la valeur de l'ampli, puis appuie sur Entrée pour baisser (Ctrl+C pour arrêter)…", flush=True)
+    with open("/dev/tty") as tty:                  # marche aussi quand la commande est collée avec d'autres
+        tty.readline()
     d = Ducker(home, devices)
     t = time.time()
     d.duck(wait=True)
     print("Baissé en %.1f s. Remise dans %g s…" % (time.time() - t, wait))
     time.sleep(wait)
     t = time.time()
+    count["n"] = 0
     d.restore(wait=True)
     print("Remis en %.1f s. L'ampli doit afficher la même valeur qu'au départ." % (time.time() - t))
 
