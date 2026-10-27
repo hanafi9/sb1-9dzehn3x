@@ -783,17 +783,25 @@ class ClaudeBrain:
         if name == "send_message" and self.home is not None:
             contacts = (self.cfg.get("home_assistant") or {}).get("contacts") or {}
             person = str(args["person"])
-            service = contacts.get(person) or next((v for k, v in contacts.items() if k.lower() == person.lower()), "")
+            services = contacts.get(person) or next((v for k, v in contacts.items() if k.lower() == person.lower()), "")
+            # un prénom peut avoir plusieurs téléphones : le message part sur chacun
+            services = [s for s in ([services] if isinstance(services, str) else services) if "." in str(s)]
             text = str(args["message"]).strip()[:500]
-            if "." not in service:
+            if not services:
                 return False, "je n'ai pas le téléphone de %s" % person
             if not text:
                 return False, "message vide"
-            ok, said = self.home.call_service(*service.split(".", 1), {
-                "title": "💬 %s" % self.cfg.get("robot_name", "Kamil"), "message": text,
-                "data": {"priority": "high", "ttl": 0}})
-            log.info("Message pour %s (%s) : %s -> %s", person, service, text, said)
-            return (True, "message envoyé à %s" % person) if ok else (False, "message non envoyé : %s" % said)
+            sent, failed = [], []
+            for service in services:
+                ok, said = self.home.call_service(*service.split(".", 1), {
+                    "title": "💬 %s" % self.cfg.get("robot_name", "Kamil"), "message": text,
+                    "data": {"priority": "high", "ttl": 0}})
+                log.info("Message pour %s (%s) : %s -> %s", person, service, text, said)
+                (sent if ok else failed).append(service if ok else "%s (%s)" % (service, said))
+            if not sent:
+                return False, "message non envoyé : %s" % ", ".join(failed)
+            return True, "message envoyé à %s (%d téléphone%s)%s" % (
+                person, len(sent), "s" if len(sent) > 1 else "", "" if not failed else " ; échec : " + ", ".join(failed))
         if name == "home_device" and self.home is not None:
             entity = str(args["entity_id"]).strip()
             if args["action"] == "chercher":
