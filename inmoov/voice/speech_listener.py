@@ -132,6 +132,13 @@ class Listener:
                                      say_async=self.say_async if self.pipeline else None,
                                      wait_speech=self.wait_speech if self.pipeline else None)
             log.info("IA conversationnelle : Claude (%s)", brain_cfg["model"])
+            duck_cfg = (brain_cfg.get("home_assistant") or {}).get("duck") or []
+            if duck_cfg and self.brain.home is not None:
+                from ducking import Ducker
+
+                # « Kamil » : le son de la télé baisse pendant la conversation, puis revient
+                self.ducker = Ducker(self.brain.home, duck_cfg)
+                log.info("Son de la télé baissé pendant les conversations : %d appareil(s)", len(self.ducker.devices))
             spk = cfg.get("speaker_id") or {}
             if spk.get("owner") and spk.get("owner_only_tools"):
                 # mouvements réservés à une voix (ex. move_head, hand, gesture)
@@ -478,6 +485,9 @@ class Listener:
             return
         heard = text
         self._wake_reply_at = None          # une vraie phrase arrive : pas de « Oui ? » en retard
+        if found and getattr(self, "ducker", None) is not None:
+            self.ducker.duck()              # on lui parle : la télé baisse
+            self._ducked_at = now
         if found:
             if not rest:
                 self._show_heard(heard)
@@ -663,6 +673,13 @@ class Listener:
                     self.ha.publish("alerte", "%s : %s" % (time.strftime("%H:%M:%S"), alert))
         if self.segmenter.triggered:
             return   # quelqu'un est en train de parler : on ne lui coupe pas la parole
+        ducker = getattr(self, "ducker", None)
+        if ducker is not None and ducker.ducked:
+            # conversation finie (plus d'écoute, plus de parole depuis 2 s), ou au plus 3 min : le son revient
+            now = time.monotonic()
+            idle = now > max(self.awake_until, self.mute_until) + 2 and not getattr(self, "_playing", False)
+            if idle or now - getattr(self, "_ducked_at", now) > 180:
+                ducker.restore()
         reply_at = getattr(self, "_wake_reply_at", None)
         if reply_at is not None and time.monotonic() >= reply_at:
             # « Kamil » seul, puis rien pendant le délai : il montre qu'il écoute
