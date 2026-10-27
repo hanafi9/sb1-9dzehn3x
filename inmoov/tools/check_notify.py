@@ -54,11 +54,16 @@ def main():
         print("   Home Assistant a répondu %d : %s" % (e.code, e.read().decode("utf-8", "replace")[:200]))
     time.sleep(4)
     print("3. Lignes du journal de Home Assistant pour ce téléphone :\n")
-    try:
-        log = call("/api/error_log", raw=True)
-    except urllib.error.HTTPError as e:
-        log = ""
-        print("   journal illisible (%d) : il faut un compte administrateur pour le jeton" % e.code)
+    log = ""
+    # /api/error_log (Home Assistant classique) ; sinon les journaux du cœur par le Supervisor (HAOS)
+    for path in ("/api/error_log", "/api/hassio/core/logs", "/api/hassio/core/logs/latest"):
+        try:
+            log = call(path, raw=True)
+            print("   (journal lu par %s)" % path)
+            break
+        except urllib.error.HTTPError as e:
+            print("   %s : %d %s" % (path, e.code, "(jeton non administrateur ?)" if e.code in (401, 403)
+                                     else "(absent sur cette installation)"))
     lines = log.splitlines()
     shown = 0
     for i, line in enumerate(lines):
