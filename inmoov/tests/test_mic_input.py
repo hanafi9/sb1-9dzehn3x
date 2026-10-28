@@ -72,5 +72,16 @@ class ResamplerTest(unittest.TestCase):
         self.assertTrue(all(len(f) == 960 for f in frames))   # trames de 30 ms à 16 kHz, comme avant
 
 
+class PlayerCommandTest(unittest.TestCase):
+    def test_output_device(self):
+        try:
+            from speech_listener import player_command
+        except ImportError:
+            self.skipTest("speech_listener indisponible")
+        self.assertEqual(player_command(None), ("aplay", "-q"))
+        self.assertEqual(player_command("Communicator"), ("aplay", "-q", "-D", "plughw:CARD=Communicator,DEV=0"))
+        self.assertEqual(player_command("plughw:2,0"), ("aplay", "-q", "-D", "plughw:2,0"))
+
+
 if __name__ == "__main__":
     unittest.main()

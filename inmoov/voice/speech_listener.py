@@ -65,6 +65,16 @@ LED_COLORS = {
 }
 
 
+def player_command(output_device=None):
+    """Commande de lecture du son. output_device : null = sortie par défaut ; un nom de carte
+    (« Communicator », vu dans aplay -l) ; ou un nom ALSA complet (« plughw:CARD=Communicator,DEV=0 »).
+    plughw convertit fréquence et voies : un haut-parleur USB 48 kHz stéréo (Polycom) accepte la voix 22 kHz."""
+    if not output_device:
+        return ("aplay", "-q")
+    device = output_device if ":" in output_device or output_device in ("default", "pulse") \
+        else "plughw:CARD=%s,DEV=0" % output_device
+    return ("aplay", "-q", "-D", device)
+
 class Listener:
     def __init__(self, cfg, mrl, dry_run=False, brain_cfg=None, local_cfg=None, leds_cfg=None, mqtt_cfg=None):
         self.cfg = cfg
@@ -77,13 +87,15 @@ class Listener:
         if cfg.get("tts") == "piper":
             from tts_piper import PiperSpeaker, SpeechPipeline  # importé seulement si utilisé
 
+            player = player_command(cfg.get("output_device"))
             self.tts = PiperSpeaker(cfg["piper_model"], length_scale=cfg.get("piper_length_scale"),
-                                    speaker_id=cfg.get("piper_speaker_id"), pitch=cfg.get("piper_pitch"))
+                                    speaker_id=cfg.get("piper_speaker_id"), pitch=cfg.get("piper_pitch"),
+                                    player=player)
             if (cfg.get("cloud_tts") or {}).get("enabled"):
                 from tts_cloud import CloudSpeaker
 
                 # voix en ligne plus naturelle ; Piper reste là si Internet manque
-                self.tts = CloudSpeaker(cfg["cloud_tts"], fallback=self.tts)
+                self.tts = CloudSpeaker(cfg["cloud_tts"], fallback=self.tts, player=player)
                 log.info("Voix en ligne : %s, voix « %s » (Piper en secours)", self.tts.model, self.tts.voice)
             if not dry_run:
                 # phrase par phrase : le robot parle pendant que Claude écrit la suite
