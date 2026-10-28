@@ -138,6 +138,16 @@ class CloudSTTTest(unittest.TestCase):
         lst.awake_until = speech_listener.time.monotonic() + 10                        # conversation en cours
         lst.transcribe(pcm)
         self.assertEqual(len(sent), 2)
+        # télé forte : Whisper prend « Kamil » pour du silence ; il part quand même en ligne
+        lst.awake_until, noise = 0.0, []
+        lst.model = types.SimpleNamespace(transcribe=lambda audio, **kw: ([types.SimpleNamespace(
+            text=noise[0], avg_logprob=-0.4, no_speech_prob=0.8)], None))
+        noise.append("Kamil, quelle heure")
+        self.assertEqual(lst.transcribe(pcm), "Kamil, quelle heure est-il ?")
+        self.assertEqual(len(sent), 3)
+        noise[0] = "les informations"                                                 # vrai bruit : reste sur le Pi
+        self.assertEqual(lst.transcribe(pcm), "")
+        self.assertEqual(len(sent), 3)
 
 
 if __name__ == "__main__":

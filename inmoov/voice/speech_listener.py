@@ -291,9 +291,14 @@ class Listener:
                 log.info("(repérage du mot de réveil sur le Pi : %.1f s pour %.1f s de son)",
                          time.monotonic() - t0, len(audio) / float(SAMPLE_RATE))
                 heard = (local[0] + " " + local[2]).strip()
-                if not (strip_wake_word(heard, self.cfg["wake_words"])[0]
-                        or find_wake_word_anywhere(heard, self.cfg["wake_words"], threshold=0.75) is not None):
+                # la télé fait souvent juger « Kamil » comme du silence par Whisper : on le cherche aussi là
+                silence = getattr(self, "_silence_text", "").strip()
+                if not any(strip_wake_word(h, self.cfg["wake_words"])[0]
+                           or find_wake_word_anywhere(h, self.cfg["wake_words"], threshold=0.75) is not None
+                           for h in (heard, silence) if h):
                     return local[0]
+                if silence and not heard:
+                    log.info("(« Kamil » repéré dans un passage pris pour du silence : « %s » → en ligne)", silence)
             try:
                 return self.cloud.transcribe(audio)
             except CloudError as e:
@@ -337,9 +342,11 @@ class Listener:
             vad_filter=False,  # déjà fait par WebRTC VAD
         )
         parts, weighted, total, doubtful = [], 0.0, 0, ""
+        self._silence_text = ""
         for seg in segments:
             if seg.no_speech_prob > self.cfg["max_no_speech_prob"]:
                 log.debug("ignoré (no_speech %.2f) : %s", seg.no_speech_prob, seg.text)
+                self._silence_text += " " + seg.text.strip()   # gardé pour repérer « Kamil » sous la télé
                 continue
             if seg.avg_logprob < self.cfg["min_avg_logprob"]:
                 log.debug("ignoré (confiance %.2f) : %s", seg.avg_logprob, seg.text)
