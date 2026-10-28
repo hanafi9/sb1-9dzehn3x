@@ -127,6 +127,18 @@ def strip_wake_word(text, wake_words, threshold=0.75):
     return False, text.strip()
 
 
+def whisper_hint(cfg):
+    """(initial_prompt, hotwords) pour Whisper. Avec wake_hint : le mot de réveil (« Kamil ») est
+    donné à Whisper comme mot attendu, pour qu'il l'écrive « Kamil » au lieu de « Camille », « Kamel »…
+    ou de ne rien écrire du tout quand la télé couvre la voix."""
+    prompt = cfg.get("vocabulary") or None
+    words = cfg.get("wake_words") or []
+    if not cfg.get("wake_hint") or not words:
+        return prompt, None
+    name = words[0].strip().capitalize()
+    return ("%s, %s" % (name, prompt) if prompt else name + "."), name
+
+
 def match_command(text, commands, threshold=0.8):
     """Trouve la commande locale la plus proche du texte reconnu.
 

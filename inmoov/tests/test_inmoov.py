@@ -15,7 +15,8 @@ sys.path[:0] = [ROOT, os.path.join(ROOT, "vision"), os.path.join(ROOT, "voice")]
 
 from mrl_client import AsyncMrlClient, MrlClient, load_config  # noqa: E402
 from segmenter import UtteranceSegmenter  # noqa: E402
-from text_utils import find_wake_word_anywhere, is_hallucination, match_command, normalize, strip_wake_word  # noqa: E402
+from text_utils import (find_wake_word_anywhere, is_hallucination, match_command, normalize,  # noqa: E402
+                        strip_wake_word, whisper_hint)
 from tracking import AxisController, normalized_error, pick_target  # noqa: E402
 
 AXIS = {"min": 30, "max": 150, "rest": 90, "gain": 12.0, "deadband": 0.08, "max_step": 4.0, "invert": False}
@@ -147,6 +148,19 @@ class TextTest(unittest.TestCase):
             self.assertTrue(is_short_noise(noise), noise)
         for answer in ("Oui", "non merci", "Ok", "en bas", "3", "D'accord !", "le roi lion est un film génial"):
             self.assertFalse(is_short_noise(answer), answer)
+
+
+class WakeHintTest(unittest.TestCase):
+    def test_hint_only_when_asked(self):
+        cfg = {"wake_words": ["kamil", "camille"], "vocabulary": "bonjour, lustre"}
+        self.assertEqual(whisper_hint(cfg), ("bonjour, lustre", None))          # comme avant
+        self.assertEqual(whisper_hint(dict(cfg, wake_hint=True)), ("Kamil, bonjour, lustre", "Kamil"))
+        self.assertEqual(whisper_hint({"wake_words": ["kamil"], "wake_hint": True}), ("Kamil.", "Kamil"))
+
+    def test_kamil_spellings(self):
+        for heard in ("Kamil, allume le lustre", "Kamel, allume", "Camil allume", "Kamille allume", "Ka mille, allume",
+                      "Hey Kamil, la météo", "Est-ce que Kamil tu peux", "Camille, allume"):
+            self.assertTrue(strip_wake_word(heard, ["kamil", "camille"])[0], heard)
 
 
 class FakeMrl(BaseHTTPRequestHandler):

@@ -36,7 +36,7 @@ from audio_gain import amplify_pcm16, normalize_peak  # noqa: E402
 from mrl_client import MrlClient, load_config  # noqa: E402
 from segmenter import UtteranceSegmenter  # noqa: E402
 from text_utils import (clean_chatbot_reply, find_wake_word_anywhere, is_hallucination, is_short_noise,  # noqa: E402
-                        match_command, strip_wake_word)
+                        match_command, strip_wake_word, whisper_hint)
 
 log = logging.getLogger("voice")
 
@@ -206,6 +206,8 @@ class Listener:
             from cloud_stt import CloudTranscriber
 
             self.cloud = CloudTranscriber(cfg["cloud_stt"])
+            if whisper_hint(cfg)[1] and not self.cloud.prompt:
+                self.cloud.prompt = whisper_hint(cfg)[0]     # le service en ligne aussi attend « Kamil »
             log.info("Reconnaissance vocale en ligne : %s (%s), Whisper du Pi en secours",
                      cfg["cloud_stt"].get("provider", "groq"), self.cloud.model)
             screen = cfg["cloud_stt"].get("screen_model")
@@ -317,11 +319,13 @@ class Listener:
     def _whisper(self, model, audio, beam_size):
         """Renvoie (texte, confiance moyenne, texte écarté car trop incertain) ;
         confiance = log-probabilité moyenne, 0 = certain, -1 = très incertain."""
+        prompt, hint = whisper_hint(self.cfg)
         segments, _ = model.transcribe(
             audio,
             language=self.cfg["language"],
             beam_size=beam_size,
-            initial_prompt=self.cfg.get("vocabulary") or None,
+            initial_prompt=prompt,
+            **({"hotwords": hint} if hint else {}),
             condition_on_previous_text=False,
             # un seul essai : les nouveaux essais « à température » de Whisper sur du bruit
             # prenaient jusqu'à 55 s, pendant lesquelles le robot n'entendait plus rien
