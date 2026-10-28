@@ -592,14 +592,8 @@ class Listener:
 
     # --- boucle principale -------------------------------------------------
     def run(self):
-        with sd.RawInputStream(
-            samplerate=SAMPLE_RATE,
-            blocksize=FRAME_SAMPLES,
-            dtype="int16",
-            channels=1,
-            device=self.cfg.get("input_device"),
-            callback=self._on_audio,
-        ):
+        from mic_input import open_mic     # 48 kHz / stéréo (Polycom…) converti en 16 kHz mono
+        with open_mic(sd, self.cfg.get("input_device"), self._on_audio, SAMPLE_RATE, FRAME_SAMPLES):
             log.info("À l'écoute. Dites « %s » puis votre phrase.", " / ".join(self.cfg["wake_words"]) or "...")
             while True:
                 frame = self.frames.get()

@@ -6,10 +6,11 @@
 
 Arrêter la voix de Kamil avant (le micro ne sert qu'à un programme à la fois).
 Le nom donné peut être un morceau du nom du micro. S'il refuse le 16 kHz, l'essai passe
-par « pulse » puis « default » (le système convertit le son).
+par « pulse » puis « default » ; Kamil sait aussi convertir lui-même du 48 kHz (Polycom).
 """
 
 import json
+import logging
 import os
 import sys
 import time
@@ -18,6 +19,8 @@ import numpy as np
 import sounddevice as sd
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+sys.path.insert(0, os.path.join(ROOT, "voice"))
+from mic_input import open_mic  # noqa: E402  (même ouverture que Kamil : 48 kHz converti en 16 kHz)
 RATE, FRAME = 16000, 480
 
 
@@ -26,7 +29,7 @@ def listen(device, seconds=5):
 
     def cb(data, frames, t, status):
         peaks.append(int(np.abs(np.frombuffer(data, dtype=np.int16)).max()))
-    with sd.RawInputStream(samplerate=RATE, blocksize=FRAME, dtype="int16", channels=1, device=device, callback=cb):
+    with open_mic(sd, device, cb, RATE, FRAME):
         print("  Parle normalement depuis ta place habituelle…", flush=True)
         end = time.time() + seconds
         while time.time() < end:
@@ -37,6 +40,7 @@ def listen(device, seconds=5):
 
 
 def main():
+    logging.basicConfig(level=logging.INFO, format="  %(message)s")
     name = next((a for a in sys.argv[1:] if not a.startswith("--")), None)
     print("Micros vus par Kamil :")
     for i, d in enumerate(sd.query_devices()):
