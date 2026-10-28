@@ -83,5 +83,24 @@ class PlayerCommandTest(unittest.TestCase):
         self.assertEqual(player_command("plughw:2,0"), ("aplay", "-q", "-D", "plughw:2,0"))
 
 
+@unittest.skipIf(np is None, "numpy absent")
+class LouderTest(unittest.TestCase):
+    def test_louder_without_clipping(self):
+        import tempfile
+        import wave
+        from tts_piper import louder
+        path = tempfile.mktemp(suffix=".wav")
+        with wave.open(path, "wb") as w:
+            w.setnchannels(1), w.setsampwidth(2), w.setframerate(22050)
+            w.writeframes(tone(300, 22050, 0.5, amp=6000))
+        louder(path, 3)
+        with wave.open(path, "rb") as w:
+            y = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16).astype(float)
+        os.remove(path)
+        self.assertEqual(len(y), 11025)
+        self.assertGreater(np.abs(y).mean(), 2.5 * 6000 * 0.637)      # bien plus fort en moyenne
+        self.assertLessEqual(np.abs(y).max(), 32767 * 0.98)            # sans saturer
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -155,6 +155,8 @@
   "voice": {
     "input_device": null,
     "output_device": null,
+    "output_gain": 1,
+    "_output_gain_aide": "Voix de Kamil trop faible même avec le volume au maximum (amixer, boutons du haut-parleur) : output_gain 2 à 4 la rend plus forte, avec un limiteur qui évite de grésiller ; 1 = voix d'origine.",
     "_output_device_aide": "Haut-parleur de Kamil : null = sortie par défaut ; sinon le nom de la carte vu dans « aplay -l » (ex. \"Communicator\" pour un Polycom) ou un nom ALSA complet (\"plughw:CARD=Communicator,DEV=0\"). Essai : aplay -D plughw:CARD=Communicator,DEV=0 /usr/share/sounds/alsa/Front_Center.wav",
     "tts": "mrl",
     "_tts_aide": "\"mrl\" = voix de MyRobotLab ; \"piper\" = voix française hors ligne (voir README)",

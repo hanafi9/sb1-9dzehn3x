@@ -23,13 +23,15 @@ log = logging.getLogger("piper")
 
 
 class PiperSpeaker:
-    def __init__(self, model_path, player=("aplay", "-q"), length_scale=None, speaker_id=None, pitch=None):
+    def __init__(self, model_path, player=("aplay", "-q"), length_scale=None, speaker_id=None, pitch=None,
+                 gain=None):
         from piper import PiperVoice  # importé seulement si cette voix est choisie
 
         if not os.path.isfile(model_path):
             raise FileNotFoundError("voix Piper introuvable : %s" % model_path)
         self.voice = PiperVoice.load(model_path)
         self.player = list(player)
+        self.gain = float(gain or 1.0)  # > 1 : voix plus forte (petit haut-parleur, ex. Polycom)
         self.syn_config = None
         # pitch > 1 : voix plus aiguë, plus douce (son joué plus vite, compensé en faisant parler Piper
         # plus lentement : même vitesse de parole), comme la voix en ligne
@@ -55,6 +57,8 @@ class PiperSpeaker:
                     self.voice.synthesize_wav(text, wav, syn_config=self.syn_config)
                 if getattr(self, "pitch", 1.0) != 1.0:
                     _repitch(path, self.pitch)
+                if getattr(self, "gain", 1.0) != 1.0:
+                    louder(path, self.gain)
                 if len(text) <= 60:
                     with open(path, "rb") as f:
                         self.cache[text] = f.read()
@@ -101,6 +105,26 @@ def _repitch(path, pitch):
         w.setsampwidth(params.sampwidth)
         w.setframerate(int(round(params.framerate * pitch)))
         w.writeframes(frames)
+
+
+def louder(path, gain):
+    """Voix plus forte sans grésiller : son ramené au maximum, puis amplifié avec un limiteur doux
+    (tanh) qui arrondit les crêtes au lieu de les couper."""
+    import numpy as np
+
+    with wave.open(path, "rb") as w:
+        params, frames = w.getparams(), w.readframes(w.getnframes())
+    if params.sampwidth != 2 or not frames:
+        return
+    x = np.frombuffer(frames, dtype=np.int16).astype(np.float32) / 32768.0
+    peak = float(np.abs(x).max())
+    if peak < 1e-4:
+        return
+    g = max(float(gain), 1.0)
+    y = np.tanh(g * x / peak) / np.tanh(g) * 0.97
+    with wave.open(path, "wb") as w:
+        w.setparams(params)
+        w.writeframes((y * 32767).astype(np.int16).tobytes())
 
 
 def _remove(path):

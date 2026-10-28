@@ -90,7 +90,7 @@ class Listener:
             player = player_command(cfg.get("output_device"))
             self.tts = PiperSpeaker(cfg["piper_model"], length_scale=cfg.get("piper_length_scale"),
                                     speaker_id=cfg.get("piper_speaker_id"), pitch=cfg.get("piper_pitch"),
-                                    player=player)
+                                    player=player, gain=cfg.get("output_gain"))
             if (cfg.get("cloud_tts") or {}).get("enabled"):
                 from tts_cloud import CloudSpeaker
 

@@ -47,6 +47,7 @@ class CloudSpeaker:
         self.timeout = float(cfg.get("timeout_s", 8))
         self.fallback = fallback
         self.player = list(player)
+        self.gain = float(getattr(fallback, "gain", 1.0) or 1.0)   # même volume que Piper
         self.lock = threading.Lock()
         self.cache = {}
         # après une panne, Piper garde la parole un moment : sinon les deux voix alternent d'une phrase à l'autre
@@ -108,6 +109,10 @@ class CloudSpeaker:
             w.setsampwidth(2)
             w.setframerate(int(self.rate * self.pitch))
             w.writeframes(pcm[: len(pcm) // 2 * 2])
+        if self.gain != 1.0:
+            from tts_piper import louder
+
+            louder(path, self.gain)
         return path, len(pcm) / 2.0 / (self.rate * self.pitch)
 
     def play(self, path, duration):
