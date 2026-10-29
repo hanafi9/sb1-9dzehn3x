@@ -33,6 +33,10 @@
       "max_step": 3.0,
       "invert": true
     },
+    "_faces_aide": "Filtre des visages (vision/faces.py) : confirm_frames = images de suite avant de croire à un nouveau visage (moins de fausses détections) ; keep_frames = images où un visage suivi peut manquer sans être perdu ; keep_threshold = score suffisant pour un visage déjà suivi ; min_size = hauteur mini d'un visage (fraction de l'image, 0.04 ≈ 3-4 m) ; smooth = lissage du cadre (0 = aucun, 0.7 = très doux).",
+    "faces": {"confirm_frames": 2, "keep_frames": 3, "keep_threshold": 0.45, "min_size": 0.04, "smooth": 0.5},
+    "_motion_aide": "Mouvement (vision/motion.py) : ignore_zones = zones à ignorer pour la caméra 1 (écran de télé, fenêtre…), ignore_zones2 pour la caméra 2, en fraction de l'image [[x0, y0, x1, y1]] (0,0 = haut gauche, 1,1 = bas droite) ; threshold = écart de luminosité d'un pixel (plus haut = moins sensible) ; min_area = taille mini d'un cadre ; light_change = au-delà de cette part de l'image, c'est la lumière qui change, pas un mouvement.",
+    "motion": {"ignore_zones": [], "ignore_zones2": [], "threshold": 25, "min_area": 0.004, "light_change": 0.5},
     "share_frame_path": "/dev/shm/inmoov_frame.jpg",
     "share_frame_period_s": 0.5,
     "_second_camera_aide": "Numéro de la 2e caméra (l'autre œil), affichée dans l'onglet Banc d'essai de l'Atelier. null = pas de 2e caméra.",

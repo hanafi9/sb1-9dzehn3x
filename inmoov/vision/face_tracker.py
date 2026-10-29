@@ -24,6 +24,7 @@ from pycoral.utils.edgetpu import list_edge_tpus, make_interpreter
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 from mrl_client import AsyncMrlClient, load_config  # noqa: E402
+from faces import FaceFilter  # noqa: E402
 from motion import MotionDetector  # noqa: E402
 from tracking import AxisController, normalized_error, person_head_target, pick_target  # noqa: E402
 from scene import summarize_objects, tracking_paused, write_state  # noqa: E402
@@ -156,7 +157,12 @@ def main():
     person_ids = {i for i, name in (obj_labels or {}).items() if name == "person"} if obj_interpreter else set()
     track_person = bool(person_ids) and vcfg.get("track_person", True)
     person_target, person_time, last_person = None, 0.0, 0.0
-    motion0, motion2 = MotionDetector(), MotionDetector()
+    mcfg = vcfg.get("motion") or {}
+    margs = {k: mcfg[k] for k in ("threshold", "min_area", "light_change") if k in mcfg}
+    motion0 = MotionDetector(ignore_zones=mcfg.get("ignore_zones"), **margs)
+    motion2 = MotionDetector(ignore_zones=mcfg.get("ignore_zones2"), **margs)
+    # visages confirmés sur plusieurs images, gardés pendant un clignement, cadre lissé (vision/faces.py)
+    face_filter = FaceFilter(vcfg.get("faces"), vcfg["score_threshold"])
     objects2, moving0, moving2 = [], {"level": 0.0, "boxes": []}, {"level": 0.0, "boxes": []}
     fps_t, fps_n = time.monotonic(), 0
 
@@ -179,7 +185,7 @@ def main():
                 continue
 
             h, w = frame.shape[:2]
-            faces = detect_faces(interpreter, frame, vcfg["score_threshold"])
+            faces = face_filter.update(detect_faces(interpreter, frame, face_filter.detect_threshold), w, h)
             if cam2 is not None:
                 cam2.grab()   # garde l'image de la 2e caméra fraîche (décodée seulement au partage)
             target = pick_target(faces)
