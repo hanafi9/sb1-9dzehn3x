@@ -34,6 +34,18 @@ FRENCH_LABELS = {
 }
 
 
+# Catégories presque impossibles dans une maison : le modèle les « voit » surtout par erreur
+# (un tapis pris pour un zèbre, un meuble pour un éléphant) ; elles demandent un score très élevé.
+UNLIKELY_INDOORS = {
+    "airplane", "bus", "train", "truck", "boat", "traffic light", "fire hydrant", "stop sign",
+    "parking meter", "bench", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe",
+    "skis", "snowboard", "kite", "baseball bat", "baseball glove", "skateboard", "surfboard",
+    "tennis racket", "frisbee", "motorcycle", "car", "hot dog", "pizza", "donut", "broccoli",
+}
+UNLIKELY_MIN_SCORE = 0.8
+MIN_OBJECT_SIZE = 0.002     # cadre plus petit que 0,2 % de l'image : trop peu de pixels pour être sûr
+
+
 def french(label):
     return FRENCH_LABELS.get(label, label)
 
@@ -47,8 +59,11 @@ def side_of(x_center):
     return "au centre"
 
 
-def summarize_objects(objects, labels, width, height, min_score=0.5):
-    """objects : [(id, score, xmin, ymin, xmax, ymax)] en pixels -> liste de dicts triée par score."""
+def summarize_objects(objects, labels, width, height, min_score=0.5, label_min_score=None):
+    """objects : [(id, score, xmin, ymin, xmax, ymax)] en pixels -> liste de dicts triée par score.
+    label_min_score : score minimum propre à une catégorie ({"tv": 0.7, "zebra": 0.95}, noms anglais
+    ou français) ; les catégories improbables dans une maison demandent UNLIKELY_MIN_SCORE."""
+    label_min_score = label_min_score or {}
     out = []
     for class_id, score, x0, y0, x1, y1 in objects:
         if score < min_score:
@@ -56,8 +71,15 @@ def summarize_objects(objects, labels, width, height, min_score=0.5):
         name = labels.get(int(class_id))
         if not name or name == "n/a":
             continue
+        need = label_min_score.get(name, label_min_score.get(french(name)))
+        if need is None and name in UNLIKELY_INDOORS:
+            need = UNLIKELY_MIN_SCORE
+        if need is not None and score < need:
+            continue
         cx = (x0 + x1) / 2.0 / max(width, 1)
         size = max(0.0, (x1 - x0) * (y1 - y0)) / float(max(width * height, 1))
+        if size < MIN_OBJECT_SIZE:
+            continue
         W, H = float(max(width, 1)), float(max(height, 1))
         out.append({"label": french(name), "score": round(float(score), 2),
                     "side": side_of(cx), "size": round(size, 3),
@@ -70,6 +92,18 @@ def summarize_objects(objects, labels, width, height, min_score=0.5):
         if not any(k["label"] == o["label"] and iou(k["box"], o["box"]) > 0.4 for k in kept):
             kept.append(o)
     return kept
+
+
+class ObjectConfirm:
+    """Un objet n'est annoncé que s'il a été vu dans au moins `confirm` des `window` dernières
+    détections : une erreur d'une seule image (un reflet pris pour une bouteille) n'arrive jamais à l'IA."""
+
+    def __init__(self, confirm=2, window=3):
+        self.confirm, self.window, self.history = int(confirm), int(window), []
+
+    def update(self, objects):
+        self.history = (self.history + [{o["label"] for o in objects}])[-self.window:]
+        return [o for o in objects if sum(o["label"] in seen for seen in self.history) >= self.confirm]
 
 
 def iou(a, b):

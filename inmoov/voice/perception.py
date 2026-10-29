@@ -136,7 +136,10 @@ class EnvironmentMemory:
                 visible.sort(key=lambda kv: -kv[1]["count"])
                 seen = ", ".join("%s%s %s" % (label, " ×%d" % o["count"] if o["count"] > 1 else "", o["side"])
                                  for label, o in visible) or "rien de reconnaissable"
-                lines.append("Ce que tu vois en ce moment (Coral) : %s." % seen)
+                # détecteur automatique : il se trompe parfois de nom (meuble pris pour un lit, reflet pour
+                # une bouteille) ; l'IA doit vérifier avec une vraie photo avant d'affirmer
+                lines.append("Ce que tu vois en ce moment (détecteur automatique, approximatif : noms parfois "
+                             "faux) : %s." % seen)
                 faces = int(cur.get("faces") or 0)
                 people = int(cur.get("people") or 0)
                 if faces:

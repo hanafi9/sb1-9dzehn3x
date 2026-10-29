@@ -152,9 +152,9 @@ class BrainTest(unittest.TestCase):
         self.assertEqual(b._run_tool("send_message", {"person": "nadia", "message": "Je rentre dans 10 minutes"}),
                          (True, "message envoyé à nadia (1 téléphone)"))
         self.assertEqual(sent, [("notify", "mobile_app_nadia", "Je rentre dans 10 minutes")])
-        cfg["home_assistant"]["contacts"]["Hanafi"] = ["notify.mobile_app_redmi", "notify.mobile_app_oppo"]
-        self.assertEqual(b._run_tool("send_message", {"person": "Hanafi", "message": "Test"}),
-                         (True, "message envoyé à Hanafi (2 téléphones)"))        # sur ses deux téléphones
+        cfg["home_assistant"]["contacts"]["Sam"] = ["notify.mobile_app_redmi", "notify.mobile_app_oppo"]
+        self.assertEqual(b._run_tool("send_message", {"person": "Sam", "message": "Test"}),
+                         (True, "message envoyé à Sam (2 téléphones)"))        # sur ses deux téléphones
         self.assertEqual([s[1] for s in sent[-2:]], ["mobile_app_redmi", "mobile_app_oppo"])
         self.assertFalse(b._run_tool("send_message", {"person": "Paul", "message": "Coucou"})[0])
 

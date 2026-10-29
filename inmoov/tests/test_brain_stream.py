@@ -116,14 +116,14 @@ class StreamTest(unittest.TestCase):
     def test_speaker_and_owner_only_tools(self):
         b = self.make([
             stream_body([("tool_use", "toolu_1", "move_head", {"rothead": 90, "neck": 90})], "tool_use"),
-            stream_body([("text", ["Désolé, seul Hanafi peut me faire bouger."])], "end_turn"),
+            stream_body([("text", ["Désolé, seul Sam peut me faire bouger."])], "end_turn"),
         ])
-        b.owner, b.restricted_tools = "Hanafi", {"move_head"}
+        b.owner, b.restricted_tools = "Sam", {"move_head"}
         b.ask("tourne la tête", speaker="")
         self.assertEqual(self.requests[0]["messages"][-1]["content"], "[Voix inconnue] tourne la tête")
         result = self.requests[1]["messages"][-1]["content"][0]
         self.assertTrue(result["is_error"])
-        self.assertIn("réservée à Hanafi", result["content"])
+        self.assertIn("réservée à Sam", result["content"])
         self.assertFalse(any(e[0] == "geste" for e in self.events))        # la tête n'a pas bougé
 
     def test_owner_voice_can_move(self):
@@ -131,9 +131,9 @@ class StreamTest(unittest.TestCase):
             stream_body([("tool_use", "toolu_1", "move_head", {"rothead": 90, "neck": 90})], "tool_use"),
             stream_body([("text", ["Voilà !"])], "end_turn"),
         ])
-        b.owner, b.restricted_tools = "Hanafi", {"move_head"}
-        b.ask("tourne la tête", speaker="Hanafi")
-        self.assertEqual(self.requests[0]["messages"][-1]["content"], "[Voix de Hanafi] tourne la tête")
+        b.owner, b.restricted_tools = "Sam", {"move_head"}
+        b.ask("tourne la tête", speaker="Sam")
+        self.assertEqual(self.requests[0]["messages"][-1]["content"], "[Voix de Sam] tourne la tête")
         self.assertTrue(any(e[0] == "geste" for e in self.events))
 
     def test_filler_when_claude_is_slow(self):

@@ -46,24 +46,24 @@ class SpeakerIdTest(unittest.TestCase):
         self.ident = VoiceIdentifier(FakeExtractor(), self.db, threshold=0.8)
 
     def test_enroll_then_recognize(self):
-        self.assertEqual(self.ident.enroll("Hanafi", [voice(120, seed=i) for i in range(3)]), 3)
+        self.assertEqual(self.ident.enroll("Sam", [voice(120, seed=i) for i in range(3)]), 3)
         self.ident.enroll("Rachida", [voice(230, seed=i) for i in range(3)])
-        self.assertEqual(self.ident.identify(voice(121, seed=9))[0], "Hanafi")
+        self.assertEqual(self.ident.identify(voice(121, seed=9))[0], "Sam")
         self.assertEqual(self.ident.identify(voice(232, seed=9))[0], "Rachida")
         name, score = self.ident.identify(voice(600, seed=9))       # voix inconnue
         self.assertIsNone(name)
         self.assertLess(score, 0.8)
 
     def test_saved_and_reloaded(self):
-        self.ident.enroll("Hanafi", [voice(120)])
+        self.ident.enroll("Sam", [voice(120)])
         again = VoiceIdentifier(FakeExtractor(), self.db, threshold=0.8)
-        self.assertEqual(again.names(), ["Hanafi"])
-        self.assertTrue(again.forget("Hanafi"))
+        self.assertEqual(again.names(), ["Sam"])
+        self.assertTrue(again.forget("Sam"))
         self.assertEqual(VoiceIdentifier(FakeExtractor(), self.db).names(), [])
 
     def test_too_short_or_empty(self):
         self.assertEqual(self.ident.identify(voice(120, seconds=0.5)), (None, None))
-        self.assertEqual(self.ident.enroll("Hanafi", [voice(120, seconds=0.3)]), 0)
+        self.assertEqual(self.ident.enroll("Sam", [voice(120, seconds=0.3)]), 0)
         with self.assertRaises(ValueError):
             self.ident.enroll("  ", [voice(120)])
 

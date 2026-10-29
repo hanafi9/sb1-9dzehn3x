@@ -27,7 +27,7 @@ from mrl_client import AsyncMrlClient, load_config  # noqa: E402
 from faces import FaceFilter  # noqa: E402
 from motion import MotionDetector  # noqa: E402
 from tracking import AxisController, normalized_error, person_head_target, pick_target  # noqa: E402
-from scene import summarize_objects, tracking_paused, write_state  # noqa: E402
+from scene import ObjectConfirm, summarize_objects, tracking_paused, write_state  # noqa: E402
 
 log = logging.getLogger("vision")
 
@@ -153,6 +153,10 @@ def main():
     state_path = vcfg.get("state_path")
     pause_path = vcfg.get("pause_path")
     objects, last_objects = [], 0.0
+    # objets confirmés sur plusieurs détections ; score propre à certaines catégories (vision.objects)
+    label_min = ocfg.get("label_min_score") or {}
+    confirm0 = ObjectConfirm(ocfg.get("confirm", 2), ocfg.get("confirm_window", 3))
+    confirm2 = ObjectConfirm(ocfg.get("confirm", 2), ocfg.get("confirm_window", 3))
     # sans visage visible (profil, de dos, tête baissée) : on suit la silhouette détectée par le Coral
     person_ids = {i for i, name in (obj_labels or {}).items() if name == "person"} if obj_interpreter else set()
     track_person = bool(person_ids) and vcfg.get("track_person", True)
@@ -230,7 +234,8 @@ def main():
 
             if obj_interpreter is not None and now - last_objects >= ocfg.get("period_s", 2.0):
                 raw = detect_objects(obj_interpreter, frame, ocfg.get("score_threshold", 0.5))
-                objects = summarize_objects(raw, obj_labels, w, h, ocfg.get("score_threshold", 0.5))
+                objects = confirm0.update(summarize_objects(raw, obj_labels, w, h, ocfg.get("score_threshold", 0.5),
+                                                            label_min))
                 last_objects = now
 
             if share_path and now - last_share >= share_period:
@@ -245,8 +250,8 @@ def main():
                             if obj_interpreter is not None:   # la 2e caméra voit aussi les objets
                                 h2, w2 = frame2.shape[:2]
                                 thr = ocfg.get("score_threshold", 0.5)
-                                objects2 = summarize_objects(detect_objects(obj_interpreter, frame2, thr),
-                                                             obj_labels, w2, h2, thr)
+                                objects2 = confirm2.update(summarize_objects(
+                                    detect_objects(obj_interpreter, frame2, thr), obj_labels, w2, h2, thr, label_min))
                     if state_path:
                         biggest = max(((f[3] - f[1]) / float(h) for f in faces), default=0.0)
                         write_state(state_path, {

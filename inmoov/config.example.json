@@ -50,7 +50,11 @@
       "model": "models/ssdlite_mobiledet_coco_qat_postprocess_edgetpu.tflite",
       "labels": "models/coco_labels.txt",
       "period_s": 2.0,
-      "score_threshold": 0.5
+      "score_threshold": 0.5,
+      "_precision_aide": "Moins d'objets mal nommés : confirm = un objet doit être vu dans confirm des confirm_window dernières détections avant d'être annoncé ; label_min_score = score minimum pour une catégorie souvent confondue chez toi (noms français ou anglais, ex. {\"télévision\": 0.7, \"ordinateur portable\": 0.75}). Les animaux de la ferme, véhicules, etc. demandent déjà 0.8.",
+      "confirm": 2,
+      "confirm_window": 3,
+      "label_min_score": {}
     }
   },
   "brain": {
@@ -99,7 +103,7 @@
       "app_aliases": {},
       "_notes_aide": "Notes pour Kamil sur les appareils particuliers, ex. \"Ampli Denon (infrarouge) : allumer = script.denon_on, éteindre = script.denon_off, volume = script.denon_vol_up / script.denon_vol_down\".",
       "notes": [],
-      "_contacts_aide": "Messages sur les téléphones (« Kamil, envoie à Nadia : je rentre ») : prénom -> service notify de Home Assistant, ex. {\"Nadia\": \"notify.mobile_app_nadia\", \"Hanafi\": [\"notify.mobile_app_redmi\", \"notify.mobile_app_oppo\"]} (plusieurs téléphones : le message part sur chacun).",
+      "_contacts_aide": "Messages sur les téléphones (« Kamil, envoie à Nadia : je rentre ») : prénom -> service notify de Home Assistant, ex. {\"Nadia\": \"notify.mobile_app_nadia\", \"Sam\": [\"notify.mobile_app_redmi\", \"notify.mobile_app_oppo\"]} (plusieurs téléphones : le message part sur chacun).",
       "contacts": {},
       "_duck_aide": "Baisser la télé quand on dit « Kamil », puis la remettre : liste d'appareils, ex. [{\"media_player\": \"media_player.tv\", \"level\": 0.15}] (volume réglable) ou [{\"down\": \"script.denon_vol_down\", \"up\": \"script.denon_vol_up\", \"steps\": 6}] (ampli en infrarouge ; options \"pause\" en secondes entre deux appuis, 0.6 par défaut, et \"up_steps\" si le retour n'est pas au même niveau ; essai : python3 tools/duck_test.py).",
       "duck": [],

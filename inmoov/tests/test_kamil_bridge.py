@@ -49,9 +49,9 @@ class BridgeTest(unittest.TestCase):
         self.b.state("thinking")
         self.b.publish("entendu", "Kamil, quelle heure est-il ?")
         self.b.publish("reponse", "Il est midi pile !")
-        self.b.publish("voix", "Hanafi")
+        self.b.publish("voix", "Sam")
         d = self.read()
-        self.assertEqual((d["etat"], d["voix"], d["garde"], d["updated"]), ("thinking", "Hanafi", True, 1000.0))
+        self.assertEqual((d["etat"], d["voix"], d["garde"], d["updated"]), ("thinking", "Sam", True, 1000.0))
         self.assertEqual([(m["qui"], m["texte"]) for m in d["history"]],
                          [("toi", "Kamil, quelle heure est-il ?"), ("kamil", "Il est midi pile !")])
         for i in range(3):

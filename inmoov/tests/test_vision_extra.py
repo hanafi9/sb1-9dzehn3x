@@ -7,7 +7,7 @@ import unittest
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 sys.path[:0] = [ROOT, os.path.join(ROOT, "vision")]
 
-from scene import iou, summarize_objects  # noqa: E402
+from scene import ObjectConfirm, iou, summarize_objects  # noqa: E402
 from faces import FaceFilter  # noqa: E402
 from tracking import person_head_target  # noqa: E402
 
@@ -85,6 +85,26 @@ class VisionExtraTest(unittest.TestCase):
         person[100:180, 300:360] = 200          # tête
         person[190:400, 280:380] = 200          # corps, juste en dessous
         self.assertEqual(len(m.update(person)["boxes"]), 1)
+
+
+class ObjectPrecisionTest(unittest.TestCase):
+    def test_unlikely_tiny_and_per_label(self):
+        labels = {0: "person", 24: "zebra", 62: "tv", 46: "cup"}
+        raw = [(24, 0.70, 0, 0, 300, 300),           # « zèbre » dans un salon : refusé sous 0.8
+               (62, 0.60, 300, 0, 500, 200),          # télé à 0.6 alors qu'on demande 0.7
+               (46, 0.90, 10, 10, 15, 15),            # tasse de 5 pixels : trop petit pour être sûr
+               (0, 0.90, 100, 100, 300, 470)]
+        out = summarize_objects(raw, labels, 640, 480, 0.5, {"télévision": 0.7})
+        self.assertEqual([o["label"] for o in out], ["personne"])
+        self.assertEqual(len(summarize_objects([(24, 0.9, 0, 0, 300, 300)], labels, 640, 480)), 1)
+
+    def test_one_frame_mistake_never_announced(self):
+        c = ObjectConfirm(confirm=2, window=3)
+        chair, bottle = {"label": "chaise"}, {"label": "bouteille"}
+        self.assertEqual(c.update([chair]), [])
+        self.assertEqual(c.update([chair, bottle]), [chair])          # la bouteille n'est vue qu'une fois
+        self.assertEqual(c.update([chair]), [chair])
+        self.assertEqual(c.update([chair]), [chair])
 
 
 class FaceFilterTest(unittest.TestCase):

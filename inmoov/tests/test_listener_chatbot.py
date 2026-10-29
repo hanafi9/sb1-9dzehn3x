@@ -146,13 +146,13 @@ class ChatbotTest(unittest.TestCase):
         tts = FakeTts()
         lst = listener(tts)
         lst.cfg["commands"] = {"lève le bras": [["i01.rightArm.shoulder", "moveTo", 120]]}
-        lst.cfg["speaker_id"] = {"owner": "Hanafi", "owner_only_commands": True}
+        lst.cfg["speaker_id"] = {"owner": "Sam", "owner_only_commands": True}
         lst._last_audio = [0.0]
         lst.voices = types.SimpleNamespace(identify=lambda audio: (None, 0.2))     # voix inconnue
         lst.handle("lève le bras")
         self.assertEqual(lst.mrl.calls, [])
-        self.assertIn("Hanafi", tts.said[-1])
-        lst.voices = types.SimpleNamespace(identify=lambda audio: ("Hanafi", 0.8))
+        self.assertIn("Sam", tts.said[-1])
+        lst.voices = types.SimpleNamespace(identify=lambda audio: ("Sam", 0.8))
         lst.handle("lève le bras")
         self.assertEqual(lst.mrl.calls, [("i01.rightArm.shoulder", "moveTo", 120)])
 
@@ -180,7 +180,7 @@ class ChatbotTest(unittest.TestCase):
         lst.voices = types.SimpleNamespace(identify=lambda a: (None, 0.2))     # voix inconnue
         lst.handle("on se retrouve après la pub")
         self.assertEqual(asked, [])
-        lst.voices = types.SimpleNamespace(identify=lambda a: ("Hanafi", 0.8))
+        lst.voices = types.SimpleNamespace(identify=lambda a: ("Sam", 0.8))
         lst.awake_until = time.monotonic() + 10
         lst.handle("et toi, ça va ?")                            # voix connue : pour lui
         self.assertEqual(asked[-1][1]["direct"], False)

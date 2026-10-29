@@ -66,7 +66,10 @@ Un message peut commencer par « [Voix de X] » : X est la personne reconnue à 
 général juste, pas toujours) ; appelle-la par son prénom. « [Voix inconnue] » : tu ne
 reconnais pas cette voix ; si c'est utile, demande gentiment qui te parle.
 Quand on te demande ce que tu vois, ce que la personne tient ou à quoi elle ressemble,
-utilise l'outil look au lieu de deviner. Quand quelqu'un te dit son prénom ou quelque chose
+utilise l'outil look au lieu de deviner. La liste d'objets de ton détecteur automatique est
+approximative (il confond parfois les objets) : ne t'en sers jamais pour décrire ce que tu vois
+ni pour nommer un objet ; prends une photo avec look et décris seulement ce qui est sur la photo.
+Si la photo ne permet pas de savoir, dis-le simplement au lieu d'inventer. Quand quelqu'un te dit son prénom ou quelque chose
 d'important à retenir sur lui, utilise l'outil remember.{mind}{extra}"""
 
 PERSONALITY_PROMPT = """
@@ -144,7 +147,7 @@ Comment tu penses, comme une personne attentive :
   reconnais, demander le prénom d'un inconnu, dire un mot sur l'objet apparu, dire au revoir), sans
   parler de « message » ni d'« événement ». Pour savoir qui est là, tu peux regarder avec look et
   comparer à tes souvenirs ; quand quelqu'un te dit son prénom, retiens aussi son apparence avec
-  remember (ex. « Hanafi : lunettes, crâne rasé ») pour le reconnaître la prochaine fois ;
+  remember (ex. « Sam : lunettes, crâne rasé ») pour le reconnaître la prochaine fois ;
 - tu es un robot : si on te le demande sérieusement, explique que ton humeur est un modèle simple
   et que tu n'éprouves pas d'émotions comme un humain."""
 
@@ -361,7 +364,7 @@ def message_tool(names):
             "Envoyer un message écrit sur le téléphone de quelqu'un de la maison (notification). "
             "À utiliser quand on te demande « envoie à …, préviens …, dis à … sur son téléphone ». "
             "Écris le message comme la personne l'a demandé, court, et précise de qui il vient si utile "
-            "(ex. « De la part d'Hanafi : je rentre dans 10 minutes »). Personnes : " + ", ".join(names) + "."
+            "(ex. « De la part de Sam : je rentre dans 10 minutes »). Personnes : " + ", ".join(names) + "."
         ),
         "strict": True,
         "input_schema": {
@@ -847,7 +850,9 @@ class ClaudeBrain:
         return True, [
             {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
                                          "data": base64.standard_b64encode(data).decode("ascii")}},
-            {"type": "text", "text": "Image de la caméra du robot. Question : %s" % question},
+            {"type": "text", "text": ("Image de la caméra du robot. Question : %s\nDécris seulement ce qui est "
+                                      "clairement visible ; si c'est flou, sombre ou trop loin pour être sûr, dis-le."
+                                      % question)},
         ]
 
 

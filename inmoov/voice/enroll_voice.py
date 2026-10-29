@@ -3,10 +3,10 @@
 
 Arrêtez d'abord la voix (speech_listener.py) : le micro ne sert qu'à un programme à la fois.
 
-    ../.venv-voice/bin/python enroll_voice.py Hanafi        # enregistre 6 phrases de Hanafi
+    ../.venv-voice/bin/python enroll_voice.py Sam           # enregistre 6 phrases de Sam
     ../.venv-voice/bin/python enroll_voice.py --test        # qui parle ? (scores de chaque voix)
     ../.venv-voice/bin/python enroll_voice.py --list        # voix connues
-    ../.venv-voice/bin/python enroll_voice.py --forget Hanafi
+    ../.venv-voice/bin/python enroll_voice.py --forget Sam
 
 Le modèle d'empreinte (~27 Mo) est téléchargé la première fois dans ../models.
 Refaire l'enregistrement d'une personne ajoute des phrases (utile si elle est mal reconnue).

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Pourquoi un téléphone ne reçoit pas les notifications de Home Assistant ?
 
-    cd ~/domokami/inmoov && python3 tools/check_notify.py                      # téléphone d'Hanafi
+    cd ~/domokami/inmoov && python3 tools/check_notify.py                      # premier téléphone
     cd ~/domokami/inmoov && python3 tools/check_notify.py notify.mobile_app_nadia
 
 1. passe le journal de l'application mobile de Home Assistant en mode détaillé (debug) ;
