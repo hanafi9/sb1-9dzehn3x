@@ -1,0 +1,690 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Atelier InMoov</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Ccircle cx=%228%22 cy=%228%22 r=%227%22 fill=%22%232563eb%22/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo" aria-hidden="true">◉</span>
+      <span>Atelier InMoov</span>
+    </div>
+    <div class="row" style="margin:0">
+      <button id="fullscreen-btn" title="Kamil en plein écran (comme F11) — Échap pour sortir">⛶ Plein écran</button>
+      <div id="mrl-pill" class="pill">MyRobotLab…</div>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button data-tab="kamil" class="active">Kamil</button>
+    <button data-tab="dashboard">Tableau de bord</button>
+    <button data-tab="bench">Banc d'essai</button>
+    <button data-tab="docs">Documentation</button>
+    <button data-tab="guide">Guide de montage</button>
+    <button data-tab="schema">Schémas</button>
+    <button data-tab="servos">Servos</button>
+    <button data-tab="arduino">Arduino</button>
+    <button data-tab="sensors">Capteurs</button>
+    <button data-tab="ai">IA</button>
+    <button data-tab="legs">Jambes</button>
+    <button data-tab="services">Services</button>
+    <button data-tab="settings">Réglages</button>
+  </nav>
+
+  <main>
+    <!-- Kamil : interface interactive -->
+    <section id="tab-kamil" class="tab active">
+      <div class="kiosk-hint hidden" id="kiosk-hint">Touchez l'écran pour passer en plein écran</div>
+      <div class="kiosk-tools">
+        <button class="ghost" id="kiosk-full" title="Plein écran">⛶ Plein écran</button>
+        <a href="/" class="ghost" id="kiosk-exit" title="Retour à l'Atelier">⚙</a>
+      </div>
+      <div class="kamil-layout">
+        <!-- la scène : Kamil en buste, état, infos -->
+        <div class="kamil-stage" id="kamil-stage" data-state="off">
+          <!-- décor : aurores lumineuses, poussière d'étoiles, sol holographique -->
+          <div class="kamil-bg" aria-hidden="true"><i class="kbg-aurora a1"></i><i class="kbg-aurora a2"></i>
+            <i class="kbg-stars"></i><i class="kbg-beam"></i><i class="kbg-floor"></i></div>
+          <div class="kamil-sleep hidden" id="kamil-sleep">
+            <p id="kamil-sleep-text">Kamil dort : sa voix n'est pas lancée.</p>
+            <button id="kamil-wake">Réveiller Kamil</button>
+          </div>
+          <div class="kamil-top">
+            <div class="kamil-chips" id="kamil-chips"></div>
+            <div class="kamil-look">
+              <button type="button" class="kamil-look-btn" id="kamil-look-btn" title="Apparence de Kamil">🖼</button>
+              <div class="kamil-look-menu hidden" id="kamil-look-menu">
+                <label class="kl-item">📤 Envoyer une image de Kamil…<input type="file" id="kamil-photo-file" accept="image/png,image/jpeg,image/webp" hidden></label>
+                <button type="button" class="kl-item" id="kamil-photo-points">🎯 Placer les yeux, la bouche et le cœur</button>
+                <button type="button" class="kl-item" id="kamil-points-reset">↺ Remettre les lumières à leur place</button>
+                <button type="button" class="kl-item" id="kamil-sync-open">🎚 Caler la bouche sur la voix</button>
+                <button type="button" class="kl-item" id="kamil-photo-origin">🤖 Portrait d'origine de Kamil</button>
+                <button type="button" class="kl-item" id="kamil-photo-remove">✏️ Dessin animé</button>
+              </div>
+            </div>
+            <label class="kamil-switch" title="Kamil surveille la maison et interpelle quiconque passe">
+              <input type="checkbox" id="kamil-guard"><span class="slider"></span><span>Garde</span></label>
+          </div>
+          <div class="kamil-body">
+            <div class="kamil-halo" aria-hidden="true"><span></span><span></span><span></span></div>
+            <div class="kamil-dots" aria-hidden="true"><i></i><i></i><i></i></div>
+            <!-- portrait envoyé (photo) : lumières animées posées sur les yeux et le cœur -->
+            <div class="kamil-photo hidden" id="kamil-photo">
+              <div class="kp-frame">
+                <img id="kamil-photo-img" alt="Kamil">
+                <span class="kp-eye" id="kp-eye-l"></span><span class="kp-eye" id="kp-eye-r"></span>
+                <span class="kp-core" id="kp-core"></span>
+                <!-- bouche : fente sombre, puis le menton (un morceau de la même image) qui descend quand il parle -->
+                <span class="kp-mouth" id="kp-mouth"></span>
+                <span class="kp-jaw" id="kp-jaw" aria-hidden="true"><img alt=""></span>
+                <span class="kp-sheen"></span>
+              </div>
+            </div>
+            <svg class="kamil-bust" viewBox="0 0 400 430" role="img" aria-label="Kamil, robot humanoïde">
+              <defs>
+                <radialGradient id="kb-armor" cx="38%" cy="22%" r="85%">
+                  <stop offset="0" stop-color="#b9cbe2"/><stop offset=".35" stop-color="#6a7f9e"/><stop offset=".75" stop-color="#34435b"/><stop offset="1" stop-color="#1a2332"/>
+                </radialGradient>
+                <radialGradient id="kb-plate" cx="35%" cy="18%" r="90%">
+                  <stop offset="0" stop-color="#d4e0ef"/><stop offset=".4" stop-color="#7d92b0"/><stop offset="1" stop-color="#2a374c"/>
+                </radialGradient>
+                <radialGradient id="kb-face-g" cx="45%" cy="30%" r="75%">
+                  <stop offset="0" stop-color="#a9bad2"/><stop offset=".55" stop-color="#62779a"/><stop offset="1" stop-color="#2b3850"/>
+                </radialGradient>
+                <linearGradient id="kb-dark" x1="0" x2="1">
+                  <stop offset="0" stop-color="#0c1119"/><stop offset=".5" stop-color="#2a3446"/><stop offset="1" stop-color="#0c1119"/>
+                </linearGradient>
+                <linearGradient id="kb-limb" x1="0" x2="1">
+                  <stop offset="0" stop-color="#1a2230"/><stop offset=".45" stop-color="#7488a7"/><stop offset=".7" stop-color="#3a4a63"/><stop offset="1" stop-color="#141b27"/>
+                </linearGradient>
+                <radialGradient id="kb-disc" cx="45%" cy="40%" r="60%">
+                  <stop offset="0" stop-color="#3c4a60"/><stop offset="1" stop-color="#0d121a"/>
+                </radialGradient>
+                <radialGradient id="kb-core" cx="50%" cy="50%" r="50%">
+                  <stop offset="0" stop-color="#fff"/><stop offset=".35" class="kb-core-c"/><stop offset="1" stop-color="transparent"/>
+                </radialGradient>
+                <clipPath id="kb-eye-l"><path d="M164 113 C170 105 186 104 193 112 C186 118 170 119 164 113 Z"/></clipPath>
+                <clipPath id="kb-eye-r"><path d="M236 113 C230 105 214 104 207 112 C214 118 230 119 236 113 Z"/></clipPath>
+                <clipPath id="kb-face-clip"><path d="M200 48 C233 48 254 72 256 104 C258 134 251 156 240 174 C229 192 215 203 200 205 C185 203 171 192 160 174 C149 156 142 134 144 104 C146 72 167 48 200 48 Z"/></clipPath>
+                <radialGradient id="kb-helmet" cx="34%" cy="20%" r="85%">
+                  <stop offset="0" stop-color="#c9d8ea"/><stop offset=".22" stop-color="#7c93b3"/><stop offset=".6" stop-color="#3a4b66"/><stop offset="1" stop-color="#141c29"/>
+                </radialGradient>
+                <linearGradient id="kb-skin2" x1="0" y1="0" x2="1" y2=".25">
+                  <stop offset="0" stop-color="#9fb2cb"/><stop offset=".45" stop-color="#7389a8"/><stop offset=".8" stop-color="#465a78"/><stop offset="1" stop-color="#2c3a52"/>
+                </linearGradient>
+                <linearGradient id="kb-lip" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0" stop-color="#4a5d7c"/><stop offset="1" stop-color="#2d3b53"/>
+                </linearGradient>
+                <radialGradient id="kb-ring" cx="50%" cy="50%" r="50%">
+                  <stop offset="0" stop-color="#0a0f16"/><stop offset=".55" stop-color="#2c384a"/><stop offset=".8" stop-color="#55657d"/><stop offset="1" stop-color="#1a2230"/>
+                </radialGradient>
+                <filter id="kb-soft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="4"/></filter>
+                <filter id="kb-soft2" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="1.6"/></filter>
+                <filter id="kb-glowf" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="3"/></filter>
+              </defs>
+              <!-- torse : épaulières, plastron en plaques, cœur hexagonal -->
+              <g class="kb-torso" stroke="#9fb6d6" stroke-opacity=".25" stroke-width="1">
+                <path d="M132 262 C160 250 240 250 268 262 L302 292 L292 430 L108 430 L98 292 Z" fill="#141b27"/>
+                <path d="M140 274 C164 264 188 266 194 278 L190 350 C166 360 140 352 122 336 L118 300 Z" fill="url(#kb-plate)"/>
+                <path d="M260 274 C236 264 212 266 206 278 L210 350 C234 360 260 352 278 336 L282 300 Z" fill="url(#kb-plate)"/>
+                <path d="M122 346 C150 362 176 368 192 366 L190 430 L114 430 Z" fill="url(#kb-armor)"/>
+                <path d="M278 346 C250 362 224 368 208 366 L210 430 L286 430 Z" fill="url(#kb-armor)"/>
+                <g fill="#0d121a" stroke="none">
+                  <circle cx="134" cy="296" r="2.2"/><circle cx="178" cy="340" r="2.2"/><circle cx="266" cy="296" r="2.2"/>
+                  <circle cx="222" cy="340" r="2.2"/>
+                </g>
+                <!-- bandes lumineuses : la couleur de l'état -->
+                <path class="kb-led" d="M130 376 L166 396 L184 396 M270 376 L234 396 L216 396 M200 352 V420"/>
+                <!-- cœur lumineux -->
+                <polygon points="200,296 221,308 221,332 200,344 179,332 179,308" fill="#0b1018" stroke="#5a6f8f" stroke-opacity="1" stroke-width="3"/>
+                <circle cx="200" cy="320" r="26" fill="url(#kb-core)" class="kb-core"/>
+                <circle cx="200" cy="320" r="10" fill="none" stroke="#0b1018" stroke-opacity="1" stroke-width="2.5"/>
+              </g>
+              <!-- bras : épaulière, articulation, bras ; ils bougent quand il parle -->
+              <g class="kb-arm kb-arm-l" stroke="#9fb6d6" stroke-opacity=".25" stroke-width="1">
+                <path d="M46 296 C38 340 40 392 46 430 L122 430 C128 392 134 340 132 296 Z" fill="url(#kb-limb)"/>
+                <path d="M58 360 C80 368 104 368 122 360 M62 400 H118" stroke="#0d121a" stroke-opacity=".8" stroke-width="2" fill="none"/>
+                <circle cx="112" cy="302" r="26" fill="url(#kb-disc)"/>
+                <path d="M112 284 a18 18 0 1 0 .1 0 M112 292 a10 10 0 1 0 .1 0" fill="none" stroke="#4d5d76" stroke-width="2" stroke-opacity="1"/>
+                <path d="M30 312 C28 266 62 242 104 244 C140 246 156 266 152 290 C130 284 108 290 96 312 C84 334 50 338 30 312 Z" fill="url(#kb-armor)"/>
+                <path class="kb-led" d="M64 316 L84 330"/><circle cx="60" cy="282" r="2.2" fill="#0d121a" stroke="none"/>
+              </g>
+              <g class="kb-arm kb-arm-r" stroke="#9fb6d6" stroke-opacity=".25" stroke-width="1">
+                <path d="M354 296 C362 340 360 392 354 430 L278 430 C272 392 266 340 268 296 Z" fill="url(#kb-limb)"/>
+                <path d="M342 360 C320 368 296 368 278 360 M338 400 H282" stroke="#0d121a" stroke-opacity=".8" stroke-width="2" fill="none"/>
+                <circle cx="288" cy="302" r="26" fill="url(#kb-disc)"/>
+                <path d="M288 284 a18 18 0 1 0 .1 0 M288 292 a10 10 0 1 0 .1 0" fill="none" stroke="#4d5d76" stroke-width="2" stroke-opacity="1"/>
+                <path d="M370 312 C372 266 338 242 296 244 C260 246 244 266 248 290 C270 284 292 290 304 312 C316 334 350 338 370 312 Z" fill="url(#kb-armor)"/>
+                <path class="kb-led" d="M336 316 L316 330"/><circle cx="340" cy="282" r="2.2" fill="#0d121a" stroke="none"/>
+              </g>
+              <!-- cou : vérins et câbles -->
+              <g class="kb-neck">
+                <rect x="180" y="196" width="40" height="80" rx="10" fill="url(#kb-dark)"/>
+                <path d="M184 214 h32 M184 228 h32 M184 242 h32 M184 256 h32" stroke="#3b475b" stroke-width="2.5"/>
+                <path d="M158 190 C160 224 168 250 176 276 M242 190 C240 224 232 250 224 276" stroke="#1a2230" stroke-width="7" fill="none" stroke-linecap="round"/>
+                <path d="M164 196 C166 226 172 250 178 270" class="kb-led" style="stroke-width:1.6"/>
+              </g>
+              <!-- tête : tourne et s'incline comme le vrai robot -->
+              <g class="kb-head">
+               <g class="kb-head-idle">
+                <!-- crâne casqué, vu de face -->
+                <path d="M200 0 C254 0 284 36 284 90 C284 128 274 152 258 172 C248 184 236 190 226 194 L174 194 C164 190 152 184 142 172 C126 152 116 128 116 90 C116 36 146 0 200 0 Z"
+                      fill="url(#kb-helmet)" stroke="#a9bdd8" stroke-opacity=".35"/>
+                <ellipse cx="168" cy="30" rx="34" ry="16" fill="#e6eef8" opacity=".35" filter="url(#kb-soft)"/>
+                <path d="M186 14 h28 a5 5 0 0 1 5 5 v10 a5 5 0 0 1 -5 5 h-28 a5 5 0 0 1 -5 -5 v-10 a5 5 0 0 1 5 -5 Z" fill="#1b2433" stroke="#5b6e8c"/>
+                <path d="M188 21 h24 M188 27 h24" stroke="#3b4a60" stroke-width="2"/>
+                <path d="M140 64 C160 44 240 44 260 64 M128 120 C134 150 140 166 150 182 M272 120 C266 150 260 166 250 182"
+                      stroke="#18202d" stroke-width="2.4" fill="none"/>
+                <!-- disques des oreilles -->
+                <g class="kb-ear-l">
+                  <circle cx="124" cy="110" r="27" fill="url(#kb-ring)" stroke="#7f95b4" stroke-width="2.5"/>
+                  <path d="M124 87 a23 23 0 1 0 .1 0 M124 93 a17 17 0 1 0 .1 0 M124 99 a11 11 0 1 0 .1 0 M124 105 a5 5 0 1 0 .1 0"
+                        fill="none" stroke="#6f84a3" stroke-width="1.6" stroke-opacity=".8"/>
+                  <circle cx="124" cy="110" r="2.5" class="kb-dot"/>
+                </g>
+                <g class="kb-ear-r">
+                  <circle cx="276" cy="110" r="27" fill="url(#kb-ring)" stroke="#7f95b4" stroke-width="2.5"/>
+                  <path d="M276 87 a23 23 0 1 0 .1 0 M276 93 a17 17 0 1 0 .1 0 M276 99 a11 11 0 1 0 .1 0 M276 105 a5 5 0 1 0 .1 0"
+                        fill="none" stroke="#6f84a3" stroke-width="1.6" stroke-opacity=".8"/>
+                  <circle cx="276" cy="110" r="2.5" class="kb-dot"/>
+                </g>
+                <g class="kb-face">
+                  <!-- visage humain : plaque sculptée -->
+                  <path d="M200 48 C233 48 254 72 256 104 C258 134 251 156 240 174 C229 192 215 203 200 205 C185 203 171 192 160 174 C149 156 142 134 144 104 C146 72 167 48 200 48 Z"
+                        fill="url(#kb-skin2)" stroke="#0b1018" stroke-width="1.6" stroke-opacity=".8"/>
+                  <g clip-path="url(#kb-face-clip)">
+                    <!-- ombres et lumières : front, orbites, pommettes, joues creuses -->
+                    <ellipse cx="186" cy="70" rx="30" ry="14" fill="#d8e3f1" opacity=".35" filter="url(#kb-soft)"/>
+                    <ellipse cx="178" cy="114" rx="20" ry="11" fill="#141c2a" opacity=".75" filter="url(#kb-soft)"/>
+                    <ellipse cx="222" cy="114" rx="20" ry="11" fill="#141c2a" opacity=".8" filter="url(#kb-soft)"/>
+                    <ellipse cx="166" cy="136" rx="12" ry="7" fill="#d8e3f1" opacity=".35" filter="url(#kb-soft)"/>
+                    <ellipse cx="160" cy="160" rx="10" ry="18" fill="#141c2a" opacity=".55" filter="url(#kb-soft)"/>
+                    <ellipse cx="244" cy="150" rx="14" ry="30" fill="#0b1018" opacity=".6" filter="url(#kb-soft)"/>
+                    <ellipse cx="234" cy="136" rx="10" ry="6" fill="#b8c7da" opacity=".2" filter="url(#kb-soft)"/>
+                    <!-- coutures de la plaque -->
+                    <path d="M147 122 C156 132 166 136 172 150 L170 172 M253 122 C244 132 234 136 228 150 L230 172 M200 50 V66"
+                          stroke="#141c2a" stroke-width="1.4" fill="none" opacity=".6"/>
+                    <!-- articulation de la mâchoire, avec voyants -->
+                    <path d="M160 166 L172 186 L178 184 L168 164 Z M240 166 L228 186 L222 184 L232 164 Z" fill="#070b12"/>
+                    <circle cx="167" cy="173" r="1.6" class="kb-dot"/><circle cx="233" cy="173" r="1.6" class="kb-dot"/>
+                  </g>
+                  <!-- le casque descend sur le front -->
+                  <path d="M144 98 C146 64 170 44 200 44 C230 44 254 64 256 98 C246 76 228 64 200 64 C172 64 154 76 144 98 Z"
+                        fill="url(#kb-helmet)" stroke="#0b1018" stroke-width="1.2"/>
+                  <path d="M150 88 C162 72 180 66 200 66 C220 66 238 72 250 88" stroke="#a9bdd8" stroke-opacity=".35" fill="none"/>
+                  <!-- sourcils / arcades -->
+                  <path class="kb-brow" d="M160 100 C170 93 186 92 196 99 M240 100 C230 93 214 92 204 99"
+                        stroke="#1a2333" stroke-width="3.2" fill="none" stroke-linecap="round"/>
+                  <path d="M162 97 C172 90 186 90 194 95" stroke="#c6d4e6" stroke-width="1.2" fill="none" opacity=".45"/>
+                  <!-- yeux en amande, lumineux -->
+                  <path d="M162 113 C169 103 187 102 195 112 C187 120 169 121 162 113 Z" fill="#05080d"/>
+                  <path d="M238 113 C231 103 213 102 205 112 C213 120 231 121 238 113 Z" fill="#05080d"/>
+                  <ellipse cx="179" cy="112" rx="12" ry="7" class="kb-eyeglow" filter="url(#kb-glowf)"/>
+                  <ellipse cx="221" cy="112" rx="12" ry="7" class="kb-eyeglow" filter="url(#kb-glowf)"/>
+                  <g clip-path="url(#kb-eye-l)">
+                    <rect x="160" y="100" width="40" height="22" fill="#0a1824"/>
+                    <g class="kb-iris"><ellipse cx="179" cy="112" rx="6.5" ry="5" class="kb-iris-c"/>
+                      <circle cx="179" cy="112" r="2" fill="#fff" opacity=".95"/></g>
+                    <rect class="kb-lid" x="160" y="102" width="40" height="18" fill="#5b7192"/>
+                  </g>
+                  <g clip-path="url(#kb-eye-r)">
+                    <rect x="200" y="100" width="40" height="22" fill="#0a1824"/>
+                    <g class="kb-iris"><ellipse cx="221" cy="112" rx="6.5" ry="5" class="kb-iris-c"/>
+                      <circle cx="221" cy="112" r="2" fill="#fff" opacity=".95"/></g>
+                    <rect class="kb-lid" x="200" y="102" width="40" height="18" fill="#5b7192"/>
+                  </g>
+                  <!-- nez droit -->
+                  <path d="M196 104 C195 120 190 132 186 141 C190 146 196 147 200 146 C204 147 210 146 214 141 C210 132 205 120 204 104 Z"
+                        fill="#566c8c" opacity=".55" filter="url(#kb-soft2)"/>
+                  <path d="M199 104 C199 120 197 132 196 140" stroke="#dbe5f2" stroke-width="2" fill="none" opacity=".55" stroke-linecap="round"/>
+                  <path d="M188 141 C192 146 196 146 200 145 C204 146 208 146 212 141" stroke="#141c2a" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+                  <path d="M190 142 a3 2 0 0 0 6 1 M204 143 a3 2 0 0 0 6 -1" fill="#0b1018" opacity=".8"/>
+                  <!-- sillons et lèvre supérieure -->
+                  <path d="M184 146 C178 154 177 162 180 168 M216 146 C222 154 223 162 220 168" stroke="#1d2738" stroke-width="1.3" fill="none" opacity=".4"/>
+                  <path d="M197 148 L196 157 M203 148 L204 157" stroke="#1d2738" stroke-width="1" opacity=".35"/>
+                  <path d="M182 162 C190 158 196 159 200 160 C204 159 210 158 218 162 C210 165 190 165 182 162 Z" fill="url(#kb-lip)"/>
+                  <path d="M184 163 C192 166 208 166 216 163 L214 174 C206 177 194 177 186 174 Z" fill="#04070b"/>
+                </g>
+                <!-- mâchoire mobile : lèvre inférieure et menton -->
+                <g class="kb-face-p"><g class="kb-jaw">
+                  <path d="M168 164 L232 164 C234 178 230 190 222 197 C214 203 207 205 200 205 C193 205 186 203 178 197 C170 190 166 178 168 164 Z"
+                        fill="url(#kb-skin2)"/>
+                  <path d="M232 170 C232 182 228 191 222 197 C214 203 207 205 200 205 C193 205 186 203 178 197 C172 191 168 182 168 170"
+                        fill="none" stroke="#0b1018" stroke-width="1.6" stroke-opacity=".8"/>
+                  <path d="M184 166 C192 172 208 172 216 166 C210 170 190 170 184 166 Z" fill="url(#kb-lip)"/>
+                  <path class="kb-chin" d="M186 168 C194 173 206 173 214 168" stroke="#2b3850" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+                  <ellipse cx="196" cy="190" rx="10" ry="5" fill="#d8e3f1" opacity=".3" filter="url(#kb-soft2)"/>
+                  <path d="M188 184 C194 181 206 181 212 184" stroke="#1d2738" stroke-width="1.4" fill="none" opacity=".7"/>
+                </g></g>
+               </g>
+              </g>
+            </svg>
+          </div>
+          <div class="kamil-place hidden" id="kamil-place">
+            <span id="kamil-place-text"></span>
+            <button type="button" id="kamil-place-cancel">✕ Annuler</button>
+          </div>
+          <div class="kamil-sync hidden" id="kamil-sync">
+            <div class="ks-head"><b>Bouche et voix</b><span id="kamil-sync-val">0 ms</span></div>
+            <input type="range" id="kamil-sync-range" min="-500" max="500" step="10" value="0" aria-label="Décalage de la bouche">
+            <div class="ks-scale"><span>◀ bouche plus tôt</span><span>plus tard ▶</span></div>
+            <div class="ks-actions">
+              <button type="button" id="kamil-sync-test">🔊 Faire parler Kamil</button>
+              <button type="button" id="kamil-sync-close" class="primary">OK</button>
+            </div>
+          </div>
+          <div class="kamil-bottom">
+            <div>
+              <h1 class="kamil-name" id="kamil-name">Kamil</h1>
+              <p class="kamil-status" id="kamil-status">…</p>
+            </div>
+            <div class="kamil-mood" id="kamil-mood"></div>
+          </div>
+        </div>
+
+        <!-- la conversation -->
+        <div class="kamil-chat">
+          <div class="kamil-chat-head"><h2>Conversation</h2><span class="muted" id="kamil-heard-by"></span></div>
+          <div class="kamil-bubbles" id="kamil-bubbles"></div>
+          <div class="kamil-composer">
+            <div class="kamil-suggest" id="kamil-suggest">
+              <button class="chip">👀 Qu'est-ce que tu vois ?</button>
+              <button class="chip">😄 Raconte-moi une blague</button>
+              <button class="chip">🕐 Quelle heure est-il ?</button>
+              <button class="chip">💬 Comment tu te sens ?</button>
+            </div>
+            <form class="kamil-input" id="kamil-form">
+              <div class="kamil-mode" role="radiogroup">
+                <button type="button" data-mode="question" class="on">Parler à Kamil</button>
+                <button type="button" data-mode="dire">Lui faire dire</button>
+              </div>
+              <div class="kamil-field">
+                <input id="kamil-text" maxlength="300" size="1" autocomplete="off" placeholder="Écris à Kamil…">
+                <button type="submit" id="kamil-send" aria-label="Envoyer">➤</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- ce que voient ses yeux -->
+        <div class="kamil-eye-card">
+          <div class="kamil-chat-head"><h2>Ce que je vois</h2>
+            <label class="check"><input type="checkbox" id="kamil-boxes" checked> cadres</label></div>
+          <div class="kamil-cams">
+            <figure data-kcam="0"><div class="cam"><img alt="Caméra du suivi"><canvas></canvas>
+              <span class="cam-off">Caméra arrêtée</span><span class="cam-tag">Caméra du suivi</span></div></figure>
+            <figure data-kcam="1"><div class="cam"><img alt="2e caméra"><canvas></canvas>
+              <span class="cam-off">Caméra arrêtée</span><span class="cam-tag">2e caméra</span></div></figure>
+          </div>
+          <p class="kamil-legend"><span class="sw" style="--c:#facc15"></span>suivi
+            <span class="sw" style="--c:#22c55e"></span>visage <span class="sw" style="--c:#3b82f6"></span>objet
+            <span class="sw" style="--c:#f97316"></span>mouvement <span class="sw dash"></span>zone centrale
+            <span class="muted" id="kamil-seen"></span></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tableau de bord -->
+    <section id="tab-dashboard" class="tab">
+      <div class="grid" id="dash-cards"></div>
+      <div class="card">
+        <h2>Avancement du montage</h2>
+        <div class="progress"><div id="dash-progress-bar"></div></div>
+        <p id="dash-progress-text" class="muted"></p>
+        <p id="dash-next"></p>
+      </div>
+    </section>
+
+    <!-- Documentation -->
+    <section id="tab-bench" class="tab">
+      <div class="card">
+        <div class="row between wrap">
+          <h2>Banc d'essai du robot</h2>
+          <div class="row wrap">
+            <button id="bench-rest-all">Tout au repos</button>
+            <button id="bench-stop" class="stop">Arrêt : couper tous les servos</button>
+          </div>
+        </div>
+        <div id="bench-status" class="row wrap"></div>
+        <pre id="bench-prog-log" class="log hidden"></pre>
+        <p class="muted">Cliquez une partie du robot pour la tester. Après chaque test, marquez si elle
+          <b>fonctionne</b> ✓ ou s'il y a un <b>problème</b> ✗ : la silhouette se colore et le bilan est gardé sur le Pi.</p>
+      </div>
+      <div class="bench-grid">
+        <div class="card">
+          <h2>Robot <span class="muted">(vu de face)</span></h2>
+          <svg id="bench-robot" viewBox="0 0 220 330" role="img" aria-label="Silhouette du robot : cliquez une partie">
+            <g class="zone" data-group="head" tabindex="0">
+              <rect x="80" y="8" width="60" height="66" rx="24"/>
+              <circle class="eye" cx="99" cy="38" r="5"/><circle class="eye" cx="121" cy="38" r="5"/>
+              <rect class="eye" x="98" y="56" width="24" height="5" rx="2"/>
+            </g>
+            <g class="zone" data-group="torso" tabindex="0">
+              <rect x="98" y="74" width="24" height="12"/>
+              <rect x="66" y="86" width="88" height="120" rx="16"/>
+            </g>
+            <g class="zone" data-group="rightArm" tabindex="0">
+              <rect x="34" y="90" width="28" height="64" rx="12"/>
+              <rect x="30" y="156" width="26" height="62" rx="11"/>
+            </g>
+            <g class="zone" data-group="leftArm" tabindex="0">
+              <rect x="158" y="90" width="28" height="64" rx="12"/>
+              <rect x="164" y="156" width="26" height="62" rx="11"/>
+            </g>
+            <g class="zone" data-group="rightHand" tabindex="0"><rect x="24" y="222" width="34" height="40" rx="12"/></g>
+            <g class="zone" data-group="leftHand" tabindex="0"><rect x="162" y="222" width="34" height="40" rx="12"/></g>
+            <g class="legs"><rect x="76" y="210" width="30" height="112" rx="12"/><rect x="114" y="210" width="30" height="112" rx="12"/></g>
+            <text x="48" y="282" text-anchor="middle">droite</text>
+            <text x="179" y="282" text-anchor="middle">gauche</text>
+          </svg>
+          <div class="bench-legend">
+            <span><i class="lg-ok"></i>fonctionne</span><span><i class="lg-bad"></i>problème</span>
+            <span><i class="lg-part"></i>en partie testé</span><span><i class="lg-none"></i>pas testé</span>
+          </div>
+        </div>
+        <div class="card" id="bench-part">
+          <p class="muted">Choisissez une partie du robot à gauche.</p>
+        </div>
+      </div>
+      <div class="bench-grid wide-first">
+        <div class="card">
+          <div class="row between wrap">
+            <h2>Caméras</h2>
+            <label class="check"><input type="checkbox" id="bench-boxes" checked> cadres de détection</label>
+          </div>
+          <div class="bench-cams">
+            <figure data-cam="0"><div class="cam"><img alt="Caméra du suivi de visage"><canvas></canvas><span class="cam-off">Pas d'image</span></div>
+              <figcaption>Caméra du suivi de visage <span class="cam-age muted"></span></figcaption></figure>
+            <figure data-cam="1"><div class="cam"><img alt="2e caméra"><canvas></canvas><span class="cam-off">Pas d'image</span></div>
+              <figcaption>2e caméra <span class="cam-age muted"></span></figcaption></figure>
+          </div>
+          <div id="bench-vision" class="muted"></div>
+        </div>
+        <div class="card">
+          <h2>Son et voix</h2>
+          <h3>Haut-parleurs</h3>
+          <div class="row wrap">
+            <button class="ghost" data-speaker="left">◀ Gauche</button>
+            <button class="ghost" data-speaker="both">Les deux</button>
+            <button class="ghost" data-speaker="right">Droite ▶</button>
+          </div>
+          <h3>Faire parler le robot (voix Piper)</h3>
+          <div class="row wrap">
+            <input id="bench-say" value="Bonjour, je suis Kamil. Tous mes systèmes fonctionnent." size="38">
+            <button id="bench-say-btn">Parler</button>
+          </div>
+          <h3>Micro</h3>
+          <div class="row wrap">
+            <button id="bench-mic-btn" class="ghost">Tester le micro (parlez 3 s)</button>
+            <div class="meter"><div id="bench-mic-bar"></div></div>
+            <span id="bench-mic-text" class="muted"></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-docs" class="tab">
+      <div class="docs">
+        <aside class="docs-nav card">
+          <input id="docs-search" type="search" placeholder="Rechercher (ex. tendon, fusible)" aria-label="Rechercher dans la documentation">
+          <nav id="docs-toc" aria-label="Chapitres"></nav>
+          <button id="docs-print" class="ghost">Tout imprimer / PDF</button>
+        </aside>
+        <article id="docs-content" class="docs-content"></article>
+      </div>
+    </section>
+
+    <!-- Guide -->
+    <section id="tab-guide" class="tab">
+      <div class="card">
+        <h2>Guide de montage</h2>
+        <p class="muted">Cochez chaque étape terminée. L'avancement est enregistré sur le Raspberry Pi.</p>
+        <div class="progress"><div id="guide-progress-bar"></div></div>
+      </div>
+      <div id="guide-phases"></div>
+    </section>
+
+    <!-- Servos -->
+    <section id="tab-servos" class="tab">
+      <div class="card">
+        <h2>Servos du haut du corps</h2>
+        <p class="muted">
+          Le curseur envoie une valeur de 0 à 180 que MyRobotLab convertit entre <b>min</b> et <b>max</b>
+          (les butées réelles du servo). Calibrer = régler min et max pour que le servo ne force jamais.
+        </p>
+        <div class="row wrap">
+          <select id="servo-group"></select>
+          <button id="servo-apply-all">Appliquer tout à MyRobotLab</button>
+          <input id="mrl-config-name" placeholder="nom de config MRL" value="inmoov2" size="14">
+          <button id="mrl-save-config">Enregistrer la config MyRobotLab</button>
+          <button id="servo-defaults" class="ghost">Valeurs par défaut</button>
+        </div>
+      </div>
+      <div id="servo-list" class="grid"></div>
+    </section>
+
+    <!-- Schémas -->
+    <section id="tab-schema" class="tab">
+      <div class="card">
+        <h2>Électronique simplifiée</h2>
+        <p class="muted">
+          Une seule Arduino Mega pour tout le haut du corps : elle pilote 3 cartes <b>PCA9685</b>
+          (16 servos chacune) par un simple bus I2C à 4 fils. Les jambes utilisent des servos « bus »
+          chaînés sur un seul câble.
+        </p>
+        <div id="schema-overview" class="diagram"></div>
+        <ul class="tips">
+          <li><b>Adresse de chaque carte</b> : 0x40 sans soudure, 0x41 en soudant le pont A0, 0x42 en soudant A1.</li>
+          <li><b>I2C</b> : Mega SDA 20 / SCL 21 / 5 V / GND vers la 1ʳᵉ carte, puis carte à carte. Câbles courts.</li>
+          <li><b>Alimentation</b> : 6 V forte puissance → bornier avec un fusible par carte. Pour les gros servos
+            (HS-805BB), prenez le + et le − directement sur le bornier et seulement le signal sur la carte.
+            Toutes les masses (GND) reliées entre elles.</li>
+          <li><b>Ne jamais</b> alimenter les servos par le 5 V de l'Arduino ou du Raspberry Pi.</li>
+        </ul>
+        <div class="row between wrap">
+          <h3>Script MyRobotLab (rattache chaque servo à sa carte et à son canal)</h3>
+          <div class="row wrap">
+            <button id="schema-copy" class="ghost">Copier le script</button>
+            <button id="schema-apply">Appliquer à MyRobotLab</button>
+          </div>
+        </div>
+        <pre id="schema-script" class="code"></pre>
+      </div>
+      <div class="card">
+        <div class="row between wrap">
+          <h2>Schémas électriques détaillés</h2>
+          <div class="row wrap">
+            <a class="button ghost" href="/api/electrical/kicad.zip" download>Projet KiCad (.zip)</a>
+            <button id="el-print" class="ghost">Imprimer tous les schémas / PDF</button>
+          </div>
+        </div>
+        <p class="muted">Chaque fil, chaque broche, chaque fusible, section par section, avec la liste de câblage à suivre.
+          Le PDF prêt à imprimer est aussi dans <code>docs/schemas-electriques.pdf</code>, et le projet KiCad
+          (à ouvrir avec KiCad 7, 8 ou 9) dans le dossier <code>kicad/</code>.</p>
+        <div class="chips" id="el-sheets" role="tablist"></div>
+        <div id="el-sheet"></div>
+      </div>
+      <h2 class="section-title">Schémas de principe par partie</h2>
+      <div class="chips" id="schema-parts" role="tablist"></div>
+      <div id="schema-part"></div>
+    </section>
+
+    <!-- Capteurs -->
+    <section id="tab-sensors" class="tab">
+      <div class="card">
+        <div class="row between"><h2>Alimentation des cartes</h2><span id="sens-state" class="pill">…</span></div>
+        <p class="muted">Si un servo force trop longtemps, tous les servos de sa carte sont désactivés. Corrigez la cause, puis « Réarmer ».</p>
+        <div id="sens-boards" class="grid"></div>
+      </div>
+      <div class="grid">
+        <div class="card"><h2>Batterie</h2><div id="sens-battery"></div></div>
+        <div class="card"><h2>Présence</h2><div id="sens-presence"></div></div>
+      </div>
+      <div class="card">
+        <h2>Toucher (bout des doigts)</h2>
+        <div id="sens-touch" class="grid"></div>
+        <div class="row wrap">
+          <label>Seuil de contact <input id="grip-threshold" type="number" min="0.05" max="1" step="0.05" value="0.35"></label>
+          <button data-grip="left">Prise douce main gauche</button>
+          <button data-grip="right">Prise douce main droite</button>
+        </div>
+        <p class="muted">La main se ferme doigt par doigt et chaque doigt s'arrête dès qu'il sent l'objet.</p>
+      </div>
+    </section>
+
+    <!-- IA -->
+    <section id="tab-ai" class="tab">
+      <div class="card"><h2>Intelligence du robot</h2><div id="ai-status" class="grid"></div></div>
+      <div class="card">
+        <div class="row between"><h2>Mémoire</h2><button id="ai-clear" class="ghost">Tout effacer</button></div>
+        <p class="muted">Ce que le robot a retenu sur les personnes (outil « remember »). Utilisé au début de chaque conversation.</p>
+        <div id="ai-memory"></div>
+      </div>
+      <div class="card">
+        <h2>Gestes appris par imitation</h2>
+        <p class="muted">Enregistrez un geste en le montrant devant la caméra :
+          <code>python vision/mirror.py --record salut</code>. L'IA peut ensuite le jouer (« InMoov, fais le geste salut »).</p>
+        <div class="row wrap"><label>Vitesse <input id="ai-speed" type="number" min="0.25" max="2" step="0.25" value="1"></label></div>
+        <div id="ai-gestures"></div>
+      </div>
+    </section>
+
+    <!-- Arduino -->
+    <section id="tab-arduino" class="tab">
+      <div class="card">
+        <h2>Outils Arduino</h2>
+        <p class="muted">Installe le cœur « Arduino AVR » (cartes Mega) et les bibliothèques : <span id="ard-libs"></span>.</p>
+        <button id="ard-setup">Installer cœur et bibliothèques</button>
+      </div>
+      <div class="card">
+        <div class="row between">
+          <h2>Cartes branchées</h2>
+          <button id="ard-refresh" class="ghost">Actualiser</button>
+        </div>
+        <div id="ard-boards"></div>
+      </div>
+      <div id="ard-sketches" class="grid"></div>
+      <div class="card hidden" id="job-card">
+        <div class="row between">
+          <h2 id="job-title">Tâche</h2>
+          <span id="job-state" class="pill"></span>
+        </div>
+        <pre id="job-log" class="log"></pre>
+      </div>
+      <div class="card hidden" id="source-card">
+        <div class="row between">
+          <h2 id="source-title">Code</h2>
+          <button id="source-close" class="ghost">Fermer</button>
+        </div>
+        <pre id="source-code" class="code"></pre>
+      </div>
+    </section>
+
+    <!-- Jambes -->
+    <section id="tab-legs" class="tab">
+      <div class="card danger-zone">
+        <h2>Jambes motorisées</h2>
+        <p><b>Robot accroché au portique</b> et <b>arrêt d'urgence matériel</b> à portée de main avant tout mouvement.</p>
+        <label class="check"><input type="checkbox" id="legs-gantry"> Le robot est accroché au portique et l'arrêt d'urgence est prêt</label>
+        <div class="row wrap">
+          <input id="legs-port" placeholder="/dev/ttyACM2" size="16">
+          <button id="legs-connect">Connecter</button>
+          <button id="legs-disconnect" class="ghost">Déconnecter</button>
+          <button id="legs-hold" class="stop">FIGER</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="row between">
+          <h2>État</h2>
+          <span id="legs-state" class="pill">non connecté</span>
+        </div>
+        <div class="row wrap">
+          <button id="legs-reset">RESET (effacer le défaut)</button>
+          <button id="legs-torque-on" class="ghost">Couple ON</button>
+          <button id="legs-torque-off" class="ghost">Couple OFF</button>
+        </div>
+        <div id="legs-status"></div>
+      </div>
+      <div class="card">
+        <h2>Poses</h2>
+        <div class="row wrap">
+          <label>Durée (ms) <input id="legs-time" type="number" value="3000" min="300" step="100"></label>
+        </div>
+        <div id="legs-poses" class="row wrap"></div>
+        <p class="muted">Commencez toujours par <b>test_genoux_5deg</b> pour vérifier le sens des articulations.</p>
+      </div>
+      <div class="card">
+        <div class="row between"><h2>Pieds et équilibre</h2><span id="feet-mode" class="pill">…</span></div>
+        <p class="muted">4 cellules de charge sous chaque pied mesurent le poids et le <b>centre de pression</b> (point
+          rouge). Avec la centrale BNO085, le firmware corrige les chevilles 50 fois par seconde.</p>
+        <div id="feet-view" class="feet"></div>
+        <div class="row wrap">
+          <button id="feet-tare" class="ghost">Tare (pieds en l'air)</button>
+          <button data-balance="monitor" class="ghost">Surveiller sans bouger</button>
+          <button data-balance="on">Équilibre ACTIF</button>
+          <button data-balance="off" class="ghost">Équilibre arrêté</button>
+        </div>
+        <h3>Séquences</h3>
+        <div id="legs-sequences" class="row wrap"></div>
+        <p id="legs-seq-state" class="muted"></p>
+        <p class="muted">« pas_sur_place » ne lève un pied que lorsque l'autre porte au moins 85 % du poids.
+          Sinon les jambes se figent.</p>
+      </div>
+    </section>
+
+    <!-- Services -->
+    <section id="tab-services" class="tab">
+      <div class="card">
+        <div class="row between wrap">
+          <h2>Programmes du robot</h2>
+          <div class="row wrap">
+            <button id="prog-start-all">Tout démarrer</button>
+            <button id="prog-stop-all" class="ghost">Tout arrêter</button>
+          </div>
+        </div>
+        <p class="muted">Lancés directement par l'Atelier, sans ligne de commande. Cochez « au démarrage »
+          pour qu'un programme se lance tout seul quand l'Atelier démarre.</p>
+      </div>
+      <div id="programs-list" class="grid"></div>
+      <h2 class="muted">Services systemd (si installés)</h2>
+      <div id="services-list" class="grid"></div>
+      <div class="card hidden" id="logs-card">
+        <div class="row between">
+          <h2 id="logs-title">Journal</h2>
+          <button id="logs-close" class="ghost">Fermer</button>
+        </div>
+        <pre id="logs-text" class="log"></pre>
+      </div>
+    </section>
+
+    <!-- Réglages -->
+    <section id="tab-settings" class="tab">
+      <div class="card">
+        <h2>Réglages de l'atelier</h2>
+        <form id="settings-form" class="form"></form>
+        <button id="settings-save">Enregistrer</button>
+      </div>
+      <div class="card">
+        <div class="row between">
+          <h2>Fichier de configuration</h2>
+          <select id="config-name">
+            <option value="robot">Robot (vision, voix, IA)</option>
+            <option value="legs">Jambes (articulations, poses)</option>
+          </select>
+        </div>
+        <p id="config-path" class="muted"></p>
+        <textarea id="config-text" spellcheck="false"></textarea>
+        <button id="config-save">Vérifier et enregistrer</button>
+      </div>
+    </section>
+  </main>
+
+  <div id="manual-print" aria-hidden="true"></div>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script src="/static/app.js"></script>
+</body>
+</html>
