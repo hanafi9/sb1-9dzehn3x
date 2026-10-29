@@ -432,7 +432,8 @@ class Listener:
         now = time.monotonic()
         if not turn or "queued" not in turn or now - turn["end"] > 30:   # vieille phrase ignorée
             return
-        steps = {"total": now - turn["end"], "silence": self.cfg["end_silence_ms"] / 1000.0,
+        steps = {"total": now - turn["end"],
+                 "silence": 0.0 if turn.get("ecrit") else self.cfg["end_silence_ms"] / 1000.0,
                  "ecoute": turn["whisper"], "ia": turn["queued"] - turn["heard"], "voix": now - turn["queued"]}
         # reconnaissance = Whisper du Pi et/ou en ligne ; voix = Piper ou voix en ligne (fichier téléchargé)
         log.info("⏱ 1er son %.1f s après la fin de ta phrase = silence de fin %.1f + reconnaissance %.1f "
@@ -751,8 +752,12 @@ class Listener:
             self.ha.publish("reponse", value)
         elif kind == "question":
             self._last_audio = None   # pas de voix à reconnaître : la question est écrite
-            self.turn = None          # ni micro ni Whisper : pas de chrono « après ta phrase »
+            # question écrite : le ⏱ part de l'envoi (ni silence de fin ni reconnaissance)
+            now = time.monotonic()
+            self.turn = {"end": now, "whisper": 0.0, "heard": now, "ecrit": True}
             self.handle(value, addressed=True)
+            if self.turn and "queued" not in self.turn:
+                self.turn = None
         elif kind == "garde":
             watcher = getattr(self, "watcher", None)
             if watcher is not None:

@@ -1,6 +1,8 @@
 """Chatbot de secours d'InMoov2 : avec Piper, sa réponse doit sortir par les haut-parleurs."""
 
+import json
 import os
+import queue
 import sys
 import time
 import types
@@ -262,6 +264,19 @@ class ChatbotTest(unittest.TestCase):
         self.assertIn("1er son 5.0 s", logs.output[0])
         self.assertIn("reconnaissance 2.0 + IA (1re phrase) 2.5 + voix 0.5", logs.output[0])
         self.assertIsNone(lst.turn)
+
+    def test_written_question_is_timed_too(self):
+        lst = listener(FakeTts())
+        lst.cfg["end_silence_ms"] = 700
+        published = {}
+        lst.ha = types.SimpleNamespace(commands=queue.Queue(), publish=published.__setitem__, state=lambda s: None)
+        lst.handle = lambda text, addressed=False: lst.turn.__setitem__("queued", lst.turn["heard"] + 1.2)
+        lst._flush_audio = lambda: None
+        lst.ha.commands.put(("question", "Qu'est-ce que tu vois ?"))
+        lst._ha_command()
+        lst._on_first_sound("Je vois…")
+        d = json.loads(published["delai"])
+        self.assertEqual((d["silence"], d["ecoute"], d["ia"]), (0.0, 0.0, 1.2))   # écrite : ni silence ni Whisper
 
     def test_speaking_state_follows_the_real_sound(self):
         lst = listener(FakeTts())
