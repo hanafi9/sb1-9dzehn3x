@@ -32,6 +32,15 @@ class LocalBridge:
         self.commands = queue.Queue()
         self.guard_state = None
         self.data = {"etat": "idle", "history": [], "started": clock()}
+        # après un redémarrage de la voix : on garde la conversation et le dernier temps de réaction
+        try:
+            with open(self.cfg["state_path"], encoding="utf-8") as f:
+                old = json.load(f)
+            self.data["history"] = list(old.get("history") or [])[-self.cfg["history"]:]
+            if old.get("delai"):
+                self.data["delai"] = old["delai"]
+        except (OSError, ValueError, TypeError, AttributeError):
+            pass
         self.last_poll = 0.0
         self.last_write = 0.0
 

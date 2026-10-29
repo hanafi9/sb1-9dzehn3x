@@ -44,6 +44,14 @@ class BridgeTest(unittest.TestCase):
         with open(self.cfg["state_path"], encoding="utf-8") as f:
             return json.load(f)
 
+    def test_restart_keeps_delay_and_conversation(self):
+        self.b.publish("entendu", "Kamil, quelle heure est-il ?")
+        self.b.publish("delai", '{"total": 2.1, "silence": 0.5, "ecoute": 0.4, "ia": 0.9, "voix": 0.3}')
+        again = LocalBridge(self.cfg, clock=lambda: self.now)                # la voix redémarre
+        self.assertEqual(again.data["delai"], self.read()["delai"])            # ⏱ toujours affiché
+        self.assertEqual(again.data["history"][0]["texte"], "Kamil, quelle heure est-il ?")
+        self.assertEqual(again.data["etat"], "idle")
+
     def test_state_and_conversation(self):
         self.b.guard_state = lambda: True
         self.b.state("thinking")

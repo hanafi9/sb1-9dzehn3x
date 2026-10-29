@@ -86,7 +86,8 @@ async function kamilRefresh() {
     k.people !== null ? `<span class="pill">👀 ${k.people} personne${k.people > 1 ? "s" : ""}</span>` : "",
     k.journal ? `<span class="pill" title="Dernier événement du journal">📓 ${esc(k.journal)}</span>` : "",
     k.delai ? `<span class="pill" title="Temps entre la fin de ta phrase et le début de sa réponse :
-silence de fin ${k.delai.silence} s + reconnaissance ${k.delai.ecoute} s + IA ${k.delai.ia} s + voix ${k.delai.voix} s">⏱ ${k.delai.total.toFixed(1).replace(".", ",")} s</span>` : "",
+silence de fin ${k.delai.silence} s + reconnaissance ${k.delai.ecoute} s + IA ${k.delai.ia} s + voix ${k.delai.voix} s">⏱ ${k.delai.total.toFixed(1).replace(".", ",")} s</span>`
+      : k.alive ? `<span class="pill" title="Temps de réaction : mesuré à sa prochaine réponse">⏱ –</span>` : "",
   ].join("");
   if (k.mood) {
     // humeur en jauges circulaires
