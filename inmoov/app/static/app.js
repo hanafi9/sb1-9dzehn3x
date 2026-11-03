@@ -1409,6 +1409,23 @@ $("#programs-list").addEventListener("change", async (e) => {
   try { await api("PUT", "/api/programs/autostart", { names }); toast("Démarrage automatique enregistré"); }
   catch (err) { toast(err.message, true); }
 });
+// bilan de santé : tout vérifier d'un coup (app/health.py)
+$("#prog-check-all").addEventListener("click", (e) => withButton(e.target, async () => {
+  const r = await api("GET", "/api/check");
+  const icon = { ok: "✅", warn: "⚠️", bad: "❌" };
+  const groups = [...new Set(r.checks.map((c) => c.group))];
+  $("#check-results").innerHTML = `<p><b>${r.bad ? `❌ ${r.bad} problème${r.bad > 1 ? "s" : ""}` : "✅ Tout va bien"}</b>
+    ${r.warn ? ` · ⚠️ ${r.warn} à surveiller` : ""}</p>` + groups.map((g) => `<h3>${esc(g)}</h3><ul class="check-list">` +
+    r.checks.filter((c) => c.group === g).map((c) => `<li>${icon[c.status]} <b>${esc(c.name)}</b> : ${esc(c.detail)}
+      ${c.fix ? `<br><span class="muted">→ ${esc(c.fix)}</span>` : ""}</li>`).join("") + "</ul>").join("");
+}));
+$("#prog-autostart-all").addEventListener("click", (e) => withButton(e.target, async () => {
+  const pr = await api("GET", "/api/programs");
+  const names = pr.order.filter((n) => pr.programs[n].installed);
+  await api("PUT", "/api/programs/autostart", { names });
+  toast("Au démarrage : " + names.join(", "));
+  loaders.programs();
+}));
 for (const [id, action] of [["#prog-start-all", "start"], ["#prog-stop-all", "stop"]]) {
   $(id).addEventListener("click", (e) => withButton(e.target, async () => {
     const r = await api("POST", `/api/programs/all/${action}`);

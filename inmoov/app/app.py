@@ -29,6 +29,7 @@ sys.path[:0] = [ROOT, os.path.join(ROOT, "legs")]
 import arduino_tools  # noqa: E402
 import bench  # noqa: E402
 import electrical  # noqa: E402
+import health  # noqa: E402
 import launcher as launcher_mod  # noqa: E402
 import servo_inventory  # noqa: E402
 import system_tools  # noqa: E402
@@ -1051,6 +1052,18 @@ def create_app(data_dir=None, run=None, mrl=None):
                 except Exception as e:   # un programme absent ne doit pas empêcher les autres
                     print("Démarrage automatique de %s impossible : %s" % (n, e))
                 time.sleep(20 if n == "mrl" else 3)   # MyRobotLab met du temps à démarrer
+
+    @app.get("/api/check")
+    @api
+    def check_all():
+        """Bilan de santé : programmes, caméras, Coral, son, voix, comptes, maison, système (app/health.py)."""
+        cfg, base, bc = bridge_cfg()
+        env = launcher_mod.read_env_file(os.path.join(ROOT, "anthropic.env"))
+        checks = health.run_checks(cfg, base, ROOT, launcher.status(), launcher_store.load().get("autostart", []),
+                                   env, bc["state_path"], run=run)
+        return jsonify({"ok": True, "checks": checks,
+                        "bad": sum(c["status"] == "bad" for c in checks),
+                        "warn": sum(c["status"] == "warn" for c in checks)})
 
     app.launcher = launcher
     app.autostart = autostart
