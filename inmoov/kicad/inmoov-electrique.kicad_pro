@@ -1,0 +1,50 @@
+{
+  "meta": {
+    "filename": "inmoov-electrique.kicad_pro",
+    "version": 1
+  },
+  "sheets": [
+    [
+      "a966bcfe-509a-538c-ba43-1ee9e4cb4415",
+      "Racine"
+    ],
+    [
+      "ff5762e5-e32f-5f1e-a3e3-d6fb2e291895",
+      "Alimentation générale"
+    ],
+    [
+      "af475f68-f41a-53ad-9f1c-e61fa1753baf",
+      "Tête"
+    ],
+    [
+      "f98b6c1a-9a17-5510-b858-c610ee365d1f",
+      "Cou"
+    ],
+    [
+      "fda6eb04-ab1e-5df8-a450-79b7bb59795e",
+      "Torse"
+    ],
+    [
+      "7f12af08-104a-5124-af30-521f9789e55c",
+      "Bras"
+    ],
+    [
+      "fd5560be-ae51-5bfe-a5e3-98ff74ee5557",
+      "Mains et avant-bras"
+    ],
+    [
+      "021981b7-c08d-5e3e-98c2-245473d2fa50",
+      "Bassin et ventre"
+    ],
+    [
+      "91fc97af-14d2-50a9-839e-937ba7e78deb",
+      "Jambes"
+    ]
+  ],
+  "text_variables": {},
+  "boards": [],
+  "libraries": {
+    "pinned_footprint_libs": [],
+    "pinned_symbol_libs": []
+  }
+}

@@ -1,0 +1,10 @@
+** Drc report for /home/user/sb1-9dzehn3x/inmoov/pcb/shield_jambes/shield_jambes.kicad_pcb **
+** Created on 2026-10-07 19:45:54 **
+
+** Found 0 DRC violations **
+
+** Found 0 unconnected pads **
+
+** Found 0 Footprint errors **
+
+** End of Report **

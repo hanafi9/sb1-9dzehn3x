@@ -1,0 +1,141 @@
+"""Surveillance (voice/watch.py) : journal, photos, mode garde, avec une horloge simulée."""
+
+import json
+import os
+import sys
+import tempfile
+import time
+import unittest
+
+ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+sys.path[:0] = [ROOT, os.path.join(ROOT, "voice")]
+
+from watch import Watcher  # noqa: E402
+
+NOON = time.mktime((2026, 10, 23, 12, 0, 0, 0, 0, -1))
+
+
+class Scene:
+    def __init__(self):
+        self.dir = tempfile.mkdtemp()
+        self.state = os.path.join(self.dir, "vision.json")
+        self.frames = [os.path.join(self.dir, "f1.jpg"), os.path.join(self.dir, "f2.jpg")]
+        for p in self.frames:
+            with open(p, "wb") as f:
+                f.write(b"\xff\xd8jpeg")
+        self.now = NOON
+        self.w = Watcher({"poll_s": 0, "frame_paths": self.frames, "journal_path": "journal.jsonl",
+                          "snapshots_dir": "snaps"}, self.state, base_dir=self.dir, clock=lambda: self.now)
+
+    def run(self, seconds, people=0, motion1=0.0, motion2=0.0, objects=(), objects2=()):
+        alerts, end = [], self.now + seconds
+        while self.now < end:
+            with open(self.state, "w", encoding="utf-8") as f:
+                json.dump({"time": self.now, "faces": 0, "people": people,
+                           "motion": {"level": motion1, "boxes": [[0.7, 0.2, 0.9, 0.5]] if motion1 else []},
+                           "objects": [{"label": o} for o in objects],
+                           "camera2": {"motion": {"level": motion2, "boxes": []},
+                                       "objects": [{"label": o} for o in objects2]}}, f)
+            a = self.w.poll()
+            if a:
+                alerts.append(a)
+            self.now += 1
+        return alerts
+
+    def texts(self):
+        return [e["text"] for e in self.w.entries(24)]
+
+
+class WatchTest(unittest.TestCase):
+    def test_journal_of_comings_and_goings(self):
+        s = Scene()
+        s.run(5, objects=["chaise", "plante en pot"])          # décor du démarrage : pas noté
+        s.run(5, people=1)
+        s.run(20)
+        s.run(3, motion2=0.2)                                   # mouvement sans personne, caméra 2
+        s.run(5, objects=["chaise", "plante en pot", "sac à dos"])
+        texts = s.texts()
+        self.assertIn("Arrivée : une personne devant moi", texts)
+        self.assertIn("Départ : plus personne en vue", texts)
+        self.assertIn("Mouvement sans personne visible (caméra 2)", texts)
+        self.assertIn("Nouvel objet : sac à dos (caméra 1)", texts)
+        self.assertNotIn("Nouvel objet : chaise (caméra 1)", texts)
+        # photos gardées pour l'arrivée (2 caméras) et le mouvement (caméra 2)
+        arrival = next(e for e in s.w.entries(24) if e["type"] == "arrivee")
+        self.assertEqual(len(arrival["images"]), 2)
+        self.assertTrue(all(os.path.isfile(p) for p in arrival["images"]))
+        self.assertIn("12 h 00 : Arrivée", s.w.journal_text(24))
+
+    def test_old_furniture_lines_are_hidden(self):
+        s = Scene()
+        with open(s.w.journal_path, "a", encoding="utf-8") as f:
+            for text in ("Nouvel objet : canapé (caméra 1)", "Objet disparu : lit (caméra 2)",
+                         "Nouvel objet : sac à dos (caméra 1)"):
+                f.write(json.dumps({"t": s.now, "type": "objet", "text": text, "images": []}) + "\n")
+        text = s.w.journal_text()                              # lignes notées avant le réglage : tues
+        self.assertNotIn("canapé", text)
+        self.assertNotIn("lit ", text)
+        self.assertIn("sac à dos", text)
+
+    def test_photo_and_old_entries(self):
+        s = Scene()
+        s.run(3, people=1)
+        caption, path = s.w.photo(1)
+        self.assertIn("Arrivée", caption)
+        self.assertTrue(path.endswith("-cam1.jpg") or path.endswith("-cam2.jpg"))
+        self.assertEqual(s.w.photo(5), (None, None))
+        s.now += 48 * 3600
+        self.assertIn("Rien de noté", s.w.journal_text(24))
+
+    def test_guard_mode_alerts(self):
+        s = Scene()
+        self.assertEqual(s.run(3, people=1), [])               # pas de garde : pas d'alerte
+        s.run(20)
+        s.w.set_guard(True)
+        self.assertIn("Mode garde activé (surveillance dans 30 s)", s.texts())
+        self.assertEqual(s.run(25, people=1), [])              # délai de sortie : le temps de partir
+        s.run(20)
+        alerts = s.run(3, people=1)
+        self.assertEqual(alerts, ["Arrivée : une personne devant moi"])
+        s.run(20)
+        self.assertTrue(any("Mouvement" in a for a in s.run(3, motion1=0.3)))
+        s.w.set_guard(False)
+        self.assertIn("Mode garde désactivé", s.texts())
+
+    def test_guard_armed_with_someone_present_and_restart(self):
+        s = Scene()
+        s.run(3, people=1)                                     # le propriétaire est devant les caméras
+        s.w.set_guard(True)
+        alerts = s.run(40, people=1)                           # il ne part pas : signalé une fois armé
+        self.assertEqual(alerts, ["Quelqu'un est devant moi alors que le mode garde est armé"])
+        alerts = s.run(301, people=1)
+        self.assertEqual(alerts, ["Quelqu'un est toujours devant moi (mode garde)"])   # rappel après 5 min
+        # Kamil redémarre : la garde continue, sans délai de sortie
+        w2 = Watcher({"poll_s": 0, "frame_paths": s.frames, "journal_path": "journal.jsonl",
+                      "snapshots_dir": "snaps"}, s.state, base_dir=s.dir, clock=lambda: s.now)
+        self.assertTrue(w2.guard)
+        s.w = w2
+        s.run(15)                                              # parti
+        self.assertEqual(s.run(3, people=1), ["Arrivée : une personne devant moi"])
+        w2.set_guard(False)
+        self.assertFalse(Watcher({"journal_path": "j.jsonl"}, s.state, base_dir=s.dir).guard)
+
+    def test_guard_says_when_cameras_are_off(self):
+        s = Scene()
+        s.w.set_guard(True)
+        s.now += 31
+        # pas de fichier de vision : face_tracker.py arrêté
+        self.assertIn("caméras ne répondent pas", s.w.poll())
+        self.assertIsNone(s.w.poll())                          # dit une seule fois
+
+    def test_motion_rate_limited_and_ignored_with_people(self):
+        s = Scene()
+        s.run(30, motion1=0.2)
+        self.assertEqual(sum("Mouvement" in t for t in s.texts()), 1)   # 1 par minute au plus
+        s2 = Scene()
+        s2.run(10, people=1, motion1=0.2)
+        self.assertFalse(any("Mouvement" in t for t in s2.texts()))     # la personne bouge : normal
+
+
+if __name__ == "__main__":
+    unittest.main()

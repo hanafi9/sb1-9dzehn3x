@@ -1,0 +1,13 @@
+[Unit]
+Description=InMoov - capteurs (courant, batterie, toucher, présence)
+After=network.target
+
+[Service]
+User=pi
+WorkingDirectory=/home/pi/inmoov/sensors
+ExecStart=/home/pi/inmoov/.venv-sensors/bin/python sensor_hub.py --config /home/pi/inmoov/config.json
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

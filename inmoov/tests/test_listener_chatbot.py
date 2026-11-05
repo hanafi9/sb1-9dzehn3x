@@ -1,0 +1,410 @@
+"""Chatbot de secours d'InMoov2 : avec Piper, sa réponse doit sortir par les haut-parleurs."""
+
+import json
+import os
+import queue
+import sys
+import time
+import types
+import unittest
+
+ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+sys.path[:0] = [ROOT, os.path.join(ROOT, "voice")]
+
+# le micro et Whisper ne sont pas utiles ici
+for name in ("sounddevice", "webrtcvad", "faster_whisper"):
+    sys.modules.setdefault(name, types.ModuleType(name))
+sys.modules["faster_whisper"].WhisperModel = object
+
+try:
+    import numpy  # noqa: F401
+    import speech_listener
+except ImportError:  # pragma: no cover
+    speech_listener = None
+
+
+class FakeTts:
+    def __init__(self):
+        self.said = []
+
+    def speak(self, text):
+        self.said.append(text)
+        return 1.0
+
+
+class FakeMrl:
+    def __init__(self, reply="Salut human!"):
+        self.calls = []
+        self.reply = reply
+
+    def call_checked(self, service, method, *params):
+        self.calls.append((service, method) + params)
+        return True, ({"msg": self.reply} if method == "getResponse" else None)
+
+
+def listener(tts, dry_run=False, wake_words=()):
+    lst = object.__new__(speech_listener.Listener)
+    lst.cfg = {"wake_words": list(wake_words), "commands": {}, "fuzzy_threshold": 0.8, "chatbot_service": "i01.chatBot",
+               "chatbot_method": "getResponse", "mouth_service": "i01.mouth", "seconds_per_char": 0.07,
+               "wake_window_s": 8}
+    lst.awake_until = lst.mute_until = 0.0
+    lst.brain = lst.local = lst.leds = lst.pipeline = lst.reactions = lst.voices = lst._last_audio = None
+    lst.tts, lst.dry_run, lst.mrl = tts, dry_run, FakeMrl()
+    return lst
+
+
+@unittest.skipIf(speech_listener is None, "numpy absent")
+class ChatbotTest(unittest.TestCase):
+    def test_chatbot_zero_and_disabled_chatbot(self):
+        tts = FakeTts()
+        lst = listener(tts)
+        lst.mrl = FakeMrl("0")                      # le chatbot n'a pas de réponse : on ne dit pas « zéro »
+        lst.handle("traduis la télé")
+        self.assertEqual(tts.said, [])
+        lst.cfg["chatbot_fallback"] = False         # chatbot anglais désactivé : phrase claire en français
+        lst.handle("bonjour")
+        self.assertEqual(tts.said, ["Désolé, mon cerveau ne répond pas pour l'instant."])
+        self.assertEqual(len(lst.mrl.calls), 1)
+
+    def test_piper_speaks_chatbot_reply(self):
+        tts = FakeTts()
+        lst = listener(tts)
+        lst.handle("bonjour")
+        self.assertEqual(tts.said, ["Salut human!"])
+        self.assertEqual(lst.mrl.calls, [("i01.chatBot", "getResponse", "bonjour")])
+
+    def test_mrl_voice_left_to_chatbot(self):
+        lst = listener(None)
+        lst.handle("bonjour")
+        self.assertEqual(lst.mrl.calls, [("i01.chatBot", "getResponse", "bonjour")])
+        self.assertGreater(lst.mute_until, 0)
+
+    def test_dry_run_is_silent(self):
+        tts = FakeTts()
+        lst = listener(tts, dry_run=True)
+        lst.handle("bonjour")
+        self.assertEqual(tts.said, [])
+        self.assertEqual(lst.mrl.calls, [])
+
+    def test_html_is_not_spoken(self):
+        tts = FakeTts()
+        lst = listener(tts)
+        lst.mrl.reply = '<img src="img/InMoov2/brain-resize.gif"/>'
+        lst.handle("tu mets du temps")
+        self.assertEqual(tts.said, [])
+        lst.mrl.reply = "Je r&eacute;fl&eacute;chis <b>encore</b>."
+        lst.handle("tu mets du temps")
+        self.assertEqual(tts.said, ["Je réfléchis encore."])
+
+    def test_wake_word_removed_when_already_awake(self):
+        tts = FakeTts()
+        lst = listener(tts, wake_words=["kamil", "robot"])
+        lst.handle("Kamil.")
+        self.assertEqual(len(tts.said), 1)                       # réponse courte qui invite à parler
+        self.assertIn(tts.said[0], speech_listener.WAKE_REPLIES)
+        # il écoute à partir de la fin de sa réponse, pas pendant qu'il parle
+        self.assertGreaterEqual(lst.awake_until, lst.mute_until + lst.cfg["wake_window_s"] - 0.01)
+        lst.handle("Kamil, ce que tu dis est bizarre")
+        self.assertEqual(lst.mrl.calls[-1], ("i01.chatBot", "getResponse", "ce que tu dis est bizarre"))
+        lst.awake_until = 0.0  # fenêtre de suite écoulée
+        lst.handle("bonjour")  # plus réveillé : ignoré
+        self.assertEqual(len(lst.mrl.calls), 1)
+
+    def test_pause_after_wake_word(self):
+        tts = FakeTts()
+        lst = listener(tts, wake_words=["kamil"])
+        lst.segmenter = types.SimpleNamespace(triggered=False, reset=lambda: None)
+        lst.cfg["wake_reply_delay_s"] = 5                        # réglage « écoute silencieuse »
+        lst.handle("Kamil…")
+        self.assertEqual(tts.said, [])                           # il écoute en silence : on a le temps de parler
+        lst._maybe_react()
+        self.assertEqual(tts.said, [])                           # pas encore 5 s
+        lst.handle("quelle heure est-il ?")                      # la vraie question, sans redire « Kamil »
+        self.assertEqual(lst.mrl.calls[-1], ("i01.chatBot", "getResponse", "quelle heure est-il ?"))
+        self.assertIsNone(lst._wake_reply_at)                    # question posée : plus de « Oui ? » en attente
+        lst._maybe_react()
+        self.assertEqual(len(tts.said), 1)                       # seulement la réponse à la question
+        lst.handle("Kamil.")
+        lst._wake_reply_at = time.monotonic() - 0.1              # 5 s de silence
+        lst._maybe_react()
+        self.assertEqual(len(tts.said), 2)                       # alors seulement : « Oui ? »
+        self.assertGreater(lst.awake_until, time.monotonic())    # et il écoute encore
+
+    def test_wake_replies_vary(self):
+        lst = listener(FakeTts())
+        lst.cfg["wake_replies"] = ["Oui ?", "Présent !", "Me voilà !"]
+        said = [lst._wake_reply() for _ in range(30)]
+        self.assertTrue(set(said) <= {"Oui ?", "Présent !", "Me voilà !"})
+        self.assertTrue(all(a != b for a, b in zip(said, said[1:])))   # jamais deux fois de suite
+        lst.cfg.pop("wake_replies")
+        lst.brain_cfg = {"personality": {"humour": 3}}                 # farceur
+        self.assertIn(lst._wake_reply(), speech_listener.WAKE_REPLIES_FUNNY)
+        lst.brain_cfg = {"personality": {"humour": 3, "style": "ado"}}  # ado
+        self.assertIn(lst._wake_reply(), speech_listener.WAKE_REPLIES_ADO)
+        lst.brain_cfg = {}
+        self.assertIn(lst._wake_reply(), speech_listener.WAKE_REPLIES)
+
+    def test_owner_only_voice_commands(self):
+        tts = FakeTts()
+        lst = listener(tts)
+        lst.cfg["commands"] = {"lève le bras": [["i01.rightArm.shoulder", "moveTo", 120]]}
+        lst.cfg["speaker_id"] = {"owner": "Sam", "owner_only_commands": True}
+        lst._last_audio = [0.0]
+        lst.voices = types.SimpleNamespace(identify=lambda audio: (None, 0.2))     # voix inconnue
+        lst.handle("lève le bras")
+        self.assertEqual(lst.mrl.calls, [])
+        self.assertIn("Sam", tts.said[-1])
+        lst.voices = types.SimpleNamespace(identify=lambda audio: ("Sam", 0.8))
+        lst.handle("lève le bras")
+        self.assertEqual(lst.mrl.calls, [("i01.rightArm.shoulder", "moveTo", 120)])
+
+    def test_longer_follow_up_after_a_question(self):
+        lst = listener(FakeTts())
+        lst._follow_up()
+        normal = lst.awake_until - time.monotonic()
+        lst._follow_up(question=True)
+        question = lst.awake_until - time.monotonic()
+        self.assertAlmostEqual(normal, 15, delta=0.5)
+        self.assertAlmostEqual(question, 25, delta=0.5)
+
+    def test_tv_and_radio_are_ignored_during_follow_up(self):
+        import numpy as np
+        lst = listener(FakeTts(), wake_words=["kamil"])
+        asked = []
+        lst.brain = types.SimpleNamespace(ask=lambda t, **k: asked.append((t, k)) or "D'accord !")
+        lst.awake_until = time.monotonic() + 10                 # fenêtre de suite ouverte
+        lst._last_audio = np.zeros(16000 * 12, dtype=np.float32)
+        lst.handle("le gouvernement a annoncé ce matin de nouvelles mesures")   # 12 s de télé
+        self.assertEqual(asked, [])
+        self.assertEqual(lst.awake_until, 0.0)                  # fenêtre refermée
+        lst.awake_until = time.monotonic() + 10
+        lst._last_audio = np.zeros(16000 * 2, dtype=np.float32)
+        lst.voices = types.SimpleNamespace(identify=lambda a: (None, 0.2))     # voix inconnue
+        lst.handle("on se retrouve après la pub")
+        self.assertEqual(asked, [])
+        lst.voices = types.SimpleNamespace(identify=lambda a: ("Sam", 0.8))
+        lst.awake_until = time.monotonic() + 10
+        lst.handle("et toi, ça va ?")                            # voix connue : pour lui
+        self.assertEqual(asked[-1][1]["direct"], False)
+        lst._last_audio = np.zeros(16000 * 12, dtype=np.float32)
+        lst.handle("Kamil, raconte-moi une très longue histoire de pirates")    # avec son prénom : toujours
+        self.assertEqual(asked[-1][1]["direct"], True)
+
+    def test_wake_word_heard_in_the_middle_of_tv(self):
+        import numpy as np
+        lst = listener(FakeTts(), wake_words=["kamil", "camille"])
+        asked = []
+        lst.brain = types.SimpleNamespace(ask=lambda t, **k: asked.append((t, k)) or "Voilà !")
+        lst._last_audio = np.zeros(16000 * 12, dtype=np.float32)
+        lst.handle("on observe avec attention l'enquête policière Camille allume le lustre")
+        self.assertEqual(asked, [("allume le lustre", {"speaker": None, "direct": True})])
+
+    def test_home_assistant_commands(self):
+        tts = FakeTts()
+        lst = listener(tts, wake_words=["kamil"])
+        lst.segmenter = types.SimpleNamespace(triggered=False, reset=lambda: None)
+        lst.frames = speech_listener.queue.Queue()
+        sent = []
+        lst.ha = types.SimpleNamespace(commands=speech_listener.queue.Queue(), state=lambda s: None,
+                                       publish=lambda k, v: sent.append((k, v)), guard=lambda on: sent.append(("garde", on)))
+        asked = []
+        lst.brain = types.SimpleNamespace(ask=lambda t, **k: asked.append((t, k)) or "Il est midi.")
+        guard = []
+        lst.watcher = types.SimpleNamespace(poll=lambda: None, guard=False, cfg={"exit_delay_s": 30})
+        lst.watcher.set_guard = lambda on: (guard.append(on), setattr(lst.watcher, "guard", on))
+        lst.ha.commands.put(("dire", "Le linge est sec !"))
+        lst._maybe_react()
+        self.assertEqual(tts.said, ["Le linge est sec !"])
+        lst.ha.commands.put(("question", "quelle heure est-il ?"))
+        lst._maybe_react()
+        self.assertEqual(asked, [])                              # Kamil parle encore : la question attend
+        lst.mute_until = 0.0
+        lst._maybe_react()
+        self.assertEqual(asked[-1], ("quelle heure est-il ?", {"speaker": None, "direct": True}))
+        self.assertIn(("reponse", "Il est midi."), sent)
+        lst.ha.commands.put(("garde", True))
+        lst.mute_until = 0.0
+        lst._maybe_react()
+        self.assertEqual(guard, [True])
+        self.assertIn("dans 30 secondes", tts.said[-1])              # Kamil confirme à voix haute
+        lst.ha.commands.put(("garde", False))
+        lst.mute_until = 0.0                                          # Kamil a fini sa phrase
+        lst._maybe_react()
+        self.assertEqual(tts.said[-1], "Mode garde désactivé. Bon retour !")
+
+    def test_second_kamil_is_detected(self):
+        import os
+        import tempfile
+        proc = tempfile.mkdtemp()
+        for pid, argv in ((101, ["../.venv-voice/bin/python", "speech_listener.py", "--config", "x"]),
+                          (102, ["nano", "speech_listener.py"]),
+                          (os.getpid(), ["python3", "speech_listener.py"])):
+            os.makedirs(os.path.join(proc, str(pid)))
+            with open(os.path.join(proc, str(pid), "cmdline"), "wb") as f:
+                f.write(b"\0".join(a.encode() for a in argv) + b"\0")
+        self.assertEqual(speech_listener.other_listeners(proc), [101])     # ni nano, ni soi-même
+
+    def test_claude_silence_closes_the_window(self):
+        tts = FakeTts()
+        lst = listener(tts, wake_words=["kamil"])
+        lst.brain = types.SimpleNamespace(ask=lambda t, **k: "")    # Claude : « [silence] »
+        lst.awake_until = time.monotonic() + 10
+        lst.handle("on se retrouve après la pub")
+        self.assertEqual(lst.mrl.calls, [])                     # pas de chatbot de secours
+        self.assertEqual(tts.said, [])
+        self.assertEqual(lst.awake_until, 0.0)
+
+    def test_response_delay_is_logged_by_step(self):
+        lst = listener(FakeTts())
+        lst.cfg["end_silence_ms"] = 700
+        now = time.monotonic()
+        lst.turn = {"end": now - 5.0, "whisper": 2.0, "heard": now - 3.0, "queued": now - 0.5}
+        with self.assertLogs("voice", "INFO") as logs:
+            lst._on_first_sound("Bonjour !")
+        self.assertIn("1er son 5.0 s", logs.output[0])
+        self.assertIn("reconnaissance 2.0 + IA (1re phrase) 2.5 + voix 0.5", logs.output[0])
+        self.assertIsNone(lst.turn)
+
+    def test_written_question_is_timed_too(self):
+        lst = listener(FakeTts())
+        lst.cfg["end_silence_ms"] = 700
+        published = {}
+        lst.ha = types.SimpleNamespace(commands=queue.Queue(), publish=published.__setitem__, state=lambda s: None)
+        lst.handle = lambda text, addressed=False: lst.turn.__setitem__("queued", lst.turn["heard"] + 1.2)
+        lst._flush_audio = lambda: None
+        lst.ha.commands.put(("question", "Qu'est-ce que tu vois ?"))
+        lst._ha_command()
+        lst._on_first_sound("Je vois…")
+        d = json.loads(published["delai"])
+        self.assertEqual((d["silence"], d["ecoute"], d["ia"]), (0.0, 0.0, 1.2))   # écrite : ni silence ni Whisper
+
+    def test_speaking_state_follows_the_real_sound(self):
+        lst = listener(FakeTts())
+        shown = []
+        lst.ha = types.SimpleNamespace(state=shown.append)
+        lst.pipeline = types.SimpleNamespace(put=lambda t: None)
+        lst.status("thinking")
+        lst.say_async("Bonjour, je réfléchis encore.")      # phrase en préparation : pas encore « je parle »
+        self.assertEqual(shown, ["thinking"])
+        lst._on_play_start("Bonjour")                        # le son sort
+        lst.status("idle")                                   # Claude a fini d'écrire, la voix continue
+        self.assertEqual(shown, ["thinking", "speaking"])
+        lst._on_speech_done()                                # dernière phrase finie
+        self.assertEqual(shown, ["thinking", "speaking", "idle"])
+
+    def test_only_phrases_for_kamil_go_to_the_conversation(self):
+        lst = listener(FakeTts(), wake_words=["kamil"])
+        published = []
+        lst.ha = types.SimpleNamespace(publish=lambda k, v: published.append((k, v)), state=lambda s: None)
+        lst._background = lambda speaker: False
+        lst._identify = lambda: None
+        lst.handle("et maintenant la météo du week-end")          # la télé : pas dans la conversation
+        self.assertEqual(published, [])
+        lst.handle("Kamil, quelle heure est-il ?")
+        self.assertEqual(published[0], ("entendu", "Kamil, quelle heure est-il ?"))
+
+    def test_guard_alert_goes_to_every_phone(self):
+        lst = listener(FakeTts())
+        sent = []
+        lst.brain = types.SimpleNamespace(home=types.SimpleNamespace(
+            call_service=lambda d, n, data: sent.append((d, n, data["message"])) or (True, "ok")))
+        lst.watcher = types.SimpleNamespace(cfg={"notify_service": ["notify.mobile_app_redmi_hanafi",
+                                                                     "notify.mobile_app_nadia", "pas un service"]})
+        lst._notify_phone("Arrivée : une personne devant moi")
+        for _ in range(100):
+            if len(sent) == 4:
+                break
+            time.sleep(0.01)
+        self.assertEqual(sent, [("notify", "mobile_app_redmi_hanafi", "Arrivée : une personne devant moi"),
+                                ("notify", "mobile_app_redmi_hanafi", "Photo de la caméra 2"),     # 2e caméra
+                                ("notify", "mobile_app_nadia", "Arrivée : une personne devant moi"),
+                                ("notify", "mobile_app_nadia", "Photo de la caméra 2")])
+        lst.watcher.cfg["notify_images"] = []                                         # sans photo
+        lst.watcher.cfg["notify_service"] = "notify.mobile_app_redmi_hanafi"     # un seul téléphone : texte
+        lst._notify_phone("Mouvement")
+        for _ in range(100):
+            if len(sent) == 5:
+                break
+            time.sleep(0.01)
+        self.assertEqual(sent[-1][1], "mobile_app_redmi_hanafi")
+
+    def test_follow_up_without_wake_word(self):
+        tts = FakeTts()
+        lst = listener(tts, wake_words=["kamil"])
+        lst.handle("Kamil, bonjour")
+        lst.handle("je m'appelle Rachida")  # juste après la réponse : pas besoin de « Kamil »
+        self.assertEqual(lst.mrl.calls[-1], ("i01.chatBot", "getResponse", "je m'appelle Rachida"))
+        lst.cfg["follow_up_s"] = 0
+        lst.awake_until = 0.0
+        lst.handle("bonjour")
+        self.assertEqual(lst.mrl.calls[-1], ("i01.chatBot", "getResponse", "je m'appelle Rachida"))
+        lst.handle("Kamil, bonjour")
+        self.assertEqual(lst.awake_until, 0.0)
+
+    def test_reaction_to_camera_event(self):
+        lst = listener(FakeTts(), wake_words=["kamil"])
+        lst.segmenter = types.SimpleNamespace(triggered=False, reset=lambda: None)
+        lst.frames = __import__("queue").Queue()
+        noticed, talks = [], []
+        lst.brain = types.SimpleNamespace(notice=lambda e: noticed.append(e) or "Bonjour !", ask=lambda t, **k: None)
+        lst.reactions = types.SimpleNamespace(poll=lambda: ("arrivee", "Une personne vient d'apparaître."),
+                                              on_conversation=lambda: talks.append(1))
+        lst._maybe_react()
+        self.assertEqual(noticed, ["Une personne vient d'apparaître."])
+        self.assertEqual(talks, [1])
+        lst.handle("je m'appelle Rachida")   # répond sans dire « Kamil » : fenêtre de suite ouverte
+        self.assertEqual(lst.mrl.calls[-1][2], "je m'appelle Rachida")
+        # quelqu'un parle : pas de réaction pendant ce temps
+        lst.segmenter.triggered = True
+        lst._maybe_react()
+        self.assertEqual(len(noticed), 1)
+
+
+class FakeWhisper:
+    def __init__(self, text, logprob, no_speech=0.0):
+        self.text, self.logprob, self.no_speech, self.calls = text, logprob, no_speech, 0
+
+    def transcribe(self, audio, **kw):
+        self.calls += 1
+        seg = types.SimpleNamespace(text=self.text, avg_logprob=self.logprob, no_speech_prob=self.no_speech)
+        return [seg], None
+
+
+@unittest.skipIf(speech_listener is None, "numpy absent")
+class FallbackModelTest(unittest.TestCase):
+    def make(self, first, second):
+        lst = listener(None, wake_words=["kamil"])
+        lst.cfg.update({"language": "fr", "beam_size": 1, "max_no_speech_prob": 0.6, "min_avg_logprob": -1.0,
+                        "fallback_below_confidence": -0.45})
+        lst.model, lst.fallback_model = first, second
+        return lst
+
+    def pcm(self):
+        import numpy as np
+        return (np.ones(16000, dtype=np.int16) * 3000).tobytes()
+
+    def test_sure_first_model_is_kept(self):
+        small = FakeWhisper("Kamil, quelle heure est-il ?", -0.1)
+        lst = self.make(FakeWhisper("Kamil, raconte-moi une histoire", -0.2), small)
+        self.assertEqual(lst.transcribe(self.pcm()), "Kamil, raconte-moi une histoire")
+        self.assertEqual(small.calls, 0)
+
+    def test_doubtful_phrase_for_the_robot_goes_to_second_model(self):
+        small = FakeWhisper("Kamil, quelle heure est-il ?", -0.15)
+        lst = self.make(FakeWhisper("Kamil, Calerity", -0.7), small)
+        self.assertEqual(lst.transcribe(self.pcm()), "Kamil, quelle heure est-il ?")
+        # même si le 1er modèle a jugé toute la phrase trop incertaine
+        lst = self.make(FakeWhisper("Kamil, Kelleurity", -1.3), small)
+        self.assertEqual(lst.transcribe(self.pcm()), "Kamil, quelle heure est-il ?")
+
+    def test_doubtful_noise_not_for_the_robot_is_not_retried(self):
+        small = FakeWhisper("peu importe", -0.1)
+        lst = self.make(FakeWhisper("à côté du sport loup", -0.8), small)
+        self.assertEqual(lst.transcribe(self.pcm()), "à côté du sport loup")
+        self.assertEqual(small.calls, 0)
+        lst.awake_until = time.monotonic() + 10      # en pleine conversation : on réessaie
+        self.assertEqual(lst.transcribe(self.pcm()), "peu importe")
+
+
+if __name__ == "__main__":
+    unittest.main()

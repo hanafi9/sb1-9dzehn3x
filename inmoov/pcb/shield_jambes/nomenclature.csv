@@ -1,0 +1,22 @@
+Repère;Valeur;Empreinte KiCad;Composant à acheter
+J1;Barrette Mega;Connector_PinHeader_2.54mm:PinHeader_1x08_P2.54mm_Vertical;Barrette mâle sécable 2,54 mm
+J2;Barrette Mega;Connector_PinHeader_2.54mm:PinHeader_1x08_P2.54mm_Vertical;Barrette mâle sécable 2,54 mm
+J3;Barrette Mega;Connector_PinHeader_2.54mm:PinHeader_1x08_P2.54mm_Vertical;Barrette mâle sécable 2,54 mm
+J4;Barrette Mega;Connector_PinHeader_2.54mm:PinHeader_2x18_P2.54mm_Vertical;Barrette mâle sécable 2,54 mm
+J10;HX711 n°0;Connector_JST:JST_XH_B4B-XH-A_1x04_P2.50mm_Vertical;JST-XH 4 broches droit (B4B-XH-A) + câble
+J11;HX711 n°1;Connector_JST:JST_XH_B4B-XH-A_1x04_P2.50mm_Vertical;JST-XH 4 broches droit (B4B-XH-A) + câble
+J12;HX711 n°2;Connector_JST:JST_XH_B4B-XH-A_1x04_P2.50mm_Vertical;JST-XH 4 broches droit (B4B-XH-A) + câble
+J13;HX711 n°3;Connector_JST:JST_XH_B4B-XH-A_1x04_P2.50mm_Vertical;JST-XH 4 broches droit (B4B-XH-A) + câble
+J14;HX711 n°4;Connector_JST:JST_XH_B4B-XH-A_1x04_P2.50mm_Vertical;JST-XH 4 broches droit (B4B-XH-A) + câble
+J15;HX711 n°5;Connector_JST:JST_XH_B4B-XH-A_1x04_P2.50mm_Vertical;JST-XH 4 broches droit (B4B-XH-A) + câble
+J16;HX711 n°6;Connector_JST:JST_XH_B4B-XH-A_1x04_P2.50mm_Vertical;JST-XH 4 broches droit (B4B-XH-A) + câble
+J17;HX711 n°7;Connector_JST:JST_XH_B4B-XH-A_1x04_P2.50mm_Vertical;JST-XH 4 broches droit (B4B-XH-A) + câble
+J20;BNO085;Connector_JST:JST_XH_B4B-XH-A_1x04_P2.50mm_Vertical;JST-XH 4 broches droit (B4B-XH-A) + câble
+J21;Bus servos;Connector_JST:JST_XH_B3B-XH-A_1x03_P2.50mm_Vertical;JST-XH 3 broches droit (B3B-XH-A) + câble
+J22;Arret urgence;Connector_JST:JST_XH_B2B-XH-A_1x02_P2.50mm_Vertical;JST-XH 2 broches droit (B2B-XH-A) + câble
+R1;4,7k;Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal;Résistance 4,7 kΩ 1/4 W
+C1;100nF;Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm;Condensateur céramique 100 nF
+C2;100uF;Capacitor_THT:CP_Radial_D6.3mm_P2.50mm;Condensateur électrolytique 100 µF 16 V, Ø 6,3 mm
+C3;100nF;Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm;Condensateur céramique 100 nF
+D1;LED;LED_THT:LED_D3.0mm;LED 3 mm verte
+R2;1k;Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal;Résistance 1 kΩ 1/4 W

@@ -1,0 +1,461 @@
+{
+  "mrl": {
+    "url": "http://127.0.0.1:8888",
+    "timeout_s": 2.0
+  },
+  "vision": {
+    "camera_index": 0,
+    "camera_fourcc": "MJPG",
+    "frame_width": 640,
+    "frame_height": 480,
+    "model": "models/ssd_mobilenet_v2_face_quant_postprocess_edgetpu.tflite",
+    "score_threshold": 0.6,
+    "max_command_rate_hz": 10,
+    "lost_face_timeout_s": 3.0,
+    "show_window": false,
+    "pan": {
+      "service": "i01.head.rothead",
+      "min": 30,
+      "max": 150,
+      "rest": 90,
+      "gain": 12.0,
+      "deadband": 0.08,
+      "max_step": 4.0,
+      "invert": false
+    },
+    "tilt": {
+      "service": "i01.head.neck",
+      "min": 60,
+      "max": 120,
+      "rest": 90,
+      "gain": 8.0,
+      "deadband": 0.1,
+      "max_step": 3.0,
+      "invert": true
+    },
+    "_faces_aide": "Filtre des visages (vision/faces.py) : confirm_frames = images de suite avant de croire à un nouveau visage (moins de fausses détections) ; keep_frames = images où un visage suivi peut manquer sans être perdu ; keep_threshold = score suffisant pour un visage déjà suivi ; min_size = hauteur mini d'un visage (fraction de l'image, 0.04 ≈ 3-4 m) ; smooth = lissage du cadre (0 = aucun, 0.7 = très doux).",
+    "faces": {"confirm_frames": 2, "keep_frames": 3, "keep_threshold": 0.45, "min_size": 0.04, "smooth": 0.5},
+    "_motion_aide": "Mouvement (vision/motion.py) : ignore_zones = zones à ignorer pour la caméra 1 (écran de télé, fenêtre…), ignore_zones2 pour la caméra 2, en fraction de l'image [[x0, y0, x1, y1]] (0,0 = haut gauche, 1,1 = bas droite) ; threshold = écart de luminosité d'un pixel (plus haut = moins sensible) ; min_area = taille mini d'un cadre ; light_change = au-delà de cette part de l'image, c'est la lumière qui change, pas un mouvement.",
+    "motion": {"ignore_zones": [], "ignore_zones2": [], "threshold": 25, "min_area": 0.004, "light_change": 0.5},
+    "share_frame_path": "/dev/shm/inmoov_frame.jpg",
+    "share_frame_period_s": 0.5,
+    "_second_camera_aide": "Numéro de la 2e caméra (l'autre œil), affichée dans l'onglet Banc d'essai de l'Atelier. null = pas de 2e caméra.",
+    "second_camera_index": null,
+    "share_frame2_path": "/dev/shm/inmoov_frame2.jpg",
+    "state_path": "/dev/shm/inmoov_vision.json",
+    "pause_path": "/dev/shm/inmoov_tracking_pause",
+    "objects": {
+      "enabled": true,
+      "_aide": "Détection des objets de la pièce sur le même Coral USB (80 catégories COCO), lue par l'IA. Modèle installé par vision/install_coral.sh.",
+      "model": "models/ssdlite_mobiledet_coco_qat_postprocess_edgetpu.tflite",
+      "labels": "models/coco_labels.txt",
+      "period_s": 2.0,
+      "score_threshold": 0.5,
+      "_precision_aide": "Moins d'objets mal nommés : confirm = un objet doit être vu dans confirm des confirm_window dernières détections avant d'être annoncé ; label_min_score = score minimum pour une catégorie souvent confondue chez toi (noms français ou anglais, ex. {\"télévision\": 0.7, \"ordinateur portable\": 0.75}). Les animaux de la ferme, véhicules, etc. demandent déjà 0.8.",
+      "confirm": 2,
+      "confirm_window": 3,
+      "label_min_score": {}
+    }
+  },
+  "brain": {
+    "enabled": true,
+    "model": "claude-opus-5-5",
+    "effort": "low",
+    "adaptive_effort": true,
+    "effort_think": "high",
+    "say_thinking": true,
+    "_effort_aide": "« effort » sert pour bavarder ; « effort_think » pour les vraies questions (pourquoi, comment, conseil, calcul, histoire…). Le robot dit alors « laisse-moi réfléchir ».",
+    "stream": true,
+    "filler_after_s": 1.3,
+    "_filler_aide": "Si Claude n'a pas commencé sa réponse après filler_after_s secondes, le robot dit « Alors… », « Voyons voir… » pour montrer qu'il a entendu. 0 = jamais.",
+    "_stream_aide": "Avec la voix Piper : la réponse de Claude arrive en direct et le robot dit chaque phrase dès qu'elle est écrite, sans attendre la fin.",
+    "max_tokens": 4096,
+    "timeout_s": 30,
+    "max_tool_rounds": 4,
+    "reset_after_idle_s": 600,
+    "max_history_messages": 60,
+    "robot_name": "InMoov",
+    "owner_name": "son créateur",
+    "extra_instructions": "",
+    "watch": {
+      "enabled": true,
+      "_aide": "Surveillance (voice/watch.py) : journal des arrivées, départs, mouvements et objets vus par les 2 caméras (data/journal.jsonl) avec photos (data/surveillance). Demandez « qu'est-ce qui s'est passé ? », « montre-moi qui est passé », « surveille la maison » (mode garde). notify_service : service(s) Home Assistant qui préviennent les téléphones en mode garde, ex. \"notify.mobile_app_mon_telephone\" ou une liste [\"notify.mobile_app_a\", \"notify.mobile_app_b\"] (il faut brain.home_assistant). exit_delay_s : le temps de partir après l'activation du mode garde ; realert_s : rappel si quelqu'un reste en vue. Le mode garde reste actif si Kamil redémarre.",
+      "motion_threshold": 0.03,
+      "max_snapshots": 300,
+      "notify_service": null,
+      "_notify_images_aide": "Photos jointes aux alertes envoyées par Kamil (une notification par caméra) : entités caméra de Kamil dans Home Assistant. [] = sans photo.",
+      "notify_images": ["/api/camera_proxy/camera.kamil_camera_1", "/api/camera_proxy/camera.kamil_camera_2"],
+      "exit_delay_s": 30,
+      "realert_s": 300,
+      "ignored_objects": ["personne", "chaise", "table", "lit", "canapé", "plante en pot", "télévision"],
+      "object_confirm": 5,
+      "object_gone_s": 120
+    },
+    "home_assistant": {
+      "enabled": false,
+      "_aide": "Agir sur la maison : Kamil envoie des phrases simples à l'assistant Assist de Home Assistant. Jeton longue durée dans anthropic.env : HOME_ASSISTANT_TOKEN=… Seuls les appareils exposés à Assist (Paramètres → Assistants vocaux → Exposer) sont accessibles. Pour réserver la maison à votre voix : ajoutez \"home_assistant\" à voice.speaker_id.owner_only_tools.",
+      "url": "http://homeassistant.local:8123",
+      "language": "fr",
+      "agent_id": null,
+      "_direct_control_aide": "direct_control : si Assist ne connaît pas un appareil ou en trouve plusieurs du même nom, Kamil le cherche et le commande lui-même (lumières, prises, télés, volets, chauffage… jamais serrures ni alarme). false = Assist seulement.",
+      "direct_control": true,
+      "_app_aliases_aide": "Applications des télés et boîtiers (Fire TV, Android TV) : nom dit à Kamil -> nom technique, ou « paquet/activité » pour ouvrir l'écran d'accueil exact, ex. {\"IPRO2\": \"com.iproboxx.iproboxxtviptvbox/.view.activity.SplashActivity\"} ; sur une Fire TV / Android TV (ADB), l'application est ouverte directement. « Kamil, lance IPRO2 sur la Fire TV ».",
+      "app_aliases": {},
+      "_notes_aide": "Notes pour Kamil sur les appareils particuliers, ex. \"Ampli Denon (infrarouge) : allumer = script.denon_on, éteindre = script.denon_off, volume = script.denon_vol_up / script.denon_vol_down\".",
+      "notes": [],
+      "_contacts_aide": "Messages sur les téléphones (« Kamil, envoie à Nadia : je rentre ») : prénom -> service notify de Home Assistant, ex. {\"Nadia\": \"notify.mobile_app_nadia\", \"Sam\": [\"notify.mobile_app_redmi\", \"notify.mobile_app_oppo\"]} (plusieurs téléphones : le message part sur chacun).",
+      "contacts": {},
+      "_duck_aide": "Baisser la télé quand on dit « Kamil », puis la remettre : liste d'appareils, ex. [{\"media_player\": \"media_player.tv\", \"level\": 0.15}] (volume réglable) ou [{\"down\": \"script.denon_vol_down\", \"up\": \"script.denon_vol_up\", \"steps\": 6}] (ampli en infrarouge ; options \"pause\" en secondes entre deux appuis, 0.6 par défaut, et \"up_steps\" si le retour n'est pas au même niveau ; essai : python3 tools/duck_test.py).",
+      "duck": [],
+      "_app_search_aide": "Recherche dans une application (« Kamil, mets beIN Sports sur IPRO2 ») : touches pour atteindre le champ de recherche après l'ouverture, ex. {\"IPRO2\": {\"wait_s\": 6, \"keys\": \"recherche\", \"after\": \"entree\"}} ; ou {\"activity\": \".SearchActivity\"} si l'application a un écran de recherche Android.",
+      "app_search": {},
+      "verify_ssl": true,
+      "_ssl_aide": "Home Assistant en https avec un certificat auto-signé (réseau local) : verify_ssl false, ou mieux ca_file = chemin du certificat."
+    },
+    "personality": {
+      "humour": 2,
+      "style": "",
+      "_aide": "humour : 0 = sérieux, 1 = léger, 2 = un peu taquin (une petite blague de temps en temps), 3 = farceur. Toujours bienveillant, sérieux quand la personne est triste ou inquiète. style : \"\" = normal, \"ado\" = parle comme un ado marrant (« trop bien », « grave », « de ouf »)."
+    },
+    "robot_service": "i01",
+    "rothead_service": "i01.head.rothead",
+    "neck_service": "i01.head.neck",
+    "left_hand_service": "i01.leftHand",
+    "right_hand_service": "i01.rightHand",
+    "rothead_min": 30,
+    "rothead_max": 150,
+    "neck_min": 60,
+    "neck_max": 120,
+    "camera_frame_path": "/dev/shm/inmoov_frame.jpg",
+    "camera_frame_max_age_s": 5,
+    "tracking_pause_path": "/dev/shm/inmoov_tracking_pause",
+    "look_around_settle_s": 1.0,
+    "look_around_wait_s": 3.0,
+    "memory_path": "data/memory.json",
+    "gestures": [],
+    "_gestures_aide": "Noms des gestes InMoov2 autorisés pour l'IA (fichiers du dossier gestures de MyRobotLab), ex. [\"daVinci\"]. Vide = outil désactivé.",
+    "recorded_gestures_dir": "data/gestures",
+    "mind": {
+      "enabled": true,
+      "_aide": "« Raisonnement humain » : à chaque phrase, l'IA reçoit l'heure, ce que voit le Coral, les capteurs et son humeur ; chaque conversation est résumée pour s'en souvenir (un petit appel à l'API par conversation).",
+      "vision_state_path": "/dev/shm/inmoov_vision.json",
+      "vision_max_age_s": 10,
+      "sensors_url": "http://127.0.0.1:8095",
+      "touch_threshold": 0.35,
+      "period_s": 2.0,
+      "environment_path": "data/environment.json",
+      "mood_path": "data/mood.json",
+      "episodes_path": "data/episodes.json",
+      "episodes_in_prompt": 8,
+      "summarize_conversations": true
+    },
+    "reactions": {
+      "enabled": true,
+      "_aide": "Réactions spontanées à ce que voient les caméras (voice/reactions.py) : arrivee = saluer quelqu'un qui arrive, proche = visage tout près, attente = quelqu'un reste sans parler, objet = objet inhabituel, depart = au revoir. Chaque réaction = un appel à Claude ; max_per_hour limite le coût. quiet_hours [22, 7] = silence la nuit.",
+      "events": ["arrivee", "proche", "attente", "objet", "depart"],
+      "absence_before_greet_s": 60,
+      "linger_s": 45,
+      "max_per_hour": 15,
+      "quiet_hours": [22, 7],
+      "cooldown_s": {"arrivee": 120, "proche": 300, "attente": 600, "objet": 600, "depart": 300}
+    }
+  },
+  "voice": {
+    "input_device": null,
+    "output_device": null,
+    "output_gain": 1,
+    "_output_gain_aide": "Voix de Kamil trop faible même avec le volume au maximum (amixer, boutons du haut-parleur) : output_gain 2 à 4 la rend plus forte, avec un limiteur qui évite de grésiller ; 1 = voix d'origine.",
+    "_output_device_aide": "Haut-parleur de Kamil : null = sortie par défaut ; sinon le nom de la carte vu dans « aplay -l » (ex. \"Communicator\" pour un Polycom) ou un nom ALSA complet (\"plughw:CARD=Communicator,DEV=0\"). Essai : aplay -D plughw:CARD=Communicator,DEV=0 /usr/share/sounds/alsa/Front_Center.wav",
+    "tts": "mrl",
+    "_tts_aide": "\"mrl\" = voix de MyRobotLab ; \"piper\" = voix française hors ligne (voir README)",
+    "piper_model": "models/fr_FR-tom-medium.onnx",
+    "piper_length_scale": null,
+    "_piper_aide": "Changer de voix : écouter avec voice/voices_test.py. piper_length_scale : 0.85 = parle plus vite, 1.15 = plus lentement. piper_speaker_id : numéro de la voix dans un modèle à plusieurs locuteurs (fr_FR-upmc-medium, fr_FR-mls-medium), null sinon.",
+    "piper_speaker_id": null,
+    "_piper_pitch_aide": "piper_pitch : hauteur de la voix Piper, 1.1 à 1.2 = plus aiguë et plus douce (même vitesse) ; null = voix d'origine. Écouter : voice/voices_test.py fr_FR-upmc-medium --pitch 1.0 1.1 1.2",
+    "piper_pitch": null,
+    "_gain_aide": "Micro trop faible (whisper_test.py affiche le niveau) : input_gain multiplie le son du micro (ex. 5 si le niveau est à 5-10 %) ; auto_gain remonte chaque phrase à un bon niveau avant Whisper.",
+    "input_gain": 1,
+    "auto_gain": true,
+    "auto_gain_max": 20,
+    "cloud_tts": {
+      "enabled": false,
+      "_aide": "Voix en ligne OpenAI : model tts-1 (timbre régulier, rapide ; instructions ignorées) ou gpt-4o-mini-tts (plus expressive, timbre qui varie un peu), plus naturelle et plus claire que Piper ; clé OPENAI_API_KEY dans anthropic.env ; Piper prend le relais sans Internet. voice : cedar (homme, la plus naturelle ; gpt-4o-mini-tts seulement), ash (jeune, clair), echo (léger, doux), verse, onyx (grave)… ; instructions : le ton voulu, en français (null = jeune homme de 28 ans, voix claire et légèrement aiguë). pitch : hauteur de la voix (1.1 à 1.2 = plus aiguë, façon ado ; vitesse inchangée). Écouter : voice/voices_test.py --cloud --pitch 1.1 1.15. fallback_cooldown_s : après une panne, Piper parle seul ce temps-là (pas de mélange de deux voix).",
+      "model": "tts-1",
+      "voice": "ash",
+      "instructions": null,
+      "speed": null,
+      "pitch": null,
+      "fallback_cooldown_s": 120
+    },
+    "cloud_stt": {
+      "enabled": false,
+      "_aide": "Reconnaissance vocale en ligne, bien plus juste et rapide que Whisper sur le Pi. provider groq (modèle whisper-large-v3-turbo, clé GROQ_API_KEY) ou openai (gpt-4o-mini-transcribe, clé OPENAI_API_KEY) ; la clé va dans anthropic.env. Sans Internet : Whisper du Pi.",
+      "provider": "groq",
+      "model": null,
+      "language": "fr",
+      "timeout_s": 6,
+      "_save_quota_aide": "save_quota : le Pi transcrit d'abord ; seules les phrases avec « Kamil » (ou pendant une conversation) partent en ligne. Utile si la télé est souvent allumée (quota gratuit Groq : 2000 phrases par jour). Un peu plus lent pour la 1re phrase.",
+      "save_quota": false,
+      "_screen_model_aide": "Avec save_quota : modèle Whisper du Pi qui sert seulement à repérer « Kamil ». null = le même que whisper_model ; \"tiny\" = environ 4 fois plus rapide (réponse plus vive), mais peut rater « Kamil » un peu plus souvent.",
+      "screen_model": null
+    },
+    "speaker_id": {
+      "enabled": false,
+      "_aide": "Reconnaître qui parle à sa voix (voice/enroll_voice.py pour enregistrer une voix ; pip install sherpa-onnx). threshold : score minimum (0 à 1) pour reconnaître. owner + owner_only_tools (ex. [\"move_head\", \"hand\", \"gesture\", \"rest_position\"]) : mouvements réservés à cette voix ; owner_only_commands : idem pour les commandes vocales directes.",
+      "model": "models/wespeaker_en_voxceleb_resnet34_LM.onnx",
+      "db_path": "data/voices.json",
+      "threshold": 0.55,
+      "owner": null,
+      "owner_only_tools": [],
+      "owner_only_commands": false,
+      "_follow_up_aide": "follow_up_known_voices_only : pendant la conversation sans « Kamil », seules les voix enregistrées sont écoutées (la télé et la radio sont ignorées).",
+      "follow_up_known_voices_only": true
+    },
+    "whisper_model": "base",
+    "_fallback_aide": "Si le 1er modèle n'est pas sûr de lui (confiance sous fallback_below_confidence) pour une phrase adressée au robot, elle est relue par un modèle plus juste mais ~3 fois plus lent. null = désactivé.",
+    "whisper_fallback_model": null,
+    "fallback_below_confidence": -0.45,
+    "fallback_beam_size": 1,
+    "whisper_compute_type": "int8",
+    "whisper_threads": 4,
+    "beam_size": 2,
+    "language": "fr",
+    "vad_aggressiveness": 2,
+    "start_speech_ratio": 0.6,
+    "padding_ms": 300,
+    "end_silence_ms": 550,
+    "min_utterance_ms": 400,
+    "max_utterance_s": 12,
+    "max_no_speech_prob": 0.6,
+    "min_avg_logprob": -1.0,
+    "wake_words": [
+      "inmoov",
+      "robot"
+    ],
+    "wake_window_s": 12,
+    "_wake_hint_aide": "wake_hint true : le 1er mot de wake_words (« Kamil ») est donné à Whisper comme mot attendu (initial_prompt + hotwords, et au service en ligne) ; il le reconnaît plus souvent, surtout avec la télé. Essayer avant : python3 tools/wake_test.py",
+    "wake_hint": false,
+    "_wake_reply_delay_aide": "Après « Kamil » seul : 0 = il répond tout de suite (« Oui, je t'écoute ! ») puis écoute wake_window_s secondes à partir de la fin de sa réponse ; > 0 = il écoute d'abord en silence ce nombre de secondes (déconseillé avec la télé allumée).",
+    "wake_reply_delay_s": 0,
+    "_follow_up_aide": "Après chaque réponse du robot, on peut continuer la conversation sans redire le mot de réveil pendant follow_up_s secondes (0 = toujours le redire).",
+    "follow_up_s": 15,
+    "follow_up_question_s": 25,
+    "_app_bridge_aide": "Onglet « Kamil » de l'Atelier : Kamil y publie son état et la conversation (state_path) et y lit les demandes (commands_dir). enabled false pour couper.",
+    "app_bridge": {"enabled": true, "state_path": "/dev/shm/inmoov_kamil.json", "commands_dir": "/dev/shm/inmoov_kamil_cmd",
+                   "mouth_path": "/dev/shm/inmoov_mouth.json"},
+    "_mouth_latency_aide": "Bouche de l'onglet Kamil : mouth_latency_ms = temps que met le haut-parleur à sortir le son ; mouth_lead_ms = la courbe de la bouche part vers l'écran ce temps avant le son. Le plus simple : régler à l'œil dans l'onglet Kamil (🖼 → Caler la bouche sur la voix).",
+    "mouth_latency_ms": 60,
+    "mouth_lead_ms": 120,
+    "_follow_up_max_audio_aide": "Sans « Kamil », une phrase plus longue que ça (en secondes) est prise pour la télé ou la radio et ignorée ; Claude se tait aussi s'il juge que ce n'était pas pour lui.",
+    "follow_up_max_audio_s": 8,
+    "vocabulary": "InMoov, MyRobotLab, Raspberry, bonjour, au revoir, regarde, gauche, droite, haut, bas, main, bras, tête",
+    "_chatbot_aide": "chatbot_fallback : si Claude ne répond pas, demander au chatbot d'InMoov2 (il répond en anglais) ; false = Kamil dit simplement qu'il ne peut pas répondre.",
+    "chatbot_fallback": true,
+    "chatbot_service": "i01.chatBot",
+    "chatbot_method": "getResponse",
+    "mouth_service": "i01.mouth",
+    "seconds_per_char": 0.07,
+    "fuzzy_threshold": 0.8,
+    "commands": {
+      "regarde à gauche": [
+        [
+          "i01.head.rothead",
+          "moveTo",
+          140
+        ]
+      ],
+      "regarde à droite": [
+        [
+          "i01.head.rothead",
+          "moveTo",
+          40
+        ]
+      ],
+      "regarde devant": [
+        [
+          "i01.head.rothead",
+          "moveTo",
+          90
+        ],
+        [
+          "i01.head.neck",
+          "moveTo",
+          90
+        ]
+      ],
+      "regarde en haut": [
+        [
+          "i01.head.neck",
+          "moveTo",
+          70
+        ]
+      ],
+      "regarde en bas": [
+        [
+          "i01.head.neck",
+          "moveTo",
+          110
+        ]
+      ],
+      "ouvre la main droite": [
+        [
+          "i01.rightHand",
+          "open"
+        ]
+      ],
+      "ferme la main droite": [
+        [
+          "i01.rightHand",
+          "close"
+        ]
+      ],
+      "ouvre la main gauche": [
+        [
+          "i01.leftHand",
+          "open"
+        ]
+      ],
+      "ferme la main gauche": [
+        [
+          "i01.leftHand",
+          "close"
+        ]
+      ],
+      "position de repos": [
+        [
+          "i01",
+          "rest"
+        ]
+      ]
+    }
+  },
+  "local_llm": {
+    "enabled": false,
+    "api": "ollama",
+    "url": "http://127.0.0.1:11434",
+    "model": "qwen2.5:1.5b",
+    "timeout_s": 60,
+    "max_turns": 6,
+    "_aide": "IA de secours quand Claude ne répond pas (pas d'Internet, plus de crédit : elle répond alors 5 min sans redemander à Claude). api ollama : Ollama sur le Pi ou hailo-ollama (AI HAT+ 2), sans Internet. api openai : service en ligne compatible OpenAI, qui garde la main sur la maison (Home Assistant) : OpenAI (base_url https://api.openai.com/v1, api_key_env OPENAI_API_KEY, model ex. gpt-4.1-mini) ou Grok (base_url https://api.x.ai/v1, api_key_env XAI_API_KEY, model ex. grok-4.3). Modèles disponibles : curl -s -H \"Authorization: Bearer $OPENAI_API_KEY\" https://api.openai.com/v1/models"
+  },
+  "mqtt": {
+    "enabled": false,
+    "_aide": "Kamil dans Home Assistant (voice/ha_mqtt.py) : appareil « Kamil » créé tout seul (état, phrases, voix, personnes, mouvement, journal, mode garde, 2 caméras, « Dire », « Question »). Dans Home Assistant : module Mosquitto broker + intégration MQTT. Sur le Pi : pip install paho-mqtt, et MQTT_USERNAME=… / MQTT_PASSWORD=… dans anthropic.env.",
+    "host": "homeassistant.local",
+    "port": 1883,
+    "camera_every_s": 2
+  },
+  "leds": {
+    "enabled": false,
+    "service": "i01.neoPixel",
+    "_aide": "LED d'état NeoPixel d'InMoov2 : bleu = écoute, violet = réfléchit, vert = parle"
+  },
+  "sensors": {
+    "_aide": "Capteurs sur le bus I2C n°1 du Raspberry Pi 5 (broches 3 SDA / 5 SCL). Adresses : INA226 0x40-0x45, ADS1115 0x48-0x4A, VL53L1X 0x29.",
+    "i2c_bus": 1,
+    "port": 8095,
+    "rate_hz": 10,
+    "boards": [
+      {
+        "name": "pca_tete",
+        "ina226": "0x41",
+        "shunt_ohm": 0.002,
+        "max_current_a": 8,
+        "max_overcurrent_s": 1.5
+      },
+      {
+        "name": "pca_gauche",
+        "ina226": "0x44",
+        "shunt_ohm": 0.002,
+        "max_current_a": 10,
+        "max_overcurrent_s": 1.5
+      },
+      {
+        "name": "pca_droite",
+        "ina226": "0x45",
+        "shunt_ohm": 0.002,
+        "max_current_a": 10,
+        "max_overcurrent_s": 1.5
+      }
+    ],
+    "battery": {
+      "ina226": "0x40",
+      "shunt_ohm": 0.001,
+      "cells": 4,
+      "chemistry": "lifepo4",
+      "low_percent": 20
+    },
+    "fingertips": {
+      "left": {
+        "thumb": [
+          "0x48",
+          0
+        ],
+        "index": [
+          "0x48",
+          1
+        ],
+        "majeure": [
+          "0x48",
+          2
+        ],
+        "ringFinger": [
+          "0x48",
+          3
+        ],
+        "pinky": [
+          "0x4A",
+          0
+        ]
+      },
+      "right": {
+        "thumb": [
+          "0x49",
+          0
+        ],
+        "index": [
+          "0x49",
+          1
+        ],
+        "majeure": [
+          "0x49",
+          2
+        ],
+        "ringFinger": [
+          "0x49",
+          3
+        ],
+        "pinky": [
+          "0x4A",
+          1
+        ]
+      }
+    },
+    "fsr_vref": 3.3,
+    "grip_threshold": 0.35,
+    "vl53l1x": "0x29",
+    "presence_mm": 1200,
+    "greet_text": "",
+    "greet_cooldown_s": 120,
+    "mouth_service": "i01.mouth",
+    "leds_service": ""
+  },
+  "mirror": {
+    "_aide": "Mode imitation (vision/mirror.py). Commencez en --dry-run, vitesse basse, personne à portée des bras.",
+    "mirror": true,
+    "gestures_dir": "data/gestures",
+    "joints": {
+      "fingers": true,
+      "bicep": true,
+      "shoulder": true,
+      "omoplate": false
+    },
+    "alpha": 0.35,
+    "deadband": 2.0,
+    "max_speed": 60.0,
+    "min_visibility": 0.6,
+    "elbow_max": 130.0,
+    "abduction_max": 90.0
+  }
+}

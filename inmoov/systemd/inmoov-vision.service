@@ -1,0 +1,13 @@
+[Unit]
+Description=InMoov - suivi de visage (Coral USB)
+After=network.target
+
+[Service]
+User=pi
+WorkingDirectory=/home/pi/inmoov/vision
+ExecStart=/home/pi/inmoov/.venv-vision/bin/python face_tracker.py --config /home/pi/inmoov/config.json
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
