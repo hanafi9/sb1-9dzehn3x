@@ -52,6 +52,26 @@ def check_programs(status, autostart):
     return out
 
 
+SYSTEMD_TWINS = {"vision": "inmoov-vision", "voice": "inmoov-voice", "sensors": "inmoov-sensors"}
+
+
+def check_twins(status, run=subprocess.run):
+    """Un programme lancé à la fois par l'Atelier et par son ancien service systemd : les deux se disputent
+    caméras, Coral et micro (l'un plante, systemd le relance toutes les 5 s)."""
+    out = []
+    for name, service in SYSTEMD_TWINS.items():
+        try:
+            state = run(["systemctl", "is-active", service], capture_output=True, text=True, timeout=5).stdout.strip()
+        except (OSError, subprocess.TimeoutExpired):
+            return out
+        if state in ("active", "activating"):
+            label = (status.get(name) or {}).get("label", name)
+            out.append(item("Programmes", "Service %s" % service, "bad",
+                            "lancé en plus par systemd : %s tourne en double" % label,
+                            "sudo systemctl disable --now %s (l'Atelier le lance déjà)" % service))
+    return out
+
+
 def check_vision(cfg, base, now, lsusb_out):
     v = cfg.get("vision") or {}
     out = []
@@ -227,7 +247,7 @@ def run_checks(cfg, base, root, status, autostart, env, bridge_state_path, home=
             cards = f.read()
     except OSError:
         cards = ""
-    checks = check_programs(status, autostart)
+    checks = check_programs(status, autostart) + check_twins(status, run)
     for fn in (lambda: check_vision(cfg, base, now, lsusb), lambda: check_sound(cfg, home, cards),
                lambda: check_kamil(bridge_state_path, now), lambda: check_keys(env, cfg),
                lambda: check_home_assistant(cfg, env), lambda: check_mqtt(cfg), lambda: check_system(root, run)):

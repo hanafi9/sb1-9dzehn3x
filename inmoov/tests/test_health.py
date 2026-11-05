@@ -27,6 +27,12 @@ class HealthTest(unittest.TestCase):
         out = {c["name"]: c["status"] for c in health.check_programs(status, ["vision"])}
         self.assertEqual(out, {"Caméras": "ok", "Voix": "bad", "Capteurs": "warn"})
 
+    def test_systemd_twin_detected(self):
+        run = lambda cmd, **kw: type("R", (), {"stdout": "active\n" if cmd[-1] == "inmoov-vision" else "inactive\n"})()
+        out = health.check_twins({"vision": {"label": "Caméras"}}, run)
+        self.assertEqual(len(out), 1)
+        self.assertIn("disable --now inmoov-vision", out[0]["fix"])
+
     def test_camera_unplugged_and_fresh_image(self):
         frame = os.path.join(self.tmp, "f.jpg")
         open(frame, "w").close()
