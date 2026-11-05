@@ -24,6 +24,7 @@ from pycoral.utils.edgetpu import list_edge_tpus, make_interpreter
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 from mrl_client import AsyncMrlClient, load_config  # noqa: E402
+from camera import load_detector, open_camera  # noqa: E402
 from faces import FaceFilter  # noqa: E402
 from motion import MotionDetector  # noqa: E402
 from tracking import AxisController, normalized_error, person_head_target, pick_target  # noqa: E402
@@ -53,14 +54,6 @@ def detect_objects(interpreter, frame_bgr, threshold):
     interpreter.invoke()
     objs = detect.get_objects(interpreter, threshold, scale)
     return [(o.id, o.score, o.bbox.xmin, o.bbox.ymin, o.bbox.xmax, o.bbox.ymax) for o in objs]
-
-
-def open_camera(source):
-    """source : numéro (0, 3…) ou chemin fixe lié au port USB
-    (/dev/v4l/by-path/platform-xhci-hcd.1-usb-0:1:1.0-video-index0), qui ne change pas au redémarrage."""
-    if isinstance(source, str) and not source.isdigit():
-        return cv2.VideoCapture(source, cv2.CAP_V4L2)
-    return cv2.VideoCapture(int(source))
 
 
 def share_frame(frame, path, quality=80):
@@ -94,9 +87,9 @@ def main():
         log.error("Aucun Coral détecté. Vérifiez le câble USB 3 et `lsusb` (18d1:9302 ou 1a6e:089a).")
         return 1
 
-    interpreter = make_interpreter(model_path)
+    interpreter, where = load_detector(model_path, make_interpreter)
     interpreter.allocate_tensors()
-    log.info("Modèle chargé sur le Coral : %s", model_path)
+    log.info("Modèle chargé sur le %s : %s", where, model_path)
 
     # deuxième modèle sur le même Coral : objets de la pièce, quelques fois par seconde au plus
     ocfg = vcfg.get("objects") or {}
@@ -104,10 +97,10 @@ def main():
     if ocfg.get("enabled"):
         obj_model = os.path.join(base_dir, ocfg["model"])
         try:
-            obj_interpreter = make_interpreter(obj_model)
+            obj_interpreter, where = load_detector(obj_model, make_interpreter)
             obj_interpreter.allocate_tensors()
             obj_labels = read_label_file(os.path.join(base_dir, ocfg["labels"]))
-            log.info("Détection d'objets chargée sur le Coral : %s", obj_model)
+            log.info("Détection d'objets chargée sur le %s : %s", where, obj_model)
         except (ValueError, OSError) as e:
             log.warning("Détection d'objets désactivée (%s) : bash vision/install_coral.sh", e)
             obj_interpreter = None

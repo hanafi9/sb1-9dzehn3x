@@ -31,6 +31,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path[:0] = [os.path.join(HERE, "..")]
 
 import gesture_player  # noqa: E402
+from camera import open_camera  # noqa: E402
 from mrl_client import AsyncMrlClient, load_config  # noqa: E402
 from pose_mapping import Smoother, arm_angles, arm_targets, finger_curls, robot_side  # noqa: E402
 
@@ -62,8 +63,7 @@ def main():
     mrl = AsyncMrlClient(cfg["mrl"]["url"], cfg["mrl"]["timeout_s"], max_pending=64)
 
     src = vcfg["camera_index"]   # numéro, ou chemin fixe /dev/v4l/by-path/…
-    cam = (cv2.VideoCapture(src, cv2.CAP_V4L2) if isinstance(src, str) and not src.isdigit()
-           else cv2.VideoCapture(int(src)))
+    cam = open_camera(src, cv2)
     cam.set(cv2.CAP_PROP_FRAME_WIDTH, vcfg["frame_width"])
     cam.set(cv2.CAP_PROP_FRAME_HEIGHT, vcfg["frame_height"])
     if not cam.isOpened():

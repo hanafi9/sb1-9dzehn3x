@@ -8,6 +8,7 @@ ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 sys.path[:0] = [ROOT, os.path.join(ROOT, "vision")]
 
 from scene import ObjectConfirm, iou, summarize_objects  # noqa: E402
+from camera import load_detector, resolve_camera  # noqa: E402
 from faces import FaceFilter  # noqa: E402
 from tracking import person_head_target  # noqa: E402
 
@@ -105,6 +106,25 @@ class ObjectPrecisionTest(unittest.TestCase):
         self.assertEqual(c.update([chair, bottle]), [chair])          # la bouteille n'est vue qu'une fois
         self.assertEqual(c.update([chair]), [chair])
         self.assertEqual(c.update([chair]), [chair])
+
+
+class CameraTest(unittest.TestCase):
+    def test_by_path_resolved_to_number(self):
+        import tempfile
+        d = tempfile.mkdtemp()
+        link = os.path.join(d, "platform-xhci-hcd.0-usb-0:1.2:1.0-video-index0")
+        os.symlink("/dev/video2", link)                       # comme /dev/v4l/by-path/… -> ../../video2
+        self.assertEqual(resolve_camera(link), 2)
+        self.assertEqual(resolve_camera("3"), 3)
+        self.assertEqual(resolve_camera(0), 0)
+        self.assertEqual(resolve_camera("/dev/v4l/by-path/n-existe-pas"), "/dev/v4l/by-path/n-existe-pas")
+
+    def test_coral_failure_without_cpu_model_raises(self):
+        def broken(path):
+            raise ValueError("Failed to load delegate from libedgetpu.so.1")
+        with self.assertRaises(ValueError):
+            load_detector("/nulle/part/modele_edgetpu.tflite", broken)
+        self.assertEqual(load_detector("m_edgetpu.tflite", lambda p: "tpu"), ("tpu", "coral"))
 
 
 class FaceFilterTest(unittest.TestCase):
